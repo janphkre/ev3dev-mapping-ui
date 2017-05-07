@@ -68,9 +68,9 @@ public abstract class RobotModule : MonoBehaviour, IComparable<RobotModule>
 		
 	protected virtual void Awake()
 	{
-		robot = SafeGetComponentInParent<RobotRequired> ().DeepCopy ();
-		network = SafeGetComponentInParent<Network> ().DeepCopy ();
-		replay = SafeGetComponentInParent<Replay> ().DeepCopy ();
+		robot = SafeGetComponentInParent<RobotRequired>().DeepCopy ();
+		network = SafeGetComponentInParent<Network>().DeepCopy ();
+		replay = SafeGetComponentInParent<Replay>().DeepCopy ();
 		positionHistory = SafeGetComponentInParent<PositionHistory>();	
 		physics = SafeGetComponentInParent<Physics>().DeepCopy();
 		limits = SafeGetComponentInParent<Limits>().DeepCopy();

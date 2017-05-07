@@ -41,8 +41,8 @@ public class PointCloud : MonoBehaviour
 		return assignedPoints;
 	}
 
-	//we have to use awake, we instantiate the object and use it right away
-	void Awake()
+    //we have to use awake, we instantiate the object and use it right away
+    public void Awake()
 	{
 		if (numberOfPoints > MAX_VERTICES)
 			numberOfPoints = MAX_VERTICES;
@@ -74,14 +74,14 @@ public class PointCloud : MonoBehaviour
 	}
 
 
-	public void SetVertices(Vector3[] data)
+	public virtual void SetVertices(Vector3[] data)
 	{
 		mesh.vertices = data;
 		mesh.RecalculateBounds();
 		assignedPoints = data.Length;
 	}
 
-	public int AssignVertices(Vector3[] data, int len)
+	public virtual int AssignVertices(Vector3[] data, int len)
 	{
 		Vector3[] vertices = mesh_vertices;
 		Bounds bounds = mesh.bounds;
@@ -106,7 +106,7 @@ public class PointCloud : MonoBehaviour
 	}
 
 
-	public int AssignVertices(Vector3[] data, int i_from, int len, bool[] is_invalid)
+	public virtual int AssignVertices(Vector3[] data, int i_from, int len, bool[] is_invalid)
 	{
 		Vector3[] vertices = mesh_vertices;
 		Bounds bounds = mesh.bounds;

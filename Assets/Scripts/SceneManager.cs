@@ -19,6 +19,7 @@ public class SceneManager : MonoBehaviour
 	private Transform dynamicObjects;
 	private GameObject uiCanvas;
 	private GameObject robotsPanel;
+    private GameObject society;
 
 	public static SceneManager Instance { get; private set; }
 
@@ -37,7 +38,12 @@ public class SceneManager : MonoBehaviour
 		get{ return Instance.uiCanvas.transform; }
 	}
 
-	private void Destroy()
+    public static GameObject Society
+    {
+        get { return Instance.society; }
+    }
+
+    private void Destroy()
 	{
 		Instance = null;
 	}
@@ -53,7 +59,9 @@ public class SceneManager : MonoBehaviour
 		dynamicObjects = new GameObject("DynamicObjects").transform;
 		uiCanvas = GameObject.Find("UICanvas");
 		robotsPanel = GameObject.Find("RobotsPanel");
-	}
+        society = GameObject.Find("Society");
+
+    }
 
 	public void ToggleShowUI()
 	{

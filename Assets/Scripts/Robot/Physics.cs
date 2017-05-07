@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class Physics : MonoBehaviour
+public class Physics : MonoBehaviour, ItemCopy<Physics>
 {
 	public float wheelDiameterMm=43.2f;
 	public float wheelbaseMm=250.0f;
@@ -24,4 +24,11 @@ public class Physics : MonoBehaviour
 		return other;
 	}
 
+    public void copyFrom(Physics other) {
+        wheelDiameterMm = other.wheelDiameterMm;
+        wheelbaseMm = other.wheelbaseMm;
+        encoderCountsPerRotation = other.encoderCountsPerRotation;
+        maxEncoderCountsPerSecond = other.maxEncoderCountsPerSecond;
+        reverseMotorPolarity = other.reverseMotorPolarity;
+    }
 }

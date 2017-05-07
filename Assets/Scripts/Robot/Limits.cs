@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class Limits : MonoBehaviour
+public class Limits : MonoBehaviour, ItemCopy<Limits>
 {
 	public float MaxLinearSpeedMmPerSec=200;
 	public float MaxAngularSpeedDegPerSec=45;
@@ -17,6 +17,9 @@ public class Limits : MonoBehaviour
 		return other;
 	}
 
-
+    public void copyFrom(Limits other) {
+        MaxLinearSpeedMmPerSec = other.MaxLinearSpeedMmPerSec;
+        MaxAngularSpeedDegPerSec = other.MaxAngularSpeedDegPerSec;
+    }
 
 }

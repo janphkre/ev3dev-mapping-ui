@@ -31,7 +31,7 @@ public class LaserPlotProperties
 {
 	public PlotType plotType;
 	public float distanceLimit=10.0f;
-	public PointCloud laserPointCloud;
+	public SocietyPointCloud laserPointCloud;
 }
 	
 class LaserThreadSharedData
@@ -101,7 +101,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 	public LaserModuleProperties module;
 	public LaserPlotProperties plot;
 
-	private PointCloud laserPointCloud;
+	private SocietyPointCloud laserPointCloud;
 	private Map3D map3D;
 
 	private LaserThreadSharedData data=new LaserThreadSharedData();
@@ -110,6 +110,9 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 
 	#region UDP Thread Only Data
 	private LaserThreadInternalData threadInternal = new LaserThreadInternalData ();
+    private PositionData lastPackageFirstPos;
+    private PositionData lastPackageLastPos;
+
 	#endregion
 
 	#region Thread Shared Data
@@ -124,7 +127,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 	protected override void Awake()
 	{
 		base.Awake();
-		laserPointCloud = SafeInstantiate<PointCloud> (plot.laserPointCloud);
+		laserPointCloud = SafeInstantiate<SocietyPointCloud> (plot.laserPointCloud);
 		laserTRS =  Matrix4x4.TRS (transform.localPosition, transform.localRotation, Vector3.one);
 	}
 
@@ -205,20 +208,16 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 			readings [angle_index] = Vector3.zero;
 			timestamps[angle_index] = packet.GetTimestampUs(i);
 			invalid_data[angle_index] = packet.laser_readings[i].invalid_data == 1;
-
-			if (invalid_data[angle_index])
-			{
-				++threadInternal.invalidCount;
-				if (packet.laser_readings[i].distance == LIDAR_CRC_FAILURE_ERROR_CODE)
-					++threadInternal.crcFailures;
-			}
 				
 			//if distance is greater than maximum we allow, mark reading as inalid
 			invalid_data[angle_index] |= packet.laser_readings[i].distance > plot.distanceLimit * 1000;
 
-			if (invalid_data[angle_index])
-				continue;
-	
+            if (invalid_data[angle_index]) {
+                ++threadInternal.invalidCount;
+                if (packet.laser_readings[i].distance == LIDAR_CRC_FAILURE_ERROR_CODE)
+                    ++threadInternal.crcFailures;
+                continue;
+            }
 			// calculate reading in laser plane
 			distance_mm = packet.laser_readings[i].distance;
 			alpha = angle - Constants.BETA;
@@ -255,14 +254,26 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 		ulong[] timestamps = threadInternal.timestamps;
 		Vector3[] readings = threadInternal.readings;
 
-		for (int i = from; i < from+len; ++i)
+        ulong firstTimestamp = ulong.MaxValue;
+        ulong lastTimestamp = ulong.MinValue;
+
+        for (int i = from; i < from+len; ++i)
 		{
 			pos = snapshot.PositionAt(timestamps[i]);
-
 			robotToGlobal.SetTRS(pos.position, Quaternion.Euler(0.0f, pos.heading, 0.0f), scale);
 			readings[i]=robotToGlobal.MultiplyPoint3x4(readings[i]);
-		}
-			
+            //readings[i].z = 1;
+            //Save first and last position for this package:
+            if (timestamps[i] < firstTimestamp) {
+                firstTimestamp = timestamps[i];
+                lastPackageFirstPos = pos;
+            }
+            if (timestamps[i] > lastTimestamp) {
+                lastTimestamp = timestamps[i];
+                lastPackageLastPos = pos;
+            }
+        }
+
 		return true;
 	}
 
@@ -287,7 +298,9 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 			threadShared.invalidPercentage = threadInternal.invalidPercentage;
 			threadShared.crcFailurePercentage = threadInternal.crcFailurePercentage;
 		}
-	}
+
+        SLAMRobot.singelton.postOdometryAndReadings(new SLAMInputData(lastPackageFirstPos, lastPackageLastPos, threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount));
+    }
 
 
 	#endregion

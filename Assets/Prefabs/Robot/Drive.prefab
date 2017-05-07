@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &100100000
+Prefab:
+  m_ObjectHideFlags: 1
+  serializedVersion: 2
+  m_Modification:
+    m_TransformParent: {fileID: 0}
+    m_Modifications: []
+    m_RemovedComponents: []
+  m_ParentPrefab: {fileID: 0}
+  m_RootGameObject: {fileID: 1674684450780724}
+  m_IsPrefabParent: 1
+--- !u!1 &1674684450780724
+GameObject:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  serializedVersion: 5
+  m_Component:
+  - component: {fileID: 4434395192780688}
+  - component: {fileID: 114209691821823104}
+  - component: {fileID: 114711980967221518}
+  m_Layer: 0
+  m_Name: Drive
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4434395192780688
+Transform:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1674684450780724}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 0
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &114209691821823104
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1674684450780724}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16fafc25713fd58429f10b2ece1da39a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  moduleNetwork:
+    port: 8003
+  packetDelayMs: 50
+  module:
+    autostart: 1
+    priority: 10
+    creationDelayMs: 0
+    timeoutMs: 500
+--- !u!114 &114711980967221518
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1674684450780724}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35116b162bbe69348ad4d55f907b7d29, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  UiTransform: {fileID: 224000014143048226, guid: 65f13ffe83a96c346a20799a371253c3,
+    type: 2}
+  ModuleName: {fileID: 11445212, guid: f4343af0dd1752d4dbeedd72c0ab47cd, type: 2}
+  ModuleText: {fileID: 11476718, guid: b3cd24b3fd3c11f468cca498f15db4ce, type: 2}
+  ModuleStateToggle: {fileID: 114000010470860990, guid: 09fc7c3ce85e48c40bc3e005ce9ea05d,
+    type: 2}
+  SpeedDistanceLayout: {fileID: 197220, guid: fea1a1c19ef3c064aa3ad7c2b2cfc597, type: 2}
+  DistanceInputField: {fileID: 11465008, guid: 6df19128db4bca344ac37eb947d30160, type: 2}
+  DistanceUnitText: {fileID: 11460400, guid: dbc6ff2687c82ae4abab447794025254, type: 2}
+  SpeedInputField: {fileID: 11492832, guid: eb6397386ccea74449f248523cdb552b, type: 2}
+  SpeedUnitText: {fileID: 11444408, guid: 3baaab142a995ce479a36c89cbee1e27, type: 2}
+  ModuleButton: {fileID: 114000012705873148, guid: 438157a33dc5438428eb9f35afb47638,
+    type: 2}

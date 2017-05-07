@@ -3,7 +3,7 @@ using System.Collections;
 
 public enum ReplayMode {None, RecordIn, ReplayIn, RecordOut, ReplayOut, RecordInRecordOut, RecordInReplayOut};
 
-public class Replay : MonoBehaviour
+public class Replay : MonoBehaviour, ItemCopy<Replay>
 {
 	public ReplayMode mode = ReplayMode.None;
 
@@ -33,4 +33,8 @@ public class Replay : MonoBehaviour
 		Replay other = (Replay) this.MemberwiseClone();
 		return other;
 	}
+
+    public void copyFrom(Replay other) {
+        mode = other.mode;
+    }
 }

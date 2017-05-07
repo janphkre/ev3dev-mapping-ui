@@ -15,15 +15,9 @@ using System.Collections;
 using CircularBuffer;
 using System;
 
-[Serializable]
-public class PositionHistoryProperties
+public sealed class PositionHistory : MonoBehaviour, ItemCopy<PositionHistory>
 {
-	public int positionsKept=512;
-}
-
-public sealed class PositionHistory : MonoBehaviour
-{
-	public PositionHistoryProperties properties;
+	public int positionsKept = 512;
 
 	private object syncRoot = new object();
 
@@ -41,7 +35,7 @@ public sealed class PositionHistory : MonoBehaviour
 
 	public void Awake()
 	{
-		history = new CircularBuffer<PositionData>(properties.positionsKept, true);
+		history = new CircularBuffer<PositionData>(positionsKept, true);
 	}
 
 
@@ -147,4 +141,14 @@ public sealed class PositionHistory : MonoBehaviour
 			}
 		}
 	}
+
+    public PositionHistory DeepCopy() {
+        return this;
+    }
+
+    public void copyFrom(PositionHistory other) {
+        positionsKept = other.positionsKept;
+        syncRoot = other.syncRoot;
+        history = other.history;
+    }
 }
