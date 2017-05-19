@@ -2,6 +2,11 @@
  * Iterated SLSJF: A Sparse Local Submap Joining Algorithm with Improved Consistency *
  * See: http://www.araa.asn.au/acra/acra2008/papers/pap102s1.pdf                     *
  * Paper by Shoudong Huang, Zhan Wang, Gamini Dissanayake and Udo Frese              *
+ *                                                                                   *
+ * Building upon:                                                                    *
+ * SLSJF: Sparse local submap joining filter for building large-scale maps           *
+ * See: http://services.eng.uts.edu.au/~sdhuang/SLSJF_IEEE_TRO_final_2008_May_27.pdf *
+ * Paper by Shoudong Huang, Zhan Whang and Gamini Dissanayake                        *
  * Implementation by Jan Phillip Kretzschmar                                         *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -9,6 +14,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * The local map is created by the SLAM algorithm in SLAMRobot.cs.                             *
+ * Every local map (should have /) has the same feature count                                  *
+ * as the SLAM algorithm will create a new map every time the feature count reaches a cut off. *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 public class LocalClientMap : MessageBase {
 
     public PointCollection points = new PointCollection();
@@ -37,10 +48,10 @@ public class GlobalClientMap {
     public Vector infoVector = new Vector();
     public Matrix infoMatrix = new Matrix();
 
-    /* 
-     * Algorithm 1 & 2 of Iterated SLSJF. 
-     * Only completed local maps must be provided.
-     */
+    /* * * * * * * * * * * * * * * * * * * * * * * *
+     * Algorithm 1 & 2 of Iterated SLSJF.          *
+     * Only completed local maps must be provided. *
+     * * * * * * * * * * * * * * * * * * * * * * * */
     public void ConsumeLocalMap(LocalClientMap localMap) {
         if (localMap.points.map.Length == 0) return;
         if (maps.Count == 0) {
@@ -69,7 +80,9 @@ public class GlobalClientMap {
             /*TODO!*/
             //2.1.4) Nearest Neighbor method to find the match:
 
-            //2.2) Initialization using EIF
+            /* * * * * * * * * * * * * * * * *
+             * 2.2) Initialization using EIF *
+             * * * * * * * * * * * * * * * * */
             if (unmatchedLocalFeatures.Count == 0) return;//TODO: THIS IS CERTAINLY NOT TRUE: The local map does not contain any new information so we can quit at this point.
             PointCollection globalMap = new PointCollection();
             globalMap.map = new Vector2[unmatchedLocalFeatures.Count];

@@ -1,5 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
+
+public class MatrixSizeException : Exception {
+    public MatrixSizeException(int sizeAX, int sizeBX, int sizeAY, int sizeBY, String op) : base("Sizes of Matrices do not match:" + sizeAX + ", " + sizeAY + op + sizeBX + ", " + sizeBY) { }
+    public MatrixSizeException(int sizeAX, int sizeBY, String op) : base("Sizes of Matrices do not match:" + sizeAX + op + sizeBY) { }
+}
 
 public class PointCollection {
     public Vector4[] map;
@@ -51,25 +57,24 @@ public class CovarianceMatrix {
     public List<Row> val = new List<Row>();
     public int count;
 
-    public CovarianceMatrix() {
+    public CovarianceMatrix() {//TODO: first matrix should include initial error for the robot pose
         count = 1;
-        val.Add(new Row(3));
+        val.Add(new Row());
     }
 
     public CovarianceMatrix(int i) {
-        for (count = 1; count <= i; count++) val.Add(new Row(count));
+        val.Add(new Row());
+        for (count = 2; count <= i; count++) val.Add(new Row(count));
         count--;
     }
 
     public void Enlarge(int i) {
-        foreach (Row row in val) {
+        /*foreach (Row row in val) {
             row.Enlarge(i);
-        }
-        count += i;
-        val.Add(new Row(count));
+        }*/
+        for (int j = 0; j <= i; j++) val.Add(new Row(++count));
     }
 
-    //If you know what you are doing use this:
     public void AddRow(Row row) {
         val.Add(row);
         ++count;
@@ -86,6 +91,7 @@ public class CovarianceMatrix {
     }*/
 
     public static Matrix operator *(CovarianceMatrix a, Matrix b) {
+        if (a.count != b.sizeY) throw new MatrixSizeException(a.count, b.sizeY, "*");
         Matrix result = new Matrix(b.sizeX, a.count);
         for (int i = 0; i < result.sizeX; i++) {
             for (int j = 0; j < result.sizeY; j++) {
@@ -137,6 +143,7 @@ public class Matrix {
     }
 
     public static Matrix operator +(Matrix a, Matrix b) {
+        if (a.sizeX != b.sizeX || a.sizeY != b.sizeY) throw new MatrixSizeException(a.sizeX, b.sizeX, a.sizeY, b.sizeY, "+");
         Matrix result = new Matrix(a.sizeX, a.sizeY);
         for (int i = 0; i < result.sizeX; i++) {
             for (int j = 0; j < result.sizeY; j++) {
@@ -147,6 +154,7 @@ public class Matrix {
     }
 
     public static Matrix operator *(Matrix a, Matrix b) {
+        if (a.sizeX != b.sizeY) throw new MatrixSizeException(a.sizeX, b.sizeY, "*");
         Matrix result = new Matrix(b.sizeX, a.sizeY);
         for (int i = 0; i < result.sizeX; i++) {
             for (int j = 0; j < result.sizeY; j++) {
