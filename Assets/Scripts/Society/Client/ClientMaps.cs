@@ -22,16 +22,19 @@ using UnityEngine.Networking;
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 public class LocalClientMap : MessageBase {
 
-    public PointCollection points = new PointCollection();
-    public CovarianceMatrix covariance = new CovarianceMatrix();
-    public Vector3 startRobotPos;
+    public FeatureCollection points = new FeatureCollection();
+    public CovarianceMatrix covariance;
+    public Vector2 startRobotPos;
     public int featureCount = 0;
 
-    public LocalClientMap() { }
+    /*public LocalClientMap(System.Random random) {
+        covariance = new CovarianceMatrix(random);
+    }*/
 
-    public LocalClientMap(int size, Vector3 start) {
+    public LocalClientMap(System.Random random, int size, Vector3 start) {
+        covariance = new CovarianceMatrix(random);
         points.map = new Vector4[size];
-        startRobotPos = start;
+        startRobotPos = new Vector2(start.x, start.y);
     }
 
     public Vector4 this[int i] {
@@ -40,13 +43,16 @@ public class LocalClientMap : MessageBase {
     }
 }
 
+//k is the count of fused local maps.
 public class GlobalClientMap {
 
     public const float ESTIMATION_ERROR = 1;
 
-    public LinkedList<PointCollection> maps = new LinkedList<PointCollection>();
-    public Vector infoVector = new Vector();
-    public Matrix infoMatrix = new Matrix();
+    //public LinkedList<FeatureCollection> maps = new LinkedList<FeatureCollection>();//TODO: überarbeiten: muss P_L nicht auch gespeichert werden? Aktuell wird end roboterpose nicht gespeichert.
+    public Vector infoVector = new Vector();//i(k)
+    public SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
+    public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
+    public Vector globalStateVectorEstimate = new Vector();
 
     /* * * * * * * * * * * * * * * * * * * * * * * *
      * Algorithm 1 & 2 of Iterated SLSJF.          *
@@ -55,36 +61,64 @@ public class GlobalClientMap {
     public void ConsumeLocalMap(LocalClientMap localMap) {
         if (localMap.points.map.Length == 0) return;
         if (maps.Count == 0) {
-            /* * * * * * * * * * * * * * * * * * * * * *
+            /* * * * * * * * * * * * * * * * * * * * *
              * 1) Set local map 1 as the global map  *
-             * * * * * * * * * * * * * * * * * * * * * */
-            maps.AddLast(new PointCollection(localMap.points));
+             * * * * * * * * * * * * * * * * * * * * */
+            maps.AddLast(new FeatureCollection(localMap.points));
+            //TODO: add the first map into the EIF
         } else {
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
              * 2.1)Data association between local map k+1 and the global map (SLSJF) *
              * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-            LinkedList<Vector2> matchedFeatures = new LinkedList<Vector2>();
-            LinkedList<Vector2> unmatchedLocalFeatures = new LinkedList<Vector2>();
+            List<int> matchedFeatures = new List<int>();
             float estimatedRadius = localMap.points.radius + ESTIMATION_ERROR;
-            int i = 0;
+            int i = 0,
+                j = 0;
+            Vector2 start = Vector2.zero;
             //2.1.1) Determine the set of potentially overlapping local maps:
-            foreach (PointCollection map in maps) {
-                if ((localMap.points.start - map.start).magnitude <= estimatedRadius + map.radius) {
+            foreach (FeatureCollection map in maps) {
+                if ((localMap.startRobotPos - start).magnitude <= estimatedRadius + map.radius) {
                     //2.1.2) Find the set of potentially matched features:
                     for (i = 0; i < map.map.Length; i++) {
-                        if ((localMap.points.start - map.map[i]).magnitude <= estimatedRadius) matchedFeatures.AddLast(map.map[i]);
+                        if (Geometry.MaxDistance(localMap.startRobotPos, map.map[i]) <= estimatedRadius) {
+                            //The first index is the matched map; The second index is the matched feature in the matched map.
+                            matchedFeatures.Add(j+i);//Like this the matchedFeatures should be sorted at all times.
+                        }
                     }
                 }
+                start = map.end;
+                j += map.map.Length + 1;//Each map has an additional 
             }
             //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
-            /*TODO!*/
-            //2.1.4) Nearest Neighbor method to find the match:
-
+            SparseColumn q = new SparseColumn(2),
+                         p;
+            SparseColumn columnVector = new SparseColumn(2);
+            SparseCovarianceMatrix subMatrix = new SparseCovarianceMatrix();
+            for(i = 0; i < matchedFeatures.Count; i++) {
+                columnVector[matchedFeatures[i]] = new Matrix(2);
+                solveLowerLeftSparse(choleskyFactorization, q, columnVector);
+                columnVector.Remove(matchedFeatures[i]);
+                p = new SparseColumn(2);
+                solveUpperRightSparse(choleskyFactorization, p, q);
+                q.Clear();
+                subMatrix.Add(p);
+            }
+            //Add the last robot position: 
+            columnVector = new SparseColumn(3);
+            columnVector[infoMatrix.ColumnCount()-1] = new Matrix(3);
+            solveLowerLeftSparse(choleskyFactorization, q, columnVector);
+            p = new SparseColumn(3);
+            solveUpperRightSparse(choleskyFactorization, p, q);
+            subMatrix.Add(p);
+            subMatrix.Trim(matchedFeatures, infoMatrix.ColumnCount());
+            //2.1.4) Nearest Neighbor or Joint Compatibility Test method to find the match:
+            LinkedList<Vector2> unmatchedLocalFeatures = new LinkedList<Vector2>();
+            //TODO!
             /* * * * * * * * * * * * * * * * *
              * 2.2) Initialization using EIF *
              * * * * * * * * * * * * * * * * */
-            if (unmatchedLocalFeatures.Count == 0) return;//TODO: THIS IS CERTAINLY NOT TRUE: The local map does not contain any new information so we can quit at this point.
-            PointCollection globalMap = new PointCollection();
+            if (unmatchedLocalFeatures.Count == 0) return;//TODO: THIS IS CERTAINLY NOT TRUE: The local map does not contain any new information so we can quit at this point.(Reobservation alters the EIF)
+            FeatureCollection globalMap = new FeatureCollection();
             globalMap.map = new Vector2[unmatchedLocalFeatures.Count];
             i = 0;
             foreach (Vector2 feature in unmatchedLocalFeatures) {
@@ -104,6 +138,33 @@ public class GlobalClientMap {
             //2.3.4) Recover the global map state estimate X^G(k+1)
             //2.4) Least squares for smoothing if necessary
         }
+    }
 
+    private void solveLowerLeftSparse(SparseTriangularMatrix matrix, SparseColumn result, SparseColumn rightHandSide) {
+        int size = matrix.ColumnCount();
+        for (int i = 0;i < size; i++) {//Rows
+            if(matrix[i, i] != null) {
+                Matrix m = rightHandSide[i];
+                for(int j = 0; j < i; j++) {//Columns
+                    Matrix n = matrix[j, i] * result[j];
+                    if (n != null) m = m - n;
+                }
+                if (m != null) result[i] = m * matrix[i, i];
+            }
+        }
+    }
+
+    private void solveUpperRightSparse(SparseTriangularMatrix matrix, SparseColumn result, SparseColumn rightHandSide) {
+        int size = matrix.ColumnCount();
+        for (int i = size - 1; i >= 0; i++) {//Rows
+            if (matrix[i, i] != null) {
+                Matrix m = rightHandSide[i];
+                for (int j = size - 1; j < i; j++) {//Columns
+                    Matrix n = matrix[i, j] * result[j];//If we just switch rows and cols in the matrix here we don't have to translate it.(right?)
+                    if (n != null) m = m - n;
+                }
+                if (m != null) result[i] = m * matrix[i, i];
+            }
+        }
     }
 }

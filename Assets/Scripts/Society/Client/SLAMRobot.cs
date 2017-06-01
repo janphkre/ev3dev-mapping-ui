@@ -74,7 +74,7 @@ public class SLAMRobot : NetworkBehaviour {
         lastPosition.position = Vector3.zero;
         lastPosition.heading = 0.0f;
         lastPosition.timestamp = 0L;
-        localMap = new LocalClientMap(MAX_MAP_SIZE, Vector3.zero);//TODO: add noise to the initial values in the diagonal (should not be one, see the paper p.31)
+        localMap = new LocalClientMap(random, MAX_MAP_SIZE, Vector3.zero);//TODO: add noise to the initial values in the diagonal (should not be one, see the paper p.31)
         observedFeatures = new List<ObservedFeature>();
 
         jacobianA = new Matrix(3);
@@ -283,10 +283,10 @@ public class SLAMRobot : NetworkBehaviour {
                     if (localMap.featureCount >= MAX_MAP_SIZE) {
                         //5 a) If the current local map is full, we will create a new one and send the old to the ISLSJF global map and the server
                         LocalClientMap oldLocalMap = localMap;
-                        oldLocalMap.points.end = lastPosition.position;
+                        oldLocalMap.points.end = new Vector2(lastPosition.position.x, lastPosition.position.y);
                         //TODO: is this start correct?
                         StartCoroutine(processLocalMap(oldLocalMap));
-                        localMap = new LocalClientMap(MAX_MAP_SIZE, lastPosition.position);
+                        localMap = new LocalClientMap(random, MAX_MAP_SIZE, lastPosition.position);
                         observedFeatures.Clear();
                         for (int j = 0; j < landmarks.Count; j++) {
                             if (associatedFeature[i] > MAX_MAP_SIZE) continue;
@@ -333,6 +333,7 @@ public class SLAMRobot : NetworkBehaviour {
     }
 
     private IEnumerator<LocalClientMap> processLocalMap(LocalClientMap oldLocalMap) {
+        oldLocalMap.points.radius = Geometry.Radius(oldLocalMap.startRobotPos, oldLocalMap.points.map);
         NetworkManager.singleton.client.SendUnreliable((short)MessageType.LocalClientMap, oldLocalMap);
         globalMap.ConsumeLocalMap(oldLocalMap);
         yield return null;
