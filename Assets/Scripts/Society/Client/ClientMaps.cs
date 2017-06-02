@@ -10,6 +10,7 @@
  * Implementation by Jan Phillip Kretzschmar                                         *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -22,19 +23,13 @@ using UnityEngine.Networking;
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 public class LocalClientMap : MessageBase {
 
-    public FeatureCollection points = new FeatureCollection();
+    public FeatureCollection points;
     public CovarianceMatrix covariance;
-    public Vector2 startRobotPos;
     public int featureCount = 0;
 
-    /*public LocalClientMap(System.Random random) {
+    public LocalClientMap(System.Random random, int size) {
         covariance = new CovarianceMatrix(random);
-    }*/
-
-    public LocalClientMap(System.Random random, int size, Vector3 start) {
-        covariance = new CovarianceMatrix(random);
-        points.map = new Vector4[size];
-        startRobotPos = new Vector2(start.x, start.y);
+        points = new FeatureCollection(size);
     }
 
     public Vector4 this[int i] {
@@ -46,13 +41,13 @@ public class LocalClientMap : MessageBase {
 //k is the count of fused local maps.
 public class GlobalClientMap {
 
-    public const float ESTIMATION_ERROR = 1;
+    public const float ESTIMATION_ERROR_CUTOFF = 1;//TODO:Tune
 
-    //public LinkedList<FeatureCollection> maps = new LinkedList<FeatureCollection>();//TODO: überarbeiten: muss P_L nicht auch gespeichert werden? Aktuell wird end roboterpose nicht gespeichert.
-    public Vector infoVector = new Vector();//i(k)
+    //public LinkedList<FeatureCollection> maps = new LinkedList<FeatureCollection>();//TODO: überarbeiten: muss P_L nicht auch gespeichert werden?
+    //public Vector infoVector = new Vector();//i(k)
     public SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
     public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
-    public Vector globalStateVectorEstimate = new Vector();
+    public LinkedList<FeatureCollection> globalStateVectorEstimate = new LinkedList<FeatureCollection>();
 
     /* * * * * * * * * * * * * * * * * * * * * * * *
      * Algorithm 1 & 2 of Iterated SLSJF.          *
@@ -66,6 +61,7 @@ public class GlobalClientMap {
              * * * * * * * * * * * * * * * * * * * * */
             maps.AddLast(new FeatureCollection(localMap.points));
             //TODO: add the first map into the EIF
+            throw new NotImplementedException();
         } else {
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
              * 2.1)Data association between local map k+1 and the global map (SLSJF) *
@@ -76,11 +72,11 @@ public class GlobalClientMap {
                 j = 0;
             Vector2 start = Vector2.zero;
             //2.1.1) Determine the set of potentially overlapping local maps:
-            foreach (FeatureCollection map in maps) {
-                if ((localMap.startRobotPos - start).magnitude <= estimatedRadius + map.radius) {
+            foreach (FeatureCollection map in globalStateVectorEstimate) {
+                if ((localMap.points.end - start).magnitude <= estimatedRadius + map.radius) {
                     //2.1.2) Find the set of potentially matched features:
                     for (i = 0; i < map.map.Length; i++) {
-                        if (Geometry.MaxDistance(localMap.startRobotPos, map.map[i]) <= estimatedRadius) {
+                        if (Geometry.MaxDistance(localMap.points.end, map.map[i]) <= estimatedRadius) {
                             //The first index is the matched map; The second index is the matched feature in the matched map.
                             matchedFeatures.Add(j+i);//Like this the matchedFeatures should be sorted at all times.
                         }
@@ -112,23 +108,37 @@ public class GlobalClientMap {
             subMatrix.Add(p);
             subMatrix.Trim(matchedFeatures, infoMatrix.ColumnCount());
             //2.1.4) Nearest Neighbor or Joint Compatibility Test method to find the match:
-            LinkedList<Vector2> unmatchedLocalFeatures = new LinkedList<Vector2>();
-            //TODO!
+            LinkedList<int> unmatchedLocalFeatures = new LinkedList<int>();
+            Vector3 match;
+            //TODO: ESTIMATION_ERROR überarbeiten: Muss sich aus den local maps ergeben
+            if(ESTIMATION_ERROR >= ESTIMATION_ERROR_CUTOFF) {
+                match = pairDrivenGlobalLocalization(localMap, out unmatchedLocalFeatures, subMatrix, matchedFeatures);
+            } else {
+                match = jointCompatibilityTest(localMap, out unmatchedLocalFeatures, subMatrix, matchedFeatures);
+            }
             /* * * * * * * * * * * * * * * * *
              * 2.2) Initialization using EIF *
              * * * * * * * * * * * * * * * * */
-            if (unmatchedLocalFeatures.Count == 0) return;//TODO: THIS IS CERTAINLY NOT TRUE: The local map does not contain any new information so we can quit at this point.(Reobservation alters the EIF)
-            FeatureCollection globalMap = new FeatureCollection();
-            globalMap.map = new Vector2[unmatchedLocalFeatures.Count];
+            if (unmatchedLocalFeatures.Count == 0) return;//The local map does not contain any new information so we can quit at this point.
+            //TODO:(Is this true?)
+            FeatureCollection stateAddition = new FeatureCollection(unmatchedLocalFeatures.Count);
+            stateAddition.end = new Vector2(localMap.points.end.x + match.x, localMap.points.end.y + match.y);
             i = 0;
-            foreach (Vector2 feature in unmatchedLocalFeatures) {
-                globalMap.map[i] = feature + localMapOffset;
+            foreach (int k in unmatchedLocalFeatures) {
+                //Move first, rotatation second
+                localMap.points.map[k].x += match.x;
+                localMap.points.map[k].y += match.y;
+                localMap.points.map[k].z += match.x;
+                localMap.points.map[k].w += match.y;
+                stateAddition.map[i++] = Geometry.Rotate(localMap.points.map[k], localMap.points.end, match.z);
             }
-            globalMap.start = localMap.points.start + localMapOffset;
-            maps.AddLast(globalMap);
-            infoVector.AddEmptyRow();
-            infoMatrix.AddEmptyRow();
-            infoMatrix.AddEmptyColumn();
+            globalStateVectorEstimate.AddLast(stateAddition);
+            infoVector.Enlarge2(unmatchedLocalFeatures.Count);
+            infoVector.Enlarge3();
+            infoMatrix.Enlarge2(unmatchedLocalFeatures.Count);
+            infoMatrix.Enlarge3();
+            choleskyFactorization.Enlarge2(unmatchedLocalFeatures.Count);
+            choleskyFactorization.Enlarge3();
             /* * * * * * * * * * * * *
              * 2.3) Update using EIF *
              * * * * * * * * * * * * */
@@ -137,6 +147,7 @@ public class GlobalClientMap {
             //2.3.3) Compute the Cholesky Factorization of I(k+1)
             //2.3.4) Recover the global map state estimate X^G(k+1)
             //2.4) Least squares for smoothing if necessary
+            throw new NotImplementedException();
         }
     }
 
@@ -149,7 +160,7 @@ public class GlobalClientMap {
                     Matrix n = matrix[j, i] * result[j];
                     if (n != null) m = m - n;
                 }
-                if (m != null) result[i] = m * matrix[i, i];
+                if (m != null) result[i] = m * !matrix[i, i];
             }
         }
     }
@@ -163,8 +174,18 @@ public class GlobalClientMap {
                     Matrix n = matrix[i, j] * result[j];//If we just switch rows and cols in the matrix here we don't have to translate it.(right?)
                     if (n != null) m = m - n;
                 }
-                if (m != null) result[i] = m * matrix[i, i];
+                if (m != null) result[i] = m * !matrix[i, i];
             }
         }
     }
+
+    private Vector3 jointCompatibilityTest(LocalClientMap localMap, out LinkedList<int> unmatchedLocalFeatures, SparseCovarianceMatrix subMatrix, List<int> matchedFeatures) {
+        throw new NotImplementedException();
+    }
+
+    //Sollte sich auch auf dem server nutzen lassen um die einzelnen globalen karten zu einer zusammenzuführen
+    private Vector3 pairDrivenGlobalLocalization(LocalClientMap localMap, out LinkedList<int> unmatchedLocalFeatures, SparseCovarianceMatrix subMatrix, List<int> matchedFeatures) {
+        throw new NotImplementedException();
+    }
+
 }

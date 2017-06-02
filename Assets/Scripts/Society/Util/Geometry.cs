@@ -1,10 +1,11 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 class Geometry {
 
     //Calculates the minimum distance between two lines.
     public static float Distance(Vector4 a, Vector4 b) {
-        return 0f;
+        throw new NotImplementedException();
     }
 
     public static Vector2 Center(Vector4 a) {
@@ -27,5 +28,9 @@ class Geometry {
         vec.y = feature.w;
         float result2 = (vec - pos).magnitude;
         return result1 < result2 ? result2 : result1;
+    }
+
+    internal static Vector4 Rotate(Vector4 vector4, Vector2 end, float z) {
+        throw new NotImplementedException();
     }
 }

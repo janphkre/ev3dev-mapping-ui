@@ -14,7 +14,9 @@ public class FeatureCollection {
     public Vector2 end;
     public float radius;
 
-    public FeatureCollection() { }
+    public FeatureCollection(int size) {
+        map = new Vector4[size];
+    }
 
     public FeatureCollection(FeatureCollection otherMap) {
         map = new Vector4[otherMap.map.Length];
