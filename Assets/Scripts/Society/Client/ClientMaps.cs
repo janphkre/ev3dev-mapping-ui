@@ -135,6 +135,7 @@ public class GlobalClientMap {
             globalStateVectorEstimate.AddLast(stateAddition);
             infoVector.Enlarge2(unmatchedLocalFeatures.Count);
             infoVector.Enlarge3();
+            int previousCount = infoMatrix.ColumnCount();
             infoMatrix.Enlarge2(unmatchedLocalFeatures.Count);
             infoMatrix.Enlarge3();
             choleskyFactorization.Enlarge2(unmatchedLocalFeatures.Count);
@@ -143,6 +144,18 @@ public class GlobalClientMap {
              * 2.3) Update using EIF *
              * * * * * * * * * * * * */
             //2.3.1) Compute the information matrix and vector using EIF
+
+            //w_j = zero mean gaussian observation noise
+            //H_k+1 = relative positions of robot and features in respect to previous global robot position and rotation
+            infoVectorAddition = ;//~jacobian of H_k+1 * !localnewSubmatrix * jacobian of H_k+1
+            infoMatrixAddition = ;//~jacobian of H_k+1 * !localnewSubmatrix * (X^L_k+1 - H_k+1(X^G(k)) +jacobian of H_k+1 * X^G(k))
+
+            for (i = 0; i <= unmatchedLocalFeatures.Count; i++) {
+                infoVector[j] = infoVectorAddition[i];
+                for (j = 0; j <= unmatchedLocalFeatures.Count; j++) infoMatrix[previousCount + i, previousCount + j] = infoMatrixAddition[i,j];
+                //TODO: is this correct for the matrix? does the info Matrix really only contain values for those features within each local Map? i dont think so -> matched Features
+            }
+
             //2.3.2) Reorder the global map state vector when necessary
             //2.3.3) Compute the Cholesky Factorization of I(k+1)
             //2.3.4) Recover the global map state estimate X^G(k+1)

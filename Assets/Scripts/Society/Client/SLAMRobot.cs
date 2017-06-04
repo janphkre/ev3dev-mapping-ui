@@ -284,6 +284,7 @@ public class SLAMRobot : NetworkBehaviour {
                         //5 a) If the current local map is full, we will create a new one and send the old to the ISLSJF global map and the server
                         LocalClientMap oldLocalMap = localMap;
                         oldLocalMap.points.end = new Vector2(lastPosition.position.x, lastPosition.position.y);
+                        //TODO: add sigma to robotPosition (necessary?)
                         //TODO: is this start correct?
                         StartCoroutine(processLocalMap(oldLocalMap));
                         localMap = new LocalClientMap(random, MAX_MAP_SIZE);
