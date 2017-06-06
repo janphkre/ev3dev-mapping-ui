@@ -266,8 +266,11 @@ public class SLAMRobot : NetworkBehaviour {
             //landmarkDisplacement[0, 0] = center.magnitude - localMap.points.map[associatedFeature[i]].magnitude;
             //landmarkDisplacement[0, 1] = ; //TODO!
             for (int j = 0; j < localMap.covariance.count; j++) {
-                localMap.points.map[j].x += kalmanGainK[(j*2) + 3, 0];
-                localMap.points.map[j].y += kalmanGainK[(j*2) + 4, 0];
+                localMap.points.map[j].x += kalmanGainK[(j * 2) + 3, 0];
+                localMap.points.map[j].y += kalmanGainK[(j * 2) + 4, 0];
+                //TODO: eventuell dimensionalität alles matritzen von 2 auf 4 anheben und beide endpunkte der feature speichern:
+                localMap.points.map[j].z += kalmanGainK[(j * 2) + 3, 0];
+                localMap.points.map[j].w += kalmanGainK[(j * 2) + 4, 0];
             }
             //TODO: enlarge the re observed feature by the new feature
         }
