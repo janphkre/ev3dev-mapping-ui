@@ -44,7 +44,7 @@ public class GlobalClientMap {
     public const float ESTIMATION_ERROR_CUTOFF = 1;//TODO:Tune
 
     //public LinkedList<FeatureCollection> maps = new LinkedList<FeatureCollection>();//TODO: überarbeiten: muss P_L nicht auch gespeichert werden?
-    //public Vector infoVector = new Vector();//i(k)
+    public SparseColumn infoVector = new SparseColumn(3);//i(k)
     public SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
     public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
     public List<FeatureCollection> globalStateVector = new List<FeatureCollection>();
@@ -137,8 +137,8 @@ public class GlobalClientMap {
             }
             globalStateVector.Add(stateAddition);
             //Enlarge the info vector, info matrix and cholesky factorization by adding zeros:
-            infoVector.Enlarge2(unmatchedLocalFeatures.Count);
-            infoVector.Enlarge3();
+            //infoVector.Enlarge2(unmatchedLocalFeatures.Count);
+            //infoVector.Enlarge3();
             int previousCount = infoMatrix.ColumnCount();
             infoMatrix.Enlarge2(unmatchedLocalFeatures.Count);
             infoMatrix.Enlarge3();
@@ -180,7 +180,10 @@ public class GlobalClientMap {
                 stateAddition.end.z - previousEnd.z
             );
 
-            SparseCovarianceMatrix jacobianH = new SparseCovarianceMatrix();
+            SparseMatrix jacobianH = new SparseMatrix();
+            //TODO:rows/cols
+            jacobianH.Enlarge3();
+            jacobianH.Enlarge2(localMap.featureCount);
             //jacobian first three rows:
             Matrix l = new Matrix(3, 3);
             l[0, 0] = (float) -Math.Cos(previousEnd.z);
@@ -226,10 +229,15 @@ public class GlobalClientMap {
                 }
             }
 
-            //TODO: w_j = zero mean gaussian "observation noise"
+            Matrix noiseW = new Matrix(1,;//TODO: noiseW = w_j = zero mean gaussian "observation noise"
 
-            SparseCovarianceMatrix infoVectorAddition = ;//~jacobian of H_k+1 * !localnewMatrix * jacobian of H_k+1
-            SparseCovarianceMatrix infoMatrixAddition = ;//~jacobian of H_k+1 * !localnewMatrix * (X^L_k+1 - H_k+1(X^G(k)) +jacobian of H_k+1 * X^G(k))
+            SparseCovarianceMatrix infoMatrixAddition = ~jacobianH * !localMap.covariance;
+            SparseColumn infoVectorAddition = infoMatrixAddition * (noiseW + jacobianH * globalStateVector);
+            infoMatrixAddition *= jacobianH;
+
+            infoMatrix.Addition(infoMatrixAddition);
+            infoVector.Addition(infoVectorAddition);
+
             //infoVector[j] = infoVectorAddition[i];
             /*int k = 0;
             for (i = 0; i < localMap.featureCount; i++) {
