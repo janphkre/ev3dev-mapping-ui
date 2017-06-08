@@ -1,9 +1,9 @@
 ﻿using UnityEngine;
 
 public class FeatureCollection {
-    //The map consists of features. Each feature is a line. x,y form the start of the line, z,w the end of the line. x <= z should be valid.
+    //The map is formed out of features. Each feature is a line. x,y form the start of the line, z,w the end of the line. x <= z should be valid.
     public Vector4[] map;
-    public Vector2 end;
+    public Vector3 end;
     public float radius;
 
     public FeatureCollection(int size) {

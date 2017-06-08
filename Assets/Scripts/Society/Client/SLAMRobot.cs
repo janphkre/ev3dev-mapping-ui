@@ -256,7 +256,7 @@ public class SLAMRobot : NetworkBehaviour {
             jacobianH[l + 1, l + 1] = -jacobianH[1, 1];
 
             noiseR[0, 0] = range * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
-            noiseR[1, 1] = 1;// TODO: page 36 - 1degree error. otherwise : (float) Math.Atan2(center.y, center.x) * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
+            noiseR[1, 1] = 1;// TODO: page 36/39 - 1degree error. otherwise : (float) Math.Atan2(center.y, center.x) * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
             Matrix kalmanGainK = localMap.covariance * ~jacobianH * !(jacobianH * (localMap.covariance * ~jacobianH) + noiseV * noiseR * ~noiseV);
             //Update robot position and landmark positions:
             lastPosition.position.x += kalmanGainK[0, 0];
@@ -268,7 +268,7 @@ public class SLAMRobot : NetworkBehaviour {
             for (int j = 0; j < localMap.covariance.count; j++) {
                 localMap.points.map[j].x += kalmanGainK[(j * 2) + 3, 0];
                 localMap.points.map[j].y += kalmanGainK[(j * 2) + 4, 0];
-                //TODO: eventuell dimensionalität alles matritzen von 2 auf 4 anheben und beide endpunkte der feature speichern:
+                //TODO: eventuell dimensionalität aller matritzen von 2 auf 4 anheben und beide endpunkte der feature speichern:
                 localMap.points.map[j].z += kalmanGainK[(j * 2) + 3, 0];
                 localMap.points.map[j].w += kalmanGainK[(j * 2) + 4, 0];
             }
@@ -286,7 +286,7 @@ public class SLAMRobot : NetworkBehaviour {
                     if (localMap.featureCount >= MAX_MAP_SIZE) {
                         //5 a) If the current local map is full, we will create a new one and send the old to the ISLSJF global map and the server
                         LocalClientMap oldLocalMap = localMap;
-                        oldLocalMap.points.end = new Vector2(lastPosition.position.x, lastPosition.position.y);
+                        oldLocalMap.points.end = new Vector3(lastPosition.position.x, lastPosition.position.y, lastPosition.position.z);
                         //TODO: add sigma to robotPosition (necessary?)
                         //TODO: is this start correct?
                         StartCoroutine(processLocalMap(oldLocalMap));

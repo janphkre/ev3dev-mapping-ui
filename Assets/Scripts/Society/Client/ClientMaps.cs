@@ -10,6 +10,7 @@
  * Implementation by Jan Phillip Kretzschmar                                         *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+using Superbest_random;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -18,7 +19,7 @@ using UnityEngine.Networking;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * The local map is created by the SLAM algorithm in SLAMRobot.cs.                             *
- * Every local map (should have /) has the same feature count                                  *
+ * Every local map (should /) has the same feature count                                       *
  * as the SLAM algorithm will create a new map every time the feature count reaches a cut off. *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 public class LocalClientMap : MessageBase {
@@ -38,12 +39,13 @@ public class LocalClientMap : MessageBase {
     }
 }
 
-//k is the count of fused local maps.
+
 public class GlobalClientMap {
 
-    public const float ESTIMATION_ERROR_CUTOFF = 1;//TODO:Tune
+    public const float ESTIMATION_ERROR_CUTOFF = 1f;//TODO:Tune
+    public const float OBSERVATION_NOISE_SIGMA = 1f;
 
-    //public LinkedList<FeatureCollection> maps = new LinkedList<FeatureCollection>();//TODO: überarbeiten: muss P_L nicht auch gespeichert werden?
+    private System.Random random = new System.Random();
     public SparseColumn infoVector = new SparseColumn(3);//i(k)
     public SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
     public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
@@ -70,7 +72,7 @@ public class GlobalClientMap {
             float estimatedRadius = localMap.points.radius + ESTIMATION_ERROR;
             int i = 0,
                 j = 0;
-            Vector2 start = Vector2.zero;
+            Vector3 start = Vector3.zero;
             //2.1.1) Determine the set of potentially overlapping local maps:
             foreach (FeatureCollection map in globalStateVector) {
                 if ((localMap.points.end - start).magnitude <= estimatedRadius + map.radius) {
@@ -165,7 +167,7 @@ public class GlobalClientMap {
                     k++;
                 } else {
                     //The i-th feature in the local map was matched to an existing feature. We will use the global position in the global state vector.
-                    Vector4 feature = FindGlobal(matchedFeatures[j++]);
+                    Vector4 feature = Geometry.GetFeature(globalStateVector, matchedFeatures[j++]);
                     relativePositionsH.map[i] = new Vector4(
                         (float) ((feature.x - previousEnd.x) * Math.Cos(previousEnd.z) + (feature.y - previousEnd.y) * Math.Sin(previousEnd.z)),
                         (float) ((feature.y - previousEnd.y) * Math.Cos(previousEnd.z) - (feature.x - previousEnd.x) * Math.Sin(previousEnd.z)),
@@ -175,8 +177,8 @@ public class GlobalClientMap {
                 }
             }
             relativePositionsH.end = new Vector3(
-                (stateAddition.end.x - previousEnd.x) * Math.Cos(previousEnd.z) + (stateAddition.end.y - previousEnd.y) * Math.Sin(previousEnd.z),
-                (stateAddition.end.y - previousEnd.y) * Math.Cos(previousEnd.z) - (stateAddition.end.x - previousEnd.x) * Math.Sin(previousEnd.z),
+                (float) ((stateAddition.end.x - previousEnd.x) * Math.Cos(previousEnd.z) + (stateAddition.end.y - previousEnd.y) * Math.Sin(previousEnd.z)),
+                (float) ((stateAddition.end.y - previousEnd.y) * Math.Cos(previousEnd.z) - (stateAddition.end.x - previousEnd.x) * Math.Sin(previousEnd.z)),
                 stateAddition.end.z - previousEnd.z
             );
 
@@ -209,7 +211,7 @@ public class GlobalClientMap {
                 Matrix n = new Matrix(2, 3);
                 n[0, 0] = l[0, 0];
                 n[0, 1] = l[0, 1];
-                n[0, 2] = relativePositionsH.map[i].y;
+                n[0, 2] = relativePositionsH.map[i].y;//TODO: zu center umwandeln!
                 n[1, 0] = m[0, 1];
                 n[1, 1] = l[0, 0];
                 n[1, 2] = -relativePositionsH.map[i].x;
@@ -221,50 +223,39 @@ public class GlobalClientMap {
                 o[0, 0] = l[0, 1];
                 o[1, 1] = o[0, 0];
                 if (i == unmatchedLocalFeatures[k]) {
-                    jacobianH[i + 1, previousCount + k] = n;
+                    jacobianH[previousCount + k, i + 1] = n;//According to mathlab code x and y are inverted : jacobianH[i + 1, previousCount + k]
                     k++;
                 } else {
-                    jacobianH[i + 1, matchedFeatures[j]] = n;
+                    jacobianH[matchedFeatures[j], i + 1] = n;
                     j++;
                 }
             }
 
-            Matrix noiseW = new Matrix(1,;//TODO: noiseW = w_j = zero mean gaussian "observation noise"
+            SparseColumn noiseW = new SparseColumn(2);//TODO: noiseW = w_j = zero mean gaussian "observation noise"
+            noiseW[0] = new Matrix(3);
+            noiseW[0][0, 0] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+            noiseW[0][1, 1] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+            noiseW[0][2, 2] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+            for (i = 1; i <= localMap.featureCount; i++) {
+                noiseW[i] = new Matrix(2);
+                noiseW[i][0, 0] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+                noiseW[i][1, 1] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+                //TODO: Do [0,1] and [1,0] need noise too?
+            }
 
-            SparseCovarianceMatrix infoMatrixAddition = ~jacobianH * !localMap.covariance;
+            SparseMatrix infoMatrixAddition = ~jacobianH * !localMap.covariance;
             SparseColumn infoVectorAddition = infoMatrixAddition * (noiseW + jacobianH * globalStateVector);
             infoMatrixAddition *= jacobianH;
 
             infoMatrix.Addition(infoMatrixAddition);
             infoVector.Addition(infoVectorAddition);
-
-            //infoVector[j] = infoVectorAddition[i];
-            /*int k = 0;
-            for (i = 0; i < localMap.featureCount; i++) {
-                if (i == unmatchedLocalFeatures[k]) {
-                    //The i-th feature in the local map was not matched to an existing feature.
-                    for (j = 0; j <= unmatchedLocalFeatures.Count; j++) infoMatrix[previousCount + k, previousCount + j] = infoMatrixAddition[i, unmatchedLocalFeatures[j]];
-                    k++;
-                } else {
-                    //The i-th feature in the local map was matched to an existing feature.
-                    for (j = 0; j <= matchedFeatures.Count; j++) {
-                        infoMatrix[previousCount + k, matchedFeatures[j]] = ;//infoMatrixAddition[i, matchedLocalFeatures[j]];
-                        infoMatrix[matchedFeatures[j], previousCount + k] = ;//infoMatrixAddition[matchedLocalFeatures[j], i];
-                    }
-                }
-                //TODO: infoVector
-            }*/
-
             //2.3.2) Reorder the global map state vector when necessary
+
             //2.3.3) Compute the Cholesky Factorization of I(k+1)
             //2.3.4) Recover the global map state estimate X^G(k+1)
             //2.4) Least squares for smoothing if necessary
             throw new NotImplementedException();
         }
-    }
-
-    private Vector4 FindGlobal(int index) {
-        throw new NotImplementedException();
     }
 
     private void solveLowerLeftSparse(SparseTriangularMatrix matrix, SparseColumn result, SparseColumn rightHandSide) {
@@ -273,8 +264,7 @@ public class GlobalClientMap {
             if(matrix[i, i] != null) {
                 Matrix m = rightHandSide[i];
                 for(int j = 0; j < i; j++) {//Columns
-                    Matrix n = matrix[j, i] * result[j];
-                    if (n != null) m = m - n;
+                    m -= matrix[j, i] * result[j];
                 }
                 if (m != null) result[i] = m * !matrix[i, i];
             }
@@ -287,8 +277,8 @@ public class GlobalClientMap {
             if (matrix[i, i] != null) {
                 Matrix m = rightHandSide[i];
                 for (int j = size - 1; j < i; j++) {//Columns
-                    Matrix n = matrix[i, j] * result[j];//If we just switch rows and cols in the matrix here we don't have to translate it.(right?)
-                    if (n != null) m = m - n;
+                    //TODO:If we just switch rows and cols in the matrix here we do not have to translate it.(right?)Could this be made faster by accessing the dictionary-key-enumerator directly with skipping the zeros over the column?
+                    m -= matrix[i, j] * result[j];
                 }
                 if (m != null) result[i] = m * !matrix[i, i];
             }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 class Geometry {
@@ -30,7 +31,17 @@ class Geometry {
         return result1 < result2 ? result2 : result1;
     }
 
-    internal static Vector4 Rotate(Vector4 vector4, Vector2 end, float z) {
+    public static Vector4 Rotate(Vector4 vector4, Vector2 end, float z) {
+        throw new NotImplementedException();
+    }
+
+    public static Vector4 GetFeature(List<FeatureCollection> list, int index) {
+        throw new NotImplementedException();
+    }
+
+    //Returns true if the found element is a feature
+    //Returns false if the found element is a robot pose
+    internal static bool GetFeature(List<FeatureCollection> list, int index, out object obj) {
         throw new NotImplementedException();
     }
 }

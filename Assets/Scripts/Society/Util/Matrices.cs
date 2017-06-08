@@ -2,10 +2,6 @@
 using System;
 using System.Collections.Generic;
 
-namespace Assets.Scripts.Society.Util {
-    class Matrices {
-    }
-}
 public class MatrixSizeException : Exception {
     public MatrixSizeException(int sizeAX, int sizeBX, int sizeAY, int sizeBY, String op) : base("A size of a matrix is wrong:" + sizeAX + ", " + sizeAY + op + sizeBX + ", " + sizeBY) { }
     public MatrixSizeException(int sizeAX, int sizeBY, String op) : base("A size of a matrix is wrong:" + sizeAX + op + sizeBY) { }
@@ -31,7 +27,7 @@ public class Matrix {
         val = new float[sizeX, sizeY];
     }
 
-    public Boolean IsEmpty() {
+    public bool IsEmpty() {
         for (int i = 0; i < sizeX; i++) for (int j = 0; j < sizeY; j++) if(val[i, j] != 0f) return false;
         return true;
     }
@@ -122,6 +118,28 @@ public class Matrix {
         return result;
     }
 
+    public static Matrix operator *(Matrix a, UnityEngine.Vector3 b) {
+        if (a == null || b == null) return null;
+        if (a.sizeX != 3) throw new MatrixSizeException(a.sizeX, 3, "*");
+        Matrix result = new Matrix(1, a.sizeY);
+        for (int j = 0; j < result.sizeY; j++) {
+            result[0, j]  = a[j, 0] * b.x + a[j, 1] * b.y + a[j, 2] * b.z;
+        }
+        return result;
+    }
+
+    public static Matrix operator *(Matrix a, UnityEngine.Vector4 b) {
+        if (a == null || b == null) return null;
+        if (a.sizeX != 2) throw new MatrixSizeException(a.sizeX, 2, "*");
+        Matrix result = new Matrix(1, a.sizeY);
+        UnityEngine.Vector2 center = Geometry.Center(b);
+        for (int j = 0; j < result.sizeY; j++) {
+            //TODO: expand all 2D Matrices to 4D or make sure this is okay:
+            result[0, j] = a[j, 0] * center.x + a[j, 1] * center.y;
+        }
+        return result;
+    }
+
     //translate
     public static Matrix operator ~(Matrix a) {
         Matrix result = new Matrix(a.sizeY, a.sizeX);
@@ -183,7 +201,7 @@ public class DiagonalMatrix {
     }
 
     public static DiagonalMatrix operator +(DiagonalMatrix a, DiagonalMatrix b) {
-        if (a.val.Count != b.val.Count) throw new MatrixSizeException(a.val.Count, b.val.Count, "*");
+        if (a.val.Count != b.val.Count) throw new MatrixSizeException(a.val.Count, b.val.Count, "+");
         DiagonalMatrix result = new DiagonalMatrix();
         for (int i = 0; i < a.val.Count; i++) {
             result.val.Add(a[i] + b[i]);
@@ -320,8 +338,34 @@ public class CovarianceMatrix {
     }
 
     //inverse
+    //https://gist.github.com/occar421/feb03a0183e69ecc0189
     public static SparseCovarianceMatrix operator !(CovarianceMatrix a) {
-        throw new NotImplementedException();//TODO!
+        SparseCovarianceMatrix result = new SparseCovarianceMatrix();
+        result.Enlarge3();
+        result.Enlarge2(a.count);
+        for (int i = 0; i < a.count - 1; i++) {
+            for (int j = i + 1; j < a.count - 1; j++) {
+                Matrix s = a[j, i] * !a[i, i];//Does this work or do we have to consider the matrix as a whole and dont invert submatrices / use s as a float?(TODO)
+                for (int k = i; k < a.count; k++) {
+                    a[j, k] -= a[i, k] * s;
+                }
+                for (int k = 0; k <a.count; k++) {
+                    result[j, k] -= result[i, k] * s;
+                }
+            }
+        }
+        for (int i = a.count - 1; i >= 0; i--) {
+            result[i, i] *= !a[i, i];
+            a[i, i] *= !a[i, i];
+            for (int j = i - 1; j >= 0; j--) {
+                Matrix s = a[j, i] * !a[i, i];
+                a[j, i] -= s;
+                for (int k = 0; k < a.count; k++) {
+                    result[j, k] -= result[i, k] * s;
+                }
+            }
+        }
+        return result;
     }
 }
 
@@ -351,6 +395,155 @@ public class SparseColumn {
     public void Clear() {
         val.Clear();
     }
+
+    public void Addition(SparseColumn addition) {
+        //TD
+    }
+
+    public static SparseColumn operator +(SparseColumn a, SparseColumn b) {
+        if (a.size != b.size) throw new MatrixSizeException(a.size, b.size, "+");
+        SparseColumn result = new SparseColumn(a.size);
+        foreach(KeyValuePair<int,Matrix> pair in a.val) {
+            result.val.Add(pair.Key, pair.Value + b.val[pair.Key]);
+        }
+        foreach (KeyValuePair<int, Matrix> pair in b.val) {
+            if(result.val[pair.Key] == null) result.val.Add(pair.Key, pair.Value);
+        }
+        return result;
+    }
+}
+
+/*abstract class SparseBase {
+    private List<SparseColumn> val = new List<SparseColumn>();
+
+    public Matrix this[int i, int j] {
+        get { return val[i][j]; }
+        set { val[i][j] = value; }
+    }
+
+    public abstract int RowCount();
+
+    public int ColumnCount() {
+        return val.Count;
+    }
+}*/
+
+public class SparseMatrix {
+
+    internal List<SparseColumn> val = new List<SparseColumn>();
+    private int rowCount = 0;
+
+    public Matrix this[int i, int j] {
+        get { return val[i][j]; }
+        set { val[i][j] = value; }
+    }
+
+    public void Enlarge2(int i) {
+        while (i-- != 0) val.Add(new SparseColumn(2));
+    }
+
+    //Enlarges the sparse covariance matrix by a new row/col for a 3x3 matrix (a robot pose)
+    public void Enlarge3() {
+        val.Add(new SparseColumn(3));
+    }
+
+    public void AddColumn(SparseColumn col) {
+        val.Add(col);
+    }
+
+    public SparseColumn GetColumn(int i) {
+        return val[i];
+    }
+
+    public void SetRowCount(int i) {
+        rowCount = i;
+    }
+
+    public int RowCount() {
+        return rowCount;
+    }
+
+    public int ColumnCount() {
+        return val.Count;
+    }
+
+    public static SparseColumn operator *(SparseMatrix a, List<FeatureCollection> b) {
+        if (a == null || b == null) return null;
+        SparseColumn result = new SparseColumn(2);//TODO:ignore size of SparseColumn
+        foreach(SparseColumn col in a.val) {
+            foreach (KeyValuePair<int, Matrix> pair in col.val) {
+                object obj;
+                if (Geometry.GetFeature(b, pair.Key, out obj)) {
+                    result[pair.Key] += pair.Value * (UnityEngine.Vector4) obj;
+                } else {
+                    result[pair.Key] += pair.Value * (UnityEngine.Vector3) obj;
+                }
+            }
+        }
+        return result;
+    }
+
+    public static SparseColumn operator *(SparseMatrix a, SparseColumn b) {
+        if (a == null || b == null) return null;
+        SparseColumn result = new SparseColumn(b.size);//TODO:ignore size of SparseColumn
+        foreach (SparseColumn col in a.val) {
+            foreach (KeyValuePair<int, Matrix> pair in col.val) {
+                result[pair.Key] += pair.Value * b.val[pair.Key];
+            }
+        }
+        return result;
+    }
+
+    public static SparseMatrix operator *(SparseMatrix a, SparseMatrix b) {
+        if (a == null || b == null) return null;
+        if (a.ColumnCount() != b.RowCount()) throw new MatrixSizeException(a.ColumnCount(), b.RowCount(), "*");
+        SparseMatrix result = new SparseMatrix();
+        for (int j = 0; j < b.ColumnCount(); j++) result.AddColumn(new SparseColumn(b.val[j].size));
+        int count = a.RowCount();
+        result.SetRowCount(count);
+        int i = 0;
+        foreach(SparseColumn colB in b.val) {
+            for(int j = 0; j < count; j++) {
+                Matrix resultField = null;
+                foreach (KeyValuePair<int, Matrix> pair in colB.val) {
+                        resultField += a[j, pair.Key] * pair.Value;
+                }
+                if (resultField != null) result[j, i] = resultField;
+            }
+            i++;
+        }
+        return result;
+    }
+
+    //translate
+    public static SparseTranslatedMatrix operator ~(SparseMatrix a) {
+        return new SparseTranslatedMatrix(a);
+    }
+}
+
+public class SparseTranslatedMatrix {
+    private SparseMatrix matrix;
+
+    public SparseTranslatedMatrix(SparseMatrix matrix) {
+        this.matrix = matrix;
+    }
+
+    /*public Matrix this[int i, int j] {
+        get { return matrix[j, i]; }
+        set { matrix[j, i] = value; }
+    }*/
+
+    public SparseColumn GetRow(int i) {
+        return matrix.GetColumn(i);
+    }
+
+    public int RowCount() {
+        return matrix.ColumnCount();
+    }
+
+    public int ColumnCount() {
+        return matrix.RowCount();
+    }
 }
 
 public class SparseCovarianceMatrix {
@@ -364,7 +557,7 @@ public class SparseCovarianceMatrix {
         while (i-- != 0) val.Add(new SparseColumn(2));
     }
 
-    //Enlarges the sparse covariance matrix by a new row for a 3x3 matrix (a robot pose)
+    //Enlarges the sparse covariance matrix by a new row/col for a 3x3 matrix (a robot pose)
     public void Enlarge3() {
         val.Add(new SparseColumn(3));
         count += 3;
@@ -433,114 +626,40 @@ public class SparseCovarianceMatrix {
         }
     }
 
-    internal void Addition(SparseCovarianceMatrix infoMatrixAddition) {
-        throw new NotImplementedException();
-    }
-
-    public static SparseCovarianceMatrix operator *(SparseCovarianceMatrix a, SparseCovarianceMatrix b) {
-        if (a == null || b == null) return null;
-        int count = a.ColumnCount();
-        if (count != b.ColumnCount()) throw new MatrixSizeException(a.ColumnCount(), b.ColumnCount(), "*");
-        SparseCovarianceMatrix result = new SparseCovarianceMatrix();
-        for (int i = 0; i < count; i++) {
-            result.val.Add(new SparseColumn(b.val[i].size));
-        }
-        for (int i = 0; i < count; i++) {
-            SparseColumn row = a.GetRow(i);
-            for (int j = 0; j < count; j++) {
-                Matrix resultField = new Matrix(b[j], row.size);//TODO: covariane matrix should be symetrical but this class is used in other calculation atm too.
-                foreach (KeyValuePair<int, Matrix> pair in row.val) {
-                    Matrix m = b[j, pair.Key];
-                    if (m != null) {
-                        resultField += pair.Value * m;
-                    }
-                }
-                if (!resultField.IsEmpty()) {
-                    result[j, i] = resultField;
-                }
+    public void Addition(SparseMatrix addition) {
+        if (ColumnCount() != addition.ColumnCount()) throw new MatrixSizeException(ColumnCount(), addition.ColumnCount(), "a");
+        int i = 0;
+        foreach (SparseColumn colAdd in addition.val) {
+            SparseColumn col = val[i];
+            foreach (KeyValuePair<int, Matrix> pair in colAdd.val) {
+                col[pair.Key] = pair.Value;
             }
+            i++;
         }
-        return result;
     }
 
-    public static SparseCovarianceMatrix operator *(SparseTranslatedMatrix a, SparseCovarianceMatrix b) {
+    public static SparseMatrix operator *(SparseTranslatedMatrix a, SparseCovarianceMatrix b) {
         if (a == null || b == null) return null;
-        int count = a.ColumnCount();
-        if (count != b.ColumnCount()) throw new MatrixSizeException(a.ColumnCount(), b.ColumnCount(), "*");
-        SparseCovarianceMatrix result = new SparseCovarianceMatrix();
-        for (int i = 0; i < count; i++) {
-            result.val.Add(new SparseColumn(b.val[i].size));
-        }
+        if (a.ColumnCount() != b.ColumnCount()) throw new MatrixSizeException(a.ColumnCount(), b.ColumnCount(), "*");
+        int count = a.RowCount();
+        SparseMatrix result = new SparseMatrix();
+        for (int i = 0; i < b.ColumnCount(); i++) result.AddColumn(new SparseColumn(b.val[i].size));
+        result.SetRowCount(a.RowCount());
         for (int i = 0; i < count; i++) {
             SparseColumn row = a.GetRow(i);
             for (int j = 0; j < count; j++) {
                 SparseColumn col = b.val[j];
-                Matrix resultField = new Matrix(col.size, row.size);
+                Matrix resultField = null;
                 foreach (KeyValuePair<int, Matrix> pair in row.val) {
                     Matrix m;
                     if (col.val.TryGetValue(pair.Key, out m)) {
                         resultField += pair.Value * m;
                     }
                 }
-                if (!resultField.IsEmpty()) {
-                    result[j, i] = resultField;
-                }
+                if (resultField != null) result[j, i] = resultField;
             }
         }
         return result;
-    }
-
-    public static SparseCovarianceMatrix operator *(SparseCovarianceMatrix a, List<FeatureCollection> b) {
-        if (a == null || b == null) return null;
-        int count = a.ColumnCount();
-        if (count != b.ColumnCount()) throw new MatrixSizeException(a.ColumnCount(), b.ColumnCount(), "*");
-        SparseCovarianceMatrix result = new SparseCovarianceMatrix();
-        for (int i = 0; i < count; i++) {
-            result.val.Add(new SparseColumn(b.val[i].size));
-        }
-        for (int i = 0; i < count; i++) {
-            SparseColumn row = a.GetRow(i);
-            for (int j = 0; j < count; j++) {
-                SparseColumn col = b.val[j];
-                Matrix resultField = new Matrix(col.size, row.size);
-                foreach (KeyValuePair<int, Matrix> pair in row.val) {
-                    Matrix m;
-                    if (col.val.TryGetValue(pair.Key, out m)) {
-                        resultField += pair.Value * m;
-                    }
-                }
-                if (!resultField.IsEmpty()) {
-                    result[j, i] = resultField;
-                }
-            }
-        }
-        return result;
-    }
-
-    //translate
-    public static SparseTranslatedMatrix operator ~(SparseCovarianceMatrix a) {
-        return new SparseTranslatedMatrix(a);
-    }
-}
-
-public class SparseTranslatedMatrix {
-    private SparseCovarianceMatrix matrix;
-
-    public SparseTranslatedMatrix(SparseCovarianceMatrix matrix) {
-        this.matrix = matrix;
-    }
-
-    /*public Matrix this[int i, int j] {
-        get { return matrix[j, i]; }
-        set { matrix[j, i] = value; }
-    }*/
-
-    public SparseColumn GetRow(int i) {
-        return matrix.GetColumn(i);
-    }
-
-    public int ColumnCount() {
-        return matrix.ColumnCount();
     }
 }
 
