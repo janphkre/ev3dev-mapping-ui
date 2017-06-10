@@ -250,7 +250,18 @@ public class GlobalClientMap {
             infoMatrix.Addition(infoMatrixAddition);
             infoVector.Addition(infoVectorAddition);
             //2.3.2) Reorder the global map state vector when necessary
+            int[] result = minimalDegreeReorder();
+            Dictionary<int, bool> dict = new Dictionary<int, bool>();
+            for(i = 0; i < result.Length; i++) {
+                if (i != result[i]) {
+                    if (dict[i]) {
+                        //The i-th item was already used and can be overwritten
+                        infoMatrix;
+                    } else {
 
+                    }
+                }
+            }
             //2.3.3) Compute the Cholesky Factorization of I(k+1)
             //2.3.4) Recover the global map state estimate X^G(k+1)
             //2.4) Least squares for smoothing if necessary
@@ -291,6 +302,11 @@ public class GlobalClientMap {
 
     //Sollte sich auch auf dem server nutzen lassen um die einzelnen globalen karten zu einer zusammenzuführen
     private Vector3 pairDrivenGlobalLocalization(LocalClientMap localMap, SparseCovarianceMatrix subMatrix, out List<int> unmatchedLocalFeatures, out List<int> matchedLocalFeatures, out List<int> matchedFeatures) {
+        throw new NotImplementedException();
+    }
+
+    
+    private int[] minimalDegreeReorder() {
         throw new NotImplementedException();
     }
 
