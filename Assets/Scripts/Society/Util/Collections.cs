@@ -16,6 +16,35 @@ public class FeatureCollection {
     }
 }
 
+public abstract class IFeature {
+    public int index;
+    protected RobotPose parent;
+
+    public abstract bool IsFeature();
+}
+
+public class Feature: IFeature {
+    public Vector4 feature;
+
+    public Feature(Vector4 f, RobotPose p, int index) {
+        feature = f;
+        parent = p;
+    }
+    public override bool IsFeature() { return true; }
+    public RobotPose ParentPose() { return parent; }
+}
+
+public class RobotPose: IFeature {
+    public Vector3 pose;
+
+    public RobotPose(Vector3 f, RobotPose p, int index) {
+        pose = f;
+        parent = p;
+    }
+    public override bool IsFeature() { return false; }
+    public RobotPose PreviousPose() { return parent; }
+}
+
 public class ObservedFeature {
 
     public Vector4 feature;
