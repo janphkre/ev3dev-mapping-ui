@@ -467,16 +467,16 @@ public class SparseMatrix {
         return val.Count;
     }
 
-    public static SparseColumn operator *(SparseMatrix a, List<FeatureCollection> b) {
+    public static SparseColumn operator *(SparseMatrix a, List<IFeature> b) {
         if (a == null || b == null) return null;
         SparseColumn result = new SparseColumn(2);//TODO:ignore size of SparseColumn
         foreach(SparseColumn col in a.val) {
             foreach (KeyValuePair<int, Matrix> pair in col.val) {
-                object obj;
-                if (Geometry.GetFeature(b, pair.Key, out obj)) {
-                    result[pair.Key] += pair.Value * (UnityEngine.Vector4) obj;
+                IFeature f = b[pair.Key];
+                if (f.IsFeature()) {
+                    result[pair.Key] += pair.Value * ((Feature) f).feature;
                 } else {
-                    result[pair.Key] += pair.Value * (UnityEngine.Vector3) obj;
+                    result[pair.Key] += pair.Value * ((RobotPose) f).pose;
                 }
             }
         }
@@ -588,6 +588,10 @@ public class SparseCovarianceMatrix {
     //Returns the summed count of the submatrices' sizes (=the "real" matrix size).
     public int Count() {
         return count;
+    }
+
+    internal void Clear() {
+        foreach (SparseColumn col in val) col.Clear();
     }
 
     public void Add(SparseColumn col) {

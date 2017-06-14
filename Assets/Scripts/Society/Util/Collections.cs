@@ -16,6 +16,17 @@ public class FeatureCollection {
     }
 }
 
+public class ObservedFeature {
+
+    public Vector4 feature;
+    public int observedCount;
+
+    public ObservedFeature(Vector4 feature) {
+        this.feature = feature;
+        observedCount = 1;
+    }
+}
+
 public abstract class IFeature {
     public int index;
     protected RobotPose parent;
@@ -35,23 +46,16 @@ public class Feature: IFeature {
 }
 
 public class RobotPose: IFeature {
-    public Vector3 pose;
+    public static RobotPose zero = new RobotPose(Vector3.zero,null, 0f);
 
-    public RobotPose(Vector3 f, RobotPose p, int index) {
+    public Vector3 pose;
+    public float radius;
+
+    public RobotPose(Vector3 f, RobotPose p, float r) {
         pose = f;
         parent = p;
+        radius = r;
     }
     public override bool IsFeature() { return false; }
     public RobotPose PreviousPose() { return parent; }
-}
-
-public class ObservedFeature {
-
-    public Vector4 feature;
-    public int observedCount;
-
-    public ObservedFeature(Vector4 feature) {
-        this.feature = feature;
-        observedCount = 1;
-    }
 }

@@ -44,27 +44,41 @@ public class GlobalClientMap {
 
     public const float ESTIMATION_ERROR_CUTOFF = 1f;//TODO:Tune
     public const float OBSERVATION_NOISE_SIGMA = 1f;
+    public const float CHANGE_OF_ESTIMATE_CUTOFF = 1f;
+    public const int MAX_SMOOTHING_ITERATIONS = 10;
 
     private System.Random random = new System.Random();
-    public SparseColumn infoVector = new SparseColumn(3);//i(k)
+    private List<SparseCovarianceMatrix> localInversedCovarianceCollection = new List<SparseCovarianceMatrix>();//(P^L)^-1
+    private List<List<Feature>> localStateCollection = new List<List<Feature>>();
+    private SparseColumn infoVector = new SparseColumn(3);//i(k)
     public SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
     public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
     public List<IFeature> globalStateVector = new List<IFeature>();//X^G(k)
-    public List<List<Feature>> globalStateCollection = new List<List<Feature>>();
-    int lastPose = -1;
+    private List<List<Feature>> globalStateCollection = new List<List<Feature>>();
+    RobotPose lastPose = RobotPose.zero;
+
     /* * * * * * * * * * * * * * * * * * * * * * * *
-     * Algorithm 1 & 2 of Iterated SLSJF.          *
-     * Only completed local maps must be provided. *
-     * * * * * * * * * * * * * * * * * * * * * * * */
+* Algorithm 1 & 2 of Iterated SLSJF.          *
+* Only completed local maps must be provided. *
+* * * * * * * * * * * * * * * * * * * * * * * */
     public void ConsumeLocalMap(LocalClientMap localMap) {
         if (localMap.points.map.Length == 0) return;
-        if (lastPose == -1) {
+        if (lastPose == RobotPose.zero) {
             /* * * * * * * * * * * * * * * * * * * * *
              * 1) Set local map 1 as the global map  *
              * * * * * * * * * * * * * * * * * * * * */
-            int k = globalStateVector.Count;
-            RobotPose pose = new RobotPose(localMap.points.end, null, k++);
-            for(int i=0;i<localMap.featureCount;i++) globalStateVector.Add(new Feature(localMap.points.map[i],pose, k + i));
+            RobotPose pose = new RobotPose(localMap.points.end, RobotPose.zero, localMap.points.radius);
+            List<Feature> collection = new List<Feature>();
+            for (int i = 0; i < localMap.featureCount; i++) {
+                Feature feat = new Feature(localMap.points.map[i], pose, globalStateVector.Count);
+                globalStateVector.Add(feat);
+                collection.Add(feat);
+            }
+            pose.index = globalStateVector.Count;
+            lastPose = pose;
+            globalStateVector.Add(pose);
+            localStateCollection.Add(collection);
+            globalStateCollection.Add(collection);
             //TODO: add the first map into the EIF (info+cholesky)
             throw new NotImplementedException();
         } else {
@@ -81,16 +95,31 @@ public class GlobalClientMap {
             //TODO:(Is this true?)
             //Calculate the global positions of all unmatched features
             localMap.points.end = new Vector3(localMap.points.end.x + match.x, localMap.points.end.y + match.y, localMap.points.end.z + match.z);
-            RobotPose pose = new RobotPose(localMap.points.end, (RobotPose) globalStateVector[lastPose]);
-            for(int i = 0; i < unmatchedLocalFeatures.Count; i++) {
-                //Move first, rotatation second: rotation happens around the moved end Point
-                localMap.points.map[unmatchedLocalFeatures[i]].x += match.x;
-                localMap.points.map[unmatchedLocalFeatures[i]].y += match.y;
-                localMap.points.map[unmatchedLocalFeatures[i]].z += match.x;
-                localMap.points.map[unmatchedLocalFeatures[i]].w += match.y;
-                globalStateVector.Add(new Feature(Geometry.Rotate(localMap.points.map[unmatchedLocalFeatures[i]], localMap.points.end, match.z), pose));
+            RobotPose pose = new RobotPose(localMap.points.end, lastPose, localMap.points.radius);
+            List<Feature> localCollection = new List<Feature>();
+            List<Feature> globalCollection = new List<Feature>();
+            int j = 0,
+                k = 0;
+            for (int i = 0; i < localMap.featureCount; i++) {
+                if (i == unmatchedLocalFeatures[j]) {
+                    //Move first, rotate second: rotation happens around the moved end pose
+                    localMap.points.map[unmatchedLocalFeatures[j]].x += match.x;
+                    localMap.points.map[unmatchedLocalFeatures[j]].y += match.y;
+                    localMap.points.map[unmatchedLocalFeatures[j]].z += match.x;
+                    localMap.points.map[unmatchedLocalFeatures[j]].w += match.y;
+                    Feature feat = new Feature(Geometry.Rotate(localMap.points.map[unmatchedLocalFeatures[j++]], localMap.points.end, match.z), pose, globalStateVector.Count);
+                    globalStateVector.Add(feat);
+                    localCollection.Add(feat);
+                    globalCollection.Add(feat);
+                } else {
+                    globalCollection.Add((Feature)globalStateVector[matchedGlobalFeatures[k++]]);
+                }
             }
+            pose.index = globalStateVector.Count;
+
             globalStateVector.Add(pose);
+            localStateCollection.Add(localCollection);
+            globalStateCollection.Add(globalCollection);
             //Enlarge the info vector, info matrix and cholesky factorization by adding zeros:
             //infoVector is a dictionary, so no enlarging is needed.
             infoMatrix.Enlarge2(unmatchedLocalFeatures.Count);
@@ -101,76 +130,67 @@ public class GlobalClientMap {
              * 2.3) Update using EIF *
              * * * * * * * * * * * * */
             //2.3.1) Compute the information matrix and vector using EIF
-            SparseMatrix infoMatrixAddition;
-            SparseColumn infoVectorAddition;
-            computeInfoAddition(localMap, unmatchedLocalFeatures, matchedGlobalFeatures, out infoMatrixAddition, out infoVectorAddition);
-            infoMatrix.Addition(infoMatrixAddition);
-            infoVector.Addition(infoVectorAddition);
+            SparseCovarianceMatrix localMapInversedCovariance = !localMap.covariance;
+            localInversedCovarianceCollection.Add(localMapInversedCovariance);
+            computeInfoAddition(globalCollection, localMapInversedCovariance);
+            lastPose = pose;//TODO:move to end eventually
             //2.3.2) Reorder the global map state vector when necessary
             minimalDegreeReorder();
-            //2.3.3) Compute the Cholesky Factorization of I(k+1)
-            choleskyFactorization = calculateCholesky();
-            //2.3.4) Recover the global map state estimate X^G(k+1)
-            //2.4) Least squares for smoothing if necessary
-            throw new NotImplementedException();
+            //2.3.3) to 2.4) Cholesky, recover global state estimate and least squares smoothing:
+            recursiveConverging(MAX_SMOOTHING_ITERATIONS);
         }
     }
 
     private Vector3 DataAssociaton(LocalClientMap localMap, out List<int> unmatchedLocalFeatures, out List<int> matchedGlobalFeatures) {
         List<int> prematchedFeatures = new List<int>();
-        float estimatedRadius = localMap.points.radius + ESTIMATION_ERROR;
-        int i = 0,
-            j = 0;
+        float estimatedRadius = localMap.points.radius + estimationError;
         Vector3 start = Vector3.zero;
         //2.1.1) Determine the set of potentially overlapping local maps:
-        foreach (IFeature item in globalStateVector) {
-            if (!item.IsFeature()) continue;
-            if ((localMap.points.end - start).magnitude <= estimatedRadius + map.radius) {
+        foreach (List<Feature> collection in localStateCollection) {
+            RobotPose pose = collection[0].ParentPose();
+            if ((localMap.points.end - start).magnitude <= estimatedRadius + pose.radius) {
                 //2.1.2) Find the set of potentially matched features:
-                for (i = 0; i < map.map.Length; i++) {
-                    if (Geometry.MaxDistance(localMap.points.end, map.map[i]) <= estimatedRadius) {
+                for (int i = 0; i < collection.Count; i++) {
+                    if (Geometry.MaxDistance(localMap.points.end, collection[i].feature) <= estimatedRadius) {
                         //The first index is the matched map; The second index is the matched feature in the matched map.
-                        prematchedFeatures.Add(j + i);//Like this the matchedFeatures should be sorted at all times.
+                        prematchedFeatures.Add(collection[i].index);//Like this the matchedFeatures should be sorted at all times.
                     }
                 }
             }
-            start = map.end;
-            j += map.map.Length + 1;//Each map has an additional 
+            start = pose.pose;
         }
         //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
         SparseColumn q = new SparseColumn(2),
                      p;
         SparseColumn columnVector = new SparseColumn(2);
         SparseCovarianceMatrix subMatrix = new SparseCovarianceMatrix();
-        for (i = 0; i < prematchedFeatures.Count; i++) {
+        for (int i = 0; i < prematchedFeatures.Count; i++) {
             columnVector[prematchedFeatures[i]] = new Matrix(2);
-            solveLowerLeftSparse(choleskyFactorization, q, columnVector);
+            solveLowerLeftSparse(choleskyFactorization, out q, columnVector);
             columnVector.Remove(prematchedFeatures[i]);
-            p = new SparseColumn(2);
-            solveUpperRightSparse(choleskyFactorization, p, q);
-            q.Clear();
+            solveUpperRightSparse(choleskyFactorization, out p, q);
             subMatrix.Add(p);
         }
         //Add the last robot position: 
         columnVector = new SparseColumn(3);
-        columnVector[lastPose] = new Matrix(3);
+        columnVector[lastPose.index] = new Matrix(3);
         //Solve the sparse linear equations:
-        solveLowerLeftSparse(choleskyFactorization, q, columnVector);
-        p = new SparseColumn(3);
-        solveUpperRightSparse(choleskyFactorization, p, q);
+        solveLowerLeftSparse(choleskyFactorization, out q, columnVector);
+        solveUpperRightSparse(choleskyFactorization, out p, q);
         subMatrix.Add(p);
         //Remove the unneeded rows from the submatrix:
         subMatrix.Trim(prematchedFeatures, globalStateVector.Count);
         //2.1.4) Nearest Neighbor or Joint Compatibility Test method to find the match:
-        //TODO: ESTIMATION_ERROR überarbeiten: Muss sich aus den local maps ergeben
-        if (ESTIMATION_ERROR >= ESTIMATION_ERROR_CUTOFF) {
+        //TODO: estimationError überarbeiten: Muss sich aus den local maps ergeben
+        if (estimationError >= ESTIMATION_ERROR_CUTOFF) {
             return pairDrivenGlobalLocalization(localMap, subMatrix, out unmatchedLocalFeatures, out matchedGlobalFeatures, prematchedFeatures);
         } else {
             return jointCompatibilityTest(localMap, subMatrix, out unmatchedLocalFeatures, out matchedGlobalFeatures, prematchedFeatures);
         }
     }
 
-    private void solveLowerLeftSparse(SparseTriangularMatrix matrix, SparseColumn result, SparseColumn rightHandSide) {
+    private void solveLowerLeftSparse(SparseTriangularMatrix matrix, out SparseColumn result, SparseColumn rightHandSide) {
+        result = new SparseColumn(3);
         int size = matrix.ColumnCount();
         for (int i = 0;i < size; i++) {//Rows
             if(matrix[i, i] != null) {
@@ -183,7 +203,8 @@ public class GlobalClientMap {
         }
     }
 
-    private void solveUpperRightSparse(SparseTriangularMatrix matrix, SparseColumn result, SparseColumn rightHandSide) {
+    private void solveUpperRightSparse(SparseTriangularMatrix matrix, out SparseColumn result, SparseColumn rightHandSide) {
+        result = new SparseColumn(3);
         int size = matrix.ColumnCount();
         for (int i = size - 1; i >= 0; i++) {//Rows
             if (matrix[i, i] != null) {
@@ -210,44 +231,40 @@ public class GlobalClientMap {
         throw new NotImplementedException();
     }
 
-    private void computeInfoAddition(LocalClientMap localMap, List<int> unmatchedLocalFeatures, List<int> matchedGlobalFeatures, out SparseMatrix infoMatrixAddition, out SparseColumn infoVectorAddition) {
+    private SparseMatrix computeJacobianH(List<Feature> localMapFeatures) {
         //H_k+1 = relative positions of robot and features in respect to previous global robot position and rotation
-        FeatureCollection relativePositionsH = new FeatureCollection(localMap.featureCount);
-        int k = 0;
-        int j = 0;
-        RobotPose pose = (RobotPose) globalStateVector[lastPose];
-        int previousSize = globalStateVector.Count - (unmatchedLocalFeatures.Count + 1);
-        for (int i = 0; i < localMap.featureCount; i++) {
-            Vector4 vec;
-            if (i == unmatchedLocalFeatures[k]) vec = ((Feature)globalStateVector[previousSize + k++]).feature;
-            else vec = ((Feature)globalStateVector[matchedGlobalFeatures[j++]]).feature;
+        FeatureCollection relativePositionsH = new FeatureCollection(localMapFeatures.Count);
+        RobotPose currentPose = localMapFeatures[0].ParentPose();
+        RobotPose previousPose = currentPose.PreviousPose();
+        for (int i = 0; i < localMapFeatures.Count; i++) {
+            Vector4 vec = (localMapFeatures[i]).feature;
             relativePositionsH.map[i] = new Vector4(
-                (float)((vec.x - pose.pose.x) * Math.Cos(pose.pose.z) + (vec.y - pose.pose.y) * Math.Sin(pose.pose.z)),
-                (float)((vec.y - pose.pose.y) * Math.Cos(pose.pose.z) - (vec.x - pose.pose.x) * Math.Sin(pose.pose.z)),
-                (float)((vec.z - pose.pose.x) * Math.Cos(pose.pose.z) + (vec.w - pose.pose.y) * Math.Sin(pose.pose.z)),
-                (float)((vec.w - pose.pose.y) * Math.Cos(pose.pose.z) - (vec.z - pose.pose.x) * Math.Sin(pose.pose.z))
+                (float)((vec.x - previousPose.pose.x) * Math.Cos(previousPose.pose.z) + (vec.y - previousPose.pose.y) * Math.Sin(previousPose.pose.z)),
+                (float)((vec.y - previousPose.pose.y) * Math.Cos(previousPose.pose.z) - (vec.x - previousPose.pose.x) * Math.Sin(previousPose.pose.z)),
+                (float)((vec.z - previousPose.pose.x) * Math.Cos(previousPose.pose.z) + (vec.w - previousPose.pose.y) * Math.Sin(previousPose.pose.z)),
+                (float)((vec.w - previousPose.pose.y) * Math.Cos(previousPose.pose.z) - (vec.z - previousPose.pose.x) * Math.Sin(previousPose.pose.z))
             );
         }
         relativePositionsH.end = new Vector3(
-            (float)((localMap.points.end.x - pose.pose.x) * Math.Cos(pose.pose.z) + (localMap.points.end.y - pose.pose.y) * Math.Sin(pose.pose.z)),
-            (float)((localMap.points.end.y - pose.pose.y) * Math.Cos(pose.pose.z) - (localMap.points.end.x - pose.pose.x) * Math.Sin(pose.pose.z)),
-            localMap.points.end.z - pose.pose.z
+            (float)((currentPose.pose.x - previousPose.pose.x) * Math.Cos(previousPose.pose.z) + (currentPose.pose.y - previousPose.pose.y) * Math.Sin(previousPose.pose.z)),
+            (float)((currentPose.pose.y - previousPose.pose.y) * Math.Cos(previousPose.pose.z) - (currentPose.pose.x - previousPose.pose.x) * Math.Sin(previousPose.pose.z)),
+            currentPose.pose.z - previousPose.pose.z
         );
 
         SparseMatrix jacobianH = new SparseMatrix();
-        //TODO:rows/cols???
+        //TODO:what are the rows and what are the cols???
         jacobianH.Enlarge3();
-        jacobianH.Enlarge2(localMap.featureCount);
+        jacobianH.Enlarge2(localMapFeatures.Count);
         //jacobian first three rows:
         Matrix l = new Matrix(3, 3);
-        l[0, 0] = (float)-Math.Cos(pose.pose.z);
-        l[0, 1] = (float)-Math.Sin(pose.pose.z);
-        l[0, 2] = (float)relativePositionsH.end.y;
-        l[1, 0] = (float)-l[0, 1];
-        l[1, 1] = (float)l[0, 0];
-        l[1, 2] = (float)-relativePositionsH.end.x;
+        l[0, 0] = (float)-Math.Cos(previousPose.pose.z);
+        l[0, 1] = (float)-Math.Sin(previousPose.pose.z);
+        l[0, 2] = relativePositionsH.end.y;
+        l[1, 0] = -l[0, 1];
+        l[1, 1] = l[0, 0];
+        l[1, 2] = -relativePositionsH.end.x;
         l[2, 2] = -1f;
-        jacobianH[0, lastPose] = l;//X^G_ke
+        jacobianH[0, previousPose.index] = l;//X^G_ke
 
         Matrix m = new Matrix(3, 3);
         m[0, 0] = -l[0, 0];
@@ -255,11 +272,9 @@ public class GlobalClientMap {
         m[1, 0] = -l[1, 0];
         m[1, 1] = -l[1, 1];
         m[2, 2] = 1f;
-        jacobianH[0, globalStateVector.Count - 1] = m;//X^G_k+1e
-                                                       //jacobian all other rows:
-        k = 0;
-        j = 0;
-        for (int i = 0; i < localMap.featureCount; i++) {
+        jacobianH[0, currentPose.index] = m;//X^G_k+1e
+        //jacobian all other rows:
+        for (int i = 0; i < localMapFeatures.Count; i++) {
             Matrix n = new Matrix(2, 3);
             n[0, 0] = l[0, 0];
             n[0, 1] = l[0, 1];
@@ -267,37 +282,45 @@ public class GlobalClientMap {
             n[1, 0] = m[0, 1];
             n[1, 1] = l[0, 0];
             n[1, 2] = -relativePositionsH.map[i].x;
-            jacobianH[i + 1, lastPose] = n;
+            jacobianH[i + 1, previousPose.index] = n;
 
             Matrix o = new Matrix(2, 2);
             o[0, 0] = m[0, 0];
             o[0, 1] = m[0, 1];
             o[0, 0] = l[0, 1];
             o[1, 1] = o[0, 0];
-            if (i == unmatchedLocalFeatures[k]) {
-                jacobianH[previousSize + k, i + 1] = n;//According to mathlab code x and y are inverted : jacobianH[i + 1, previousCount + k]
-                k++;
-            } else {
-                jacobianH[matchedGlobalFeatures[j], i + 1] = n;
-                j++;
-            }
-        }
+            jacobianH[i + 1, localMapFeatures[i].index] = o;//According to mathlab code x and y are: jacobianH[localMapFrame, globalMapStateFrame]
 
-        SparseColumn noiseW = new SparseColumn(2);//TODO: noiseW = w_j = zero mean gaussian "observation noise"
-        noiseW[0] = new Matrix(3);
-        noiseW[0][0, 0] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
-        noiseW[0][1, 1] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
-        noiseW[0][2, 2] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
-        for (int i = 1; i <= localMap.featureCount; i++) {
-            noiseW[i] = new Matrix(2);
-            noiseW[i][0, 0] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
-            noiseW[i][1, 1] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+        }
+        return jacobianH;
+    }
+
+    private SparseColumn computeNoiseW(int localMapSize) {
+        //noiseW = w_j = zero mean gaussian "observation noise"
+        SparseColumn noiseW = new SparseColumn(2);
+        Matrix m = new Matrix(3, 3);
+        noiseW[0] = m;
+        m[0, 0] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+        m[1, 1] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+        m[2, 2] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+        for (int i = 1; i <= localMapSize; i++) {
+            m = new Matrix(2, 2);
+            noiseW[i] = m;
+            m[0, 0] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
+            m[1, 1] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
             //TODO: Do [0,1] and [1,0] need noise too?
         }
+        return noiseW;
+    }
 
-        infoMatrixAddition = ~jacobianH * !localMap.covariance;
-        infoVectorAddition = infoMatrixAddition * (noiseW + jacobianH * globalStateVector);
+    private void computeInfoAddition(List<Feature> localMapFeatures, SparseCovarianceMatrix localMapInversedCovariance) {
+        SparseMatrix jacobianH = computeJacobianH(localMapFeatures);
+        SparseColumn noiseW = computeNoiseW(localMapFeatures.Count);
+        
+        SparseMatrix infoMatrixAddition = ~jacobianH * localMapInversedCovariance;
+        infoVector.Addition(infoMatrixAddition * (noiseW + jacobianH * globalStateVector));
         infoMatrixAddition *= jacobianH;
+        infoMatrix.Addition(infoMatrixAddition);
     }
     
     private void minimalDegreeReorder() {
@@ -350,8 +373,32 @@ public class GlobalClientMap {
         }
     }
 
-    private SparseTriangularMatrix calculateCholesky() {
+    private SparseTriangularMatrix computeCholesky() {
         throw new NotImplementedException();
     }
 
+    private void recursiveConverging(int maxIterations) {
+        //2.3.3) and 2.4.2) Compute the Cholesky Factorization of I(k+1)
+        choleskyFactorization = computeCholesky();
+        //2.3.4) and 2.4.3) Recover the global map state estimate X^G(k+1)
+        SparseColumn y, globalStateVectorNew;
+        solveLowerLeftSparse(choleskyFactorization, out y, infoVector);
+        solveUpperRightSparse(choleskyFactorization, out globalStateVectorNew, y);
+        float changeOfEstimate = 0f;
+        for(int i=0;i<globalStateVector.Count;i++) {
+            IFeature v = globalStateVector[i];
+            if(v.IsFeature()) {
+                Feature f = (Feature) v;
+                f.feature.z = ;
+                f.feature.w = ;
+            }
+        }
+        //2.4) Least squares for smoothing if necessary
+        if (changeOfEstimate <= CHANGE_OF_ESTIMATE_CUTOFF || maxIterations <= 0) return;
+        //2.4.1) Recompute the information matrix and the information vector
+        infoMatrix.Clear();
+        infoVector.Clear();
+        for (int i = 0; i < globalStateVector.Count; i++) computeInfoAddition(globalStateCollection[i], localInversedCovarianceCollection[i]);
+        recursiveConverging(maxIterations-1);
+    }
 }
