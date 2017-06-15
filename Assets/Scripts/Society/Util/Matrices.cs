@@ -128,14 +128,12 @@ public class Matrix {
         return result;
     }
 
-    public static Matrix operator *(Matrix a, UnityEngine.Vector4 b) {
+    public static Matrix operator *(Matrix a, UnityEngine.Vector2 b) {
         if (a == null || b == null) return null;
         if (a.sizeX != 2) throw new MatrixSizeException(a.sizeX, 2, "*");
         Matrix result = new Matrix(1, a.sizeY);
-        UnityEngine.Vector2 center = Geometry.Center(b);
         for (int j = 0; j < result.sizeY; j++) {
-            //TODO: expand all 2D Matrices to 4D or make sure this is okay:
-            result[0, j] = a[j, 0] * center.x + a[j, 1] * center.y;
+            result[0, j] = a[j, 0] * b.x + a[j, 1] * b.y;
         }
         return result;
     }

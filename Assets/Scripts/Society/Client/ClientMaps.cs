@@ -33,7 +33,7 @@ public class LocalClientMap : MessageBase {
         points = new FeatureCollection(size);
     }
 
-    public Vector4 this[int i] {
+    public Vector2 this[int i] {
         get { return points.map[i]; }
         set { points.map[i] = value; }
     }
@@ -105,8 +105,6 @@ public class GlobalClientMap {
                     //Move first, rotate second: rotation happens around the moved end pose
                     localMap.points.map[unmatchedLocalFeatures[j]].x += match.x;
                     localMap.points.map[unmatchedLocalFeatures[j]].y += match.y;
-                    localMap.points.map[unmatchedLocalFeatures[j]].z += match.x;
-                    localMap.points.map[unmatchedLocalFeatures[j]].w += match.y;
                     Feature feat = new Feature(Geometry.Rotate(localMap.points.map[unmatchedLocalFeatures[j++]], localMap.points.end, match.z), pose, globalStateVector.Count);
                     globalStateVector.Add(feat);
                     localCollection.Add(feat);
@@ -151,7 +149,7 @@ public class GlobalClientMap {
             if ((localMap.points.end - start).magnitude <= estimatedRadius + pose.radius) {
                 //2.1.2) Find the set of potentially matched features:
                 for (int i = 0; i < collection.Count; i++) {
-                    if (Geometry.MaxDistance(localMap.points.end, collection[i].feature) <= estimatedRadius) {
+                    if (Geometry.Distance(localMap.points.end, collection[i].feature) <= estimatedRadius) {
                         //The first index is the matched map; The second index is the matched feature in the matched map.
                         prematchedFeatures.Add(collection[i].index);//Like this the matchedFeatures should be sorted at all times.
                     }
@@ -237,12 +235,10 @@ public class GlobalClientMap {
         RobotPose currentPose = localMapFeatures[0].ParentPose();
         RobotPose previousPose = currentPose.PreviousPose();
         for (int i = 0; i < localMapFeatures.Count; i++) {
-            Vector4 vec = (localMapFeatures[i]).feature;
-            relativePositionsH.map[i] = new Vector4(
+            Vector2 vec = (localMapFeatures[i]).feature;
+            relativePositionsH.map[i] = new Vector2(
                 (float)((vec.x - previousPose.pose.x) * Math.Cos(previousPose.pose.z) + (vec.y - previousPose.pose.y) * Math.Sin(previousPose.pose.z)),
-                (float)((vec.y - previousPose.pose.y) * Math.Cos(previousPose.pose.z) - (vec.x - previousPose.pose.x) * Math.Sin(previousPose.pose.z)),
-                (float)((vec.z - previousPose.pose.x) * Math.Cos(previousPose.pose.z) + (vec.w - previousPose.pose.y) * Math.Sin(previousPose.pose.z)),
-                (float)((vec.w - previousPose.pose.y) * Math.Cos(previousPose.pose.z) - (vec.z - previousPose.pose.x) * Math.Sin(previousPose.pose.z))
+                (float)((vec.y - previousPose.pose.y) * Math.Cos(previousPose.pose.z) - (vec.x - previousPose.pose.x) * Math.Sin(previousPose.pose.z))
             );
         }
         relativePositionsH.end = new Vector3(
@@ -373,10 +369,6 @@ public class GlobalClientMap {
         }
     }
 
-    private SparseTriangularMatrix computeCholesky() {
-        throw new NotImplementedException();
-    }
-
     private void recursiveConverging(int maxIterations) {
         //2.3.3) and 2.4.2) Compute the Cholesky Factorization of I(k+1)
         choleskyFactorization = computeCholesky();
@@ -387,10 +379,16 @@ public class GlobalClientMap {
         float changeOfEstimate = 0f;
         for(int i=0;i<globalStateVector.Count;i++) {
             IFeature v = globalStateVector[i];
-            if(v.IsFeature()) {
+            Matrix m = globalStateVectorNew[i];
+            if (v.IsFeature()) {
                 Feature f = (Feature) v;
-                f.feature.z = ;
-                f.feature.w = ;
+                f.feature.x = m[0, 0];
+                f.feature.y = m[0, 1];
+            } else {
+                RobotPose r = (RobotPose) v;
+                r.pose.x = m[0, 0];
+                r.pose.y = m[0, 1];
+                r.pose.z = m[0, 2];
             }
         }
         //2.4) Least squares for smoothing if necessary
@@ -400,5 +398,9 @@ public class GlobalClientMap {
         infoVector.Clear();
         for (int i = 0; i < globalStateVector.Count; i++) computeInfoAddition(globalStateCollection[i], localInversedCovarianceCollection[i]);
         recursiveConverging(maxIterations-1);
+    }
+
+    private SparseTriangularMatrix computeCholesky() {
+        throw new NotImplementedException();
     }
 }

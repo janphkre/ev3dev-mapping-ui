@@ -99,7 +99,7 @@ public class SLAMRobot : NetworkBehaviour {
         if (data.Readings.Length == 0) return;
         //1) Landmark Extraction: RANSAC
         //Each landmark is made out of two two dimensional vectors. These two vectors are put into one four dimensional vector: [x, y] for the start of the obstacle and [z, w] for the end. As x <= z is ensured we can safe a comparison when merging obstacles.
-        List<Vector4> landmarks = new List<Vector4>();
+        List<Vector2> landmarks = new List<Vector2>();
         Vector3[] unmatchedReadings = new Vector3[data.Readings.Length];
         int unmatchedCount = data.Readings.Length;
         data.Readings.CopyTo(unmatchedReadings, 0);
@@ -134,21 +134,9 @@ public class SLAMRobot : NetworkBehaviour {
             if (matchedReadings.Count > Math.Ceiling(RANSAC_MIN_FOUND * data.Readings.Length)) {
                 //Consensus that points form a line
                 leastSquares = new LeastSquares.Linear(matchedReadings);
-                //minimum is the vector with the smallest x coordinate
-                //maximum is the vector with the biggest x coordinate
-                Vector3 minimum = new Vector3(float.PositiveInfinity, 0.0f),
-                        maximum = new Vector3(float.NegativeInfinity, 0.0f);
-                foreach(Vector3 vec in matchedReadings) {
-                    if (minimum.x > vec.x) minimum = vec;
-                    if (maximum.x < vec.x) maximum = vec;
-                }
-                //A second ray is formed that is orthogonal to the least squares ray and calculate the landmark as the least squares ray from the intersection of the two rays at the minimum and maxium.
-                Ray firstRay = leastSquares.Ray;
-                Ray secondRay = new Ray(minimum, new Vector3(-firstRay.direction.z, 0.0f, firstRay.direction.x));
-                float minT = (secondRay.direction.z * (secondRay.origin.x - firstRay.origin.x) + secondRay.direction.x * (firstRay.origin.z - firstRay.origin.z)) / (firstRay.direction.x * secondRay.direction.z - firstRay.direction.z * secondRay.direction.x);
-                secondRay.origin = maximum;
-                float maxT = (secondRay.direction.z * (secondRay.origin.x - firstRay.origin.x) + secondRay.direction.x * (firstRay.origin.z - firstRay.origin.z)) / (firstRay.direction.x * secondRay.direction.z - firstRay.direction.z * secondRay.direction.x);
-                landmarks.Add(new Vector4(firstRay.origin.x + minT * firstRay.direction.x, firstRay.origin.z + minT * firstRay.direction.z, firstRay.origin.x + maxT * firstRay.direction.x, firstRay.origin.z + maxT * firstRay.direction.z));
+                //A second ray is formed that is orthogonal to the least squares ray and calculate the landmark as the point closest to (0, 0) on the least squres ray.
+                Vector3 point = Vector3.Dot(-leastSquares.Ray.origin, leastSquares.Ray.direction) * leastSquares.Ray.direction + leastSquares.Ray.origin;
+                landmarks.Add(new Vector2(point.x, point.z));
                 //Remove matched readings from the unmatched readings array:
                 Vector3[] oldUnmatched = unmatchedReadings;
                 unmatchedReadings = new Vector3[unmatchedCount - matchedIndexes.Count];
@@ -157,16 +145,6 @@ public class SLAMRobot : NetworkBehaviour {
                 }
             }
         }
-        /**UNUSED: extract the lines as points closest to 0,0,0 on the line
-        Vector2[] landmarks = new Vector2[extractedLines.Count];
-        int k = 0;
-        foreach (Ray ray in extractedLines) {
-            Vector3 point = Vector3.Dot(-ray.origin, ray.direction) * ray.direction + ray.origin;
-            point.y = 0;
-            landmarks[k++] = new Vector2(point.x, point.z);
-        }**/
-
-
         //TODO: DISPLAY LINES? -> matchedReadings or unmatchedReadings in another color
 
         //2) Data Association
@@ -242,13 +220,14 @@ public class SLAMRobot : NetworkBehaviour {
         jacobianH[1, 2] = -1;
         for (int i = 0; i < landmarks.Count; i++) {
             //TODO: EVENTUELL ANPASSEN -> LANDMARKS ANDERS VERARBEITEN.
-            Vector2 center = Geometry.Center(landmarks[i]);
-            float range = (float)Math.Sqrt((center.x - lastPosition.position.x) * (center.x - lastPosition.position.x) + (center.y - lastPosition.position.y) * (center.y - lastPosition.position.y)) + vr;//???
+            float range = (float)Math.Sqrt((landmarks[i].x - lastPosition.position.x) * (landmarks[i].x - lastPosition.position.x)
+                + (landmarks[i].y - lastPosition.position.y) * (landmarks[i].y - lastPosition.position.y))
+                + vr;//???
             if (associatedFeature[i] < 0 || associatedFeature[i] >= MAX_MAP_SIZE) continue;
-            jacobianH[0, 0] = -center.x / range;
-            jacobianH[0, 1] = -center.y / range; 
-            jacobianH[1, 0] = center.y / range * range;
-            jacobianH[1, 1] = center.x / range * range;
+            jacobianH[0, 0] = -landmarks[i].x / range;
+            jacobianH[0, 1] = -landmarks[i].y / range; 
+            jacobianH[1, 0] = landmarks[i].y / range * range;
+            jacobianH[1, 1] = landmarks[i].x / range * range;
             int l = associatedFeature[i] * 2 + 3;
             jacobianH[l, l] = -jacobianH[0, 0];
             jacobianH[l, l + 1] = -jacobianH[0, 1];
@@ -256,21 +235,18 @@ public class SLAMRobot : NetworkBehaviour {
             jacobianH[l + 1, l + 1] = -jacobianH[1, 1];
 
             noiseR[0, 0] = range * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
-            noiseR[1, 1] = 1;// TODO: page 36/39 - 1degree error. otherwise : (float) Math.Atan2(center.y, center.x) * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
+            noiseR[1, 1] = 1;// TODO: page 36/39 - 1degree error. otherwise : (float) Math.Atan2(landmarks[i].y, landmarks[i].x) * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
             Matrix kalmanGainK = localMap.covariance * ~jacobianH * !(jacobianH * (localMap.covariance * ~jacobianH) + noiseV * noiseR * ~noiseV);
             //Update robot position and landmark positions:
             lastPosition.position.x += kalmanGainK[0, 0];
             lastPosition.position.y += kalmanGainK[1, 0];
             lastPosition.heading += kalmanGainK[2, 0];
             Matrix landmarkDisplacement = new Matrix(1, 2);//TODO: Range and bearing will be needed
-            //landmarkDisplacement[0, 0] = center.magnitude - localMap.points.map[associatedFeature[i]].magnitude;
+            //landmarkDisplacement[0, 0] = landmarks[i].magnitude - localMap.points.map[associatedFeature[i]].magnitude;
             //landmarkDisplacement[0, 1] = ; //TODO!
             for (int j = 0; j < localMap.covariance.count; j++) {
                 localMap.points.map[j].x += kalmanGainK[(j * 2) + 3, 0];
                 localMap.points.map[j].y += kalmanGainK[(j * 2) + 4, 0];
-                //TODO: eventuell dimensionalität aller matritzen von 2 auf 4 anheben und beide endpunkte der feature speichern:
-                localMap.points.map[j].z += kalmanGainK[(j * 2) + 3, 0];
-                localMap.points.map[j].w += kalmanGainK[(j * 2) + 4, 0];
             }
             //TODO: enlarge the re observed feature by the new feature
         }
@@ -317,9 +293,8 @@ public class SLAMRobot : NetworkBehaviour {
                 jacobianZ[1, 0] = (float) Math.Sin(data.LastPos.heading);
                 jacobianZ[0, 1] = -deltaThrust * jacobianZ[1, 0];
                 jacobianZ[1, 1] = deltaThrust * jacobianZ[0, 0];
-
-                Vector2 center = Geometry.Center(localMap.points.map[i]);
-                float range = (float)Math.Sqrt((center.x - lastPosition.position.x) * (center.x - lastPosition.position.x) + (center.y - lastPosition.position.y) * (center.y - lastPosition.position.y)) + vr;//???
+                
+                float range = (float)Math.Sqrt((localMap.points.map[i].x - lastPosition.position.x) * (localMap.points.map[i].x - lastPosition.position.x) + (localMap.points.map[i].y - lastPosition.position.y) * (localMap.points.map[i].y - lastPosition.position.y)) + vr;//???
                 noiseR[0, 0] = range * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
                 noiseR[1, 1] = 1;//TODO: see above (step 4)
                 //Calculate the landmark covariance:

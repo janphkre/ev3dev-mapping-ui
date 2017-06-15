@@ -2,26 +2,26 @@
 
 public class FeatureCollection {
     //The map is formed out of features. Each feature is a line. x,y form the start of the line, z,w the end of the line. x <= z should be valid.
-    public Vector4[] map;
+    public Vector2[] map;
     public Vector3 end;
     public float radius;
 
     public FeatureCollection(int size) {
-        map = new Vector4[size];
+        map = new Vector2[size];
     }
 
     public FeatureCollection(FeatureCollection otherMap) {
-        map = new Vector4[otherMap.map.Length];
+        map = new Vector2[otherMap.map.Length];
         otherMap.map.CopyTo(map, 0);
     }
 }
 
 public class ObservedFeature {
 
-    public Vector4 feature;
+    public Vector2 feature;
     public int observedCount;
 
-    public ObservedFeature(Vector4 feature) {
+    public ObservedFeature(Vector2 feature) {
         this.feature = feature;
         observedCount = 1;
     }
@@ -35,9 +35,9 @@ public abstract class IFeature {
 }
 
 public class Feature: IFeature {
-    public Vector4 feature;
+    public Vector2 feature;
 
-    public Feature(Vector4 f, RobotPose p, int index) {
+    public Feature(Vector2 f, RobotPose p, int index) {
         feature = f;
         parent = p;
     }
