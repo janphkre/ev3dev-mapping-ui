@@ -74,7 +74,7 @@ public class SLAMRobot : NetworkBehaviour {
         lastPosition.position = Vector3.zero;
         lastPosition.heading = 0.0f;
         lastPosition.timestamp = 0L;
-        localMap = new LocalClientMap(random, MAX_MAP_SIZE);//TODO: add noise to the initial values in the diagonal (should not be one, see the paper p.31)
+        localMap = new LocalClientMap(random, MAX_MAP_SIZE);
         observedFeatures = new List<ObservedFeature>();
 
         jacobianA = new Matrix(3);
@@ -155,7 +155,6 @@ public class SLAMRobot : NetworkBehaviour {
             float minDistance = float.PositiveInfinity;
             for (int j = 0; j < localMap.featureCount; j++) {
                 float distance = Geometry.Distance(landmarks[i], localMap[j]);
-                ///float distance = (float) Math.Sqrt(landmarks[i].x * landmarks[i].x + localMap.points.map[j].x * localMap.points.map[j].x - 2 * landmarks[i].x * localMap.points.map[j].x * Math.Cos(localMap.points.map[j].y - landmarks[i].y));
                 if (distance < minDistance) {
                     minDistance = distance;
                     associatedFeature[i] = j;
@@ -163,7 +162,6 @@ public class SLAMRobot : NetworkBehaviour {
             }
             for (int j = 0; j < observedFeatures.Count; j++) {
                 float distance = Geometry.Distance(landmarks[i], observedFeatures[j].feature);
-                ///float distance = (float)Math.Sqrt(landmarks[i].x * landmarks[i].x + observedFeatures[j].feature.x * observedFeatures[j].feature.x - 2 * landmarks[i].x * observedFeatures[j].feature.x * Math.Cos(observedFeatures[j].feature.y - landmarks[i].y));
                 if (distance < minDistance) {
                     minDistance = distance;
                     associatedFeature[i] = -j-1;
@@ -248,13 +246,11 @@ public class SLAMRobot : NetworkBehaviour {
                 localMap.points.map[j].x += kalmanGainK[(j * 2) + 3, 0];
                 localMap.points.map[j].y += kalmanGainK[(j * 2) + 4, 0];
             }
-            //TODO: enlarge the re observed feature by the new feature
         }
         
         //5 b) New-observation
         for (int i = 0; i < landmarks.Count; i++) {
             if (associatedFeature[i] < 0) {
-                //TODO: enlarge the re observed feature by the new feature
                 //Feature has not been observed more than MINIMUM_OBSERVED_COUNT but at least once
                 int l = -associatedFeature[i] - 1;
                 if (++observedFeatures[l].observedCount > MINIMUM_OBSERVED_COUNT) {
@@ -263,8 +259,6 @@ public class SLAMRobot : NetworkBehaviour {
                         //5 a) If the current local map is full, we will create a new one and send the old to the ISLSJF global map and the server
                         LocalClientMap oldLocalMap = localMap;
                         oldLocalMap.points.end = new Vector3(lastPosition.position.x, lastPosition.position.y, lastPosition.position.z);
-                        //TODO: add sigma to robotPosition (necessary?)
-                        //TODO: is this start correct?
                         StartCoroutine(processLocalMap(oldLocalMap));
                         localMap = new LocalClientMap(random, MAX_MAP_SIZE);
                         observedFeatures.Clear();

@@ -50,7 +50,7 @@ public class GlobalClientMap {
     private System.Random random = new System.Random();
     private List<SparseCovarianceMatrix> localInversedCovarianceCollection = new List<SparseCovarianceMatrix>();//(P^L)^-1
     private List<List<Feature>> localStateCollection = new List<List<Feature>>();
-    private SparseColumn infoVector = new SparseColumn(3);//i(k)
+    private SparseColumn infoVector = new SparseColumn();//i(k)
     public SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
     public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
     public List<IFeature> globalStateVector = new List<IFeature>();//X^G(k)
@@ -120,10 +120,8 @@ public class GlobalClientMap {
             globalStateCollection.Add(globalCollection);
             //Enlarge the info vector, info matrix and cholesky factorization by adding zeros:
             //infoVector is a dictionary, so no enlarging is needed.
-            infoMatrix.Enlarge2(unmatchedLocalFeatures.Count);
-            infoMatrix.Enlarge3();
-            choleskyFactorization.Enlarge2(unmatchedLocalFeatures.Count);
-            choleskyFactorization.Enlarge3();
+            infoMatrix.Enlarge(unmatchedLocalFeatures.Count+1);
+            choleskyFactorization.Enlarge(unmatchedLocalFeatures.Count+1);
             /* * * * * * * * * * * * *
              * 2.3) Update using EIF *
              * * * * * * * * * * * * */
@@ -131,7 +129,7 @@ public class GlobalClientMap {
             SparseCovarianceMatrix localMapInversedCovariance = !localMap.covariance;
             localInversedCovarianceCollection.Add(localMapInversedCovariance);
             computeInfoAddition(globalCollection, localMapInversedCovariance);
-            lastPose = pose;//TODO:move to end eventually
+            lastPose = pose;
             //2.3.2) Reorder the global map state vector when necessary
             minimalDegreeReorder();
             //2.3.3) to 2.4) Cholesky, recover global state estimate and least squares smoothing:
@@ -158,9 +156,9 @@ public class GlobalClientMap {
             start = pose.pose;
         }
         //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
-        SparseColumn q = new SparseColumn(2),
+        SparseColumn q = new SparseColumn(),
                      p;
-        SparseColumn columnVector = new SparseColumn(2);
+        SparseColumn columnVector = new SparseColumn();
         SparseCovarianceMatrix subMatrix = new SparseCovarianceMatrix();
         for (int i = 0; i < prematchedFeatures.Count; i++) {
             columnVector[prematchedFeatures[i]] = new Matrix(2);
@@ -170,7 +168,7 @@ public class GlobalClientMap {
             subMatrix.Add(p);
         }
         //Add the last robot position: 
-        columnVector = new SparseColumn(3);
+        columnVector = new SparseColumn();
         columnVector[lastPose.index] = new Matrix(3);
         //Solve the sparse linear equations:
         solveLowerLeftSparse(choleskyFactorization, out q, columnVector);
@@ -188,7 +186,7 @@ public class GlobalClientMap {
     }
 
     private void solveLowerLeftSparse(SparseTriangularMatrix matrix, out SparseColumn result, SparseColumn rightHandSide) {
-        result = new SparseColumn(3);
+        result = new SparseColumn();
         int size = matrix.ColumnCount();
         for (int i = 0;i < size; i++) {//Rows
             if(matrix[i, i] != null) {
@@ -202,7 +200,7 @@ public class GlobalClientMap {
     }
 
     private void solveUpperRightSparse(SparseTriangularMatrix matrix, out SparseColumn result, SparseColumn rightHandSide) {
-        result = new SparseColumn(3);
+        result = new SparseColumn();
         int size = matrix.ColumnCount();
         for (int i = size - 1; i >= 0; i++) {//Rows
             if (matrix[i, i] != null) {
@@ -249,8 +247,7 @@ public class GlobalClientMap {
 
         SparseMatrix jacobianH = new SparseMatrix();
         //TODO:what are the rows and what are the cols???
-        jacobianH.Enlarge3();
-        jacobianH.Enlarge2(localMapFeatures.Count);
+        jacobianH.Enlarge(localMapFeatures.Count+1);
         //jacobian first three rows:
         Matrix l = new Matrix(3, 3);
         l[0, 0] = (float)-Math.Cos(previousPose.pose.z);
@@ -274,7 +271,7 @@ public class GlobalClientMap {
             Matrix n = new Matrix(2, 3);
             n[0, 0] = l[0, 0];
             n[0, 1] = l[0, 1];
-            n[0, 2] = relativePositionsH.map[i].y;//TODO: zu center umwandeln!
+            n[0, 2] = relativePositionsH.map[i].y;
             n[1, 0] = m[0, 1];
             n[1, 1] = l[0, 0];
             n[1, 2] = -relativePositionsH.map[i].x;
@@ -293,7 +290,7 @@ public class GlobalClientMap {
 
     private SparseColumn computeNoiseW(int localMapSize) {
         //noiseW = w_j = zero mean gaussian "observation noise"
-        SparseColumn noiseW = new SparseColumn(2);
+        SparseColumn noiseW = new SparseColumn();
         Matrix m = new Matrix(3, 3);
         noiseW[0] = m;
         m[0, 0] = RandomExtensions.NextGaussian(random, 0, OBSERVATION_NOISE_SIGMA);
@@ -371,7 +368,7 @@ public class GlobalClientMap {
 
     private void recursiveConverging(int maxIterations) {
         //2.3.3) and 2.4.2) Compute the Cholesky Factorization of I(k+1)
-        choleskyFactorization = computeCholesky();
+        computeCholesky();
         //2.3.4) and 2.4.3) Recover the global map state estimate X^G(k+1)
         SparseColumn y, globalStateVectorNew;
         solveLowerLeftSparse(choleskyFactorization, out y, infoVector);
@@ -400,7 +397,75 @@ public class GlobalClientMap {
         recursiveConverging(maxIterations-1);
     }
 
-    private SparseTriangularMatrix computeCholesky() {
-        throw new NotImplementedException();
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * See http://www.cs.utexas.edu/~pingali/CS378/2011sp/lectures/chol4.pdf *
+     * The Cholesky Factorization                                            *
+     * by Keshav Pingali                                                     *
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+    private void computeCholesky() {
+        choleskyFactorization = new SparseTriangularMatrix();
+        choleskyFactorization.Enlarge(infoMatrix.ColumnCount());
+        IEnumerator<SparseColumn> choleskyEnum = choleskyFactorization.GetColumnEnumerator();
+        choleskyEnum.Reset();
+        int c = 0;
+        foreach (SparseColumn col in infoMatrix.val) {
+            if (!choleskyEnum.MoveNext()) throw new IndexOutOfRangeException();//This should never happen, as we created g with the same column count as this matrix.
+            if (col[c] == null) continue;
+            foreach (KeyValuePair<int, Matrix> pair in col.val) {
+                if (pair.Key < c) continue;
+                choleskyEnum.Current[pair.Key] = pair.Value.Clone();
+            }
+            
+            c++;
+        }
+        choleskyEnum.Reset();
+        c = 0;
+        foreach (SparseColumn col in infoMatrix.val) {
+            if (!choleskyEnum.MoveNext()) throw new IndexOutOfRangeException();//This should never happen, as we created the result with the same column count as this matrix.
+            if (col[c] == null) continue;
+            Matrix choleskyC = choleskyEnum.Current[c];
+            for (int i = 0; i < col[c].sizeX; i++) {
+                //First element in submatrix c in column i (item is on the diagonal of the matrix):
+                for (int k = 0; k < c; k++) {
+                    Matrix choleskyK = choleskyFactorization[k, c];
+                    if (choleskyK != null) for (int j = 0; j < choleskyK.sizeY; j++) choleskyC[i, i] -= choleskyK[j, i] * choleskyK[j, i];
+                }
+                for (int j = 0; j < i; j++) choleskyC[i, i] -= choleskyC[j, i] * choleskyC[j, i];
+                choleskyC[i, i] = (float)Math.Sqrt(choleskyC[i, i]);
+                //No need to continue with the other elements of the column as we would be dividing by zero.
+                if (choleskyC[i, i] == 0.0f) continue;
+                //Other elements j of submatrix c in column i
+                for(int m = i + 1; m < col[c].sizeY; m++) {
+                    for (int l = 0; l < c; l++) {
+                        Matrix choleskyL = choleskyFactorization[l, c];
+                        if (choleskyL != null)
+                            for (int j = 0; j < choleskyL.sizeX; j++) choleskyC[i, m] -= choleskyL[j, m] * choleskyL[j, i];
+                    }
+                    for (int j = 0; j < i; j++) choleskyC[i, m] -= choleskyC[j, m] * choleskyC[j, i];
+                    choleskyC[i, m] /= choleskyC[i, i];
+                }
+                //All elements m of submatrix k in column i
+                for (int k = c + 1; k < infoMatrix.ColumnCount(); k++) {
+                    Matrix choleskyK = choleskyEnum.Current[k];
+                    if (choleskyK == null) {
+                        choleskyK = new Matrix(col[c].sizeX, globalStateVector[c].IsFeature() ? 2 : 3);
+                        choleskyEnum.Current[k] = choleskyK;
+                    }
+                    for (int m = 0; m < choleskyK.sizeY; m++) {
+                        for (int l = 0; l < c; l++) {
+                            Matrix choleskyL = choleskyFactorization[l, c];
+                            Matrix choleskyM = choleskyFactorization[l, k];
+                            if (choleskyL != null && choleskyM != null)
+                                for (int j = 0; j < choleskyL.sizeX; j++) choleskyK[i, m] -= choleskyM[j, m] * choleskyL[j, i];
+                        }
+                        for (int j = 0; j < i; j++) choleskyK[i, m] -= choleskyK[j, m] * choleskyC[j, i];
+                        choleskyK[i, m] /= choleskyC[i, i];
+                    }
+                }
+            }
+            for (int i=c;i< infoMatrix.ColumnCount();i++) if (choleskyEnum.Current[i].IsEmpty()) choleskyEnum.Current.Remove(i);
+            c++;
+        }
+        choleskyEnum.Dispose();
     }
 }
