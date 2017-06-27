@@ -54,7 +54,7 @@ public class GlobalClientMap {
     public SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
     public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
     public List<IFeature> globalStateVector = new List<IFeature>();//X^G(k)
-    private List<List<Feature>> globalStateCollection = new List<List<Feature>>();
+    private List<List<Feature>> globalStateCollection = new List<List<Feature>>();//List of all submaps joined into the global map.
     RobotPose lastPose = RobotPose.zero;
 
     /* * * * * * * * * * * * * * * * * * * * * * * *
@@ -317,9 +317,91 @@ public class GlobalClientMap {
     }
     
     private void minimalDegreeReorder() {
+        //Reorder the information matrix:
+        //Variables:
+        var v = new List<int>();
+        var a = new List<HashSet<int>>();
+        var d = new List<int>();
+        var super = new List<List<int>>();
+        var l = new Dictionary<int, HashSet<int>>();
+        //Elements:
+        var vBar = new HashSet<int>();
+        var e = new List<HashSet<int>>();
+        for (int i = 0; i < globalStateVector.Count; i++) {
+            v.Add(i);
+            var aI = new HashSet<int>();
+            var col = infoMatrix.GetColumn(i).val;
+            foreach(int j in col.Keys) {
+                //For convenience the two/three columns of each column for the coordinates of the robot poses and features are not stripped.
+                if(j != i) aI.Add(j);
+            }
+            a.Add(aI);
+            var eI = new HashSet<int>();
+            e.Add(eI);
+            var superI = new List<int>();
+            superI.Add(i);
+            super.Add(superI);
+        }
+        int k = 0;
+        while (k < globalStateVector.Count) {
+            //Mass elimination:
+            int p = 0;
+            int vP = v[0];
+            for (int i = 1; i < v.Count; i++) {
+                if (d[v[i]] < d[vP]) {
+                    p = i;
+                    vP = v[p];
+                }
+            }
+            var lP = new HashSet<int>();
+            lP.UnionWith(a[p]);
+            foreach (int eP in e[vP]) {
+                HashSet<int> lE = null;
+                if(l.TryGetValue(eP, out lE)) lP.UnionWith(lE);
+            }
+            lP.ExceptWith(super[vP]);
+            lP.TrimExcess();
+            l.Add(vP, lP);
+            foreach(int i in lP) {
+                //Remove redundant entries:
+                a[i].ExceptWith(lP);
+                a[i].ExceptWith(super[vP]);
+                //Element absorption:
+                e[i].ExceptWith(e[vP]);
+                e[i].Add(vP);
+                //Compute External Degree:
+                d[i] = a[i].Count;
+                foreach(int superI in super[i]) {
+                    if (a[i].Contains(superI)) d[i]--;
+                }
+                foreach(int eI in e[i]) {
+                    d[i] += l[eI].Count;
+                    foreach (int superI in super[i]) {
+                        if (l[eI].Contains(superI)) d[i]--;
+                    }
+                }
+            }
+            //Supervariable detection, pairs found:
+            for(int i = 0; i < lP.Count - 1; i++) {
+                HashSet<int> adjI = new HashSet<int>();
+                if(v.Contains(lP[i])) {
+                    //Variable
+                    adjI.UnionWith(a[i]);
+                    adjI.UnionWith(e[i]);
+                } else {
+                    //Element
+
+                }
+                for(int j = i + 1; j < lP.Count; j++) {
+
+                    if(lP[i])
+                }
+            }
+        }
         throw new NotImplementedException();//TODO: ACTUAL AMD REORDERING
         int[] result;
         //Sort the information matrix and the information vector accordingly:
+        //TODO: sort state vector
         HashSet<int> set = new HashSet<int>();
         Dictionary<int, Matrix> dictVector = new Dictionary<int, Matrix>();
         Dictionary<int, List<Matrix>> dictMatrix = new Dictionary<int, List<Matrix>>();
