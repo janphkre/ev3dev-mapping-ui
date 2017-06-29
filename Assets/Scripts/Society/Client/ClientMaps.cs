@@ -315,7 +315,13 @@ public class GlobalClientMap {
         infoMatrixAddition *= jacobianH;
         infoMatrix.Addition(infoMatrixAddition);
     }
-    
+
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * See http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.25.8417 *
+     * An Approximate Minimum Degree Ordering Algorithm                    *
+     * by Rue Camichel Toulouse, P.R. Amestoy, T.A. Davis, I.S. Duff,      *
+     * Patrick Amestoy , Timothy A. Davis , Iain , S. Duff                 *
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
     private void minimalDegreeReorder() {
         //Reorder the information matrix:
         //Variables:
@@ -336,6 +342,7 @@ public class GlobalClientMap {
                 if(j != i) aI.Add(j);
             }
             a.Add(aI);
+            d.Add(0);
             var eI = new HashSet<int>();
             e.Add(eI);
             var superI = new List<int>();
@@ -354,67 +361,124 @@ public class GlobalClientMap {
                 }
             }
             var lP = new HashSet<int>();
-            lP.UnionWith(a[p]);
+            lP.UnionWith(a[vP]);
             foreach (int eP in e[vP]) {
                 HashSet<int> lE = null;
-                if(l.TryGetValue(eP, out lE)) lP.UnionWith(lE);
+                if (l.TryGetValue(eP, out lE)) lP.UnionWith(lE);
             }
             lP.ExceptWith(super[vP]);
             lP.TrimExcess();
-            l.Add(vP, lP);
-            foreach(int i in lP) {
+            l[vP] = lP;
+            int[] w = new int[globalStateVector.Count];
+            for(int i=0;i<w.Length; i++) w[i] = -1;
+            //TODO: make sure that lP only contains SUPERVARIABLES
+            foreach (int i in lP) {
+                foreach(int eI in e[i]) {
+                    if (w[eI] < 0) w[eI] = l[eI].Count;
+                    w[eI] -= super[i].Count;
+                }
+                //Do vP seperately: TODO: is vP actually needed?
+                if (w[vP] < 0) w[vP] = l[vP].Count;
+                w[vP] -= super[i].Count;
+            }
+            //Remove p from v:
+            v.RemoveAt(p);
+            //Agressive elimination:
+            foreach (int i in vBar) {
+                if (w[i] != 0) continue;
+                //Absorb this element from all variables:
+                foreach (int vI in v) {
+                    if(e[vI].Remove(i)) e[vI].Add(vP);
+                }
+            }
+            foreach (int i in lP) {
                 //Remove redundant entries:
                 a[i].ExceptWith(lP);
                 a[i].ExceptWith(super[vP]);
                 //Element absorption:
                 e[i].ExceptWith(e[vP]);
                 e[i].Add(vP);
-                //Compute External Degree:
+                /*//Compute External Degree:
                 d[i] = a[i].Count;
-                foreach(int superI in super[i]) {
+                foreach (int superI in super[i]) {
                     if (a[i].Contains(superI)) d[i]--;
                 }
-                foreach(int eI in e[i]) {
+                foreach (int eI in e[i]) {
                     d[i] += l[eI].Count;
                     foreach (int superI in super[i]) {
                         if (l[eI].Contains(superI)) d[i]--;
                     }
+                }*/
+                //Compute Approximate External Degree:
+                //First minimum:
+                int min = globalStateVector.Count - k;
+                //Second minimum:
+                int lPICount = lP.Count;
+                foreach(int superI in super[i]) {
+                    if (lP.Contains(superI)) lPICount--;
                 }
+                int min2 = d[i] + lPICount;
+                if (min > min2) min = min2;
+                //Third minimum:
+                min2 = a[i].Count;
+                foreach (int superI in super[i]) {
+                    if (a[i].Contains(superI)) min2--;
+                }
+                min2 += lPICount;
+                foreach (int eI in e[i]) {
+                    if (eI == vP) continue;
+                    min2 += w[eI] < 0 ? l[eI].Count : w[eI]; //Is l[eI].Count ever used?
+                }
+                d[i] = min < min2 ? min : min2;
             }
             //Supervariable detection, pairs found:
-            for(int i = 0; i < lP.Count - 1; i++) {
-                HashSet<int> adjI = new HashSet<int>();
-                if(v.Contains(lP[i])) {
-                    //Variable
-                    adjI.UnionWith(a[i]);
-                    adjI.UnionWith(e[i]);
-                } else {
-                    //Element
-
+            var lPArray = new int[lP.Count];
+            lP.CopyTo(lPArray);
+            HashSet<int> adjI = new HashSet<int>();
+            adjI.UnionWith(a[lPArray[0]]);
+            adjI.UnionWith(e[lPArray[0]]);
+            //TODO: Maybe superI & superJ have to be added.
+            adjI.Add(lPArray[0]);
+            for (int i = 0; i < lPArray.Length; i++) {
+                HashSet<int> adjJ = new HashSet<int>();
+                for(int j = lP.Count - 1; j > i; j--) {
+                    adjJ.UnionWith(a[lPArray[j]]);
+                    adjJ.UnionWith(e[lPArray[j]]);
+                    adjJ.Add(lPArray[j]);
+                    if (adjI.SetEquals(adjJ)) {
+                        //Remove the supervariable j:
+                        super[i].AddRange(super[j]);
+                        d[lPArray[i]] -= super[j].Count;
+                        super[j].Clear();
+                        v.Remove(lPArray[j]);
+                        a[lPArray[j]].Clear();
+                        e[lPArray[j]].Clear();
+                    }
+                    adjJ.Clear();
                 }
-                for(int j = i + 1; j < lP.Count; j++) {
-
-                    if(lP[i])
-                }
+                adjI = adjJ;
             }
+            //Convert variable p to elemnt p:
+            vBar.Add(vP);
+            
+            a[vP].Clear();
+            e[vP].Clear();
+            k += super[vP].Count;
         }
-        throw new NotImplementedException();//TODO: ACTUAL AMD REORDERING
-        int[] result;
         //Sort the information matrix and the information vector accordingly:
         //TODO: sort state vector
         HashSet<int> set = new HashSet<int>();
         Dictionary<int, Matrix> dictVector = new Dictionary<int, Matrix>();
-        Dictionary<int, List<Matrix>> dictMatrix = new Dictionary<int, List<Matrix>>();
+        Dictionary<int, IFeature> dictState = new Dictionary<int, IFeature>();
+        //Dictionary<int, List<Matrix>> dictMatrix = new Dictionary<int, List<Matrix>>();
         Matrix m;
-        for (int i = 0; i < result.Length; i++) {
+        for (int i = 0; i < vBar.Count; i++) {
             if (!set.Contains(i)) {
-                //The i-th item was not used before: store it in dictData
+                //The i-th item was not used before; Store it in dictionary:
                 set.Add(i);
                 dictVector.Add(i, infoVector[i]);
                 List<Matrix> list = new List<Matrix>();
-                SparseColumn col = infoMatrix.GetColumn(i);
-                for (int j = 0; j < result.Length; j++) list.Add(col[j]);
-                dictMatrix.Add(i, list);
+                
             }
             if (set.Contains(result[i])) {
                 //The result item can be found in the dictionary (old sorting):
@@ -483,6 +547,9 @@ public class GlobalClientMap {
      * See http://www.cs.utexas.edu/~pingali/CS378/2011sp/lectures/chol4.pdf *
      * The Cholesky Factorization                                            *
      * by Keshav Pingali                                                     *
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * Matrix Computations, 4th Edition                                      *
+     * by Gene H. Golub & Charles F. Van Loan                                *
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
     private void computeCholesky() {
         choleskyFactorization = new SparseTriangularMatrix();
