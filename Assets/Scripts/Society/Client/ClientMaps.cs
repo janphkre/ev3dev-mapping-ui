@@ -331,7 +331,7 @@ public class GlobalClientMap {
         var super = new List<List<int>>();
         var l = new Dictionary<int, HashSet<int>>();
         //Elements:
-        var vBar = new HashSet<int>();
+        var vBar = new List<int>();
         var e = new List<HashSet<int>>();
         for (int i = 0; i < globalStateVector.Count; i++) {
             v.Add(i);
@@ -466,47 +466,60 @@ public class GlobalClientMap {
             k += super[vP].Count;
         }
         //Sort the information matrix and the information vector accordingly:
-        //TODO: sort state vector
         HashSet<int> set = new HashSet<int>();
         Dictionary<int, Matrix> dictVector = new Dictionary<int, Matrix>();
         Dictionary<int, IFeature> dictState = new Dictionary<int, IFeature>();
-        //Dictionary<int, List<Matrix>> dictMatrix = new Dictionary<int, List<Matrix>>();
+        Dictionary<int, List<Matrix>> dictMatrix = new Dictionary<int, List<Matrix>>();
         Matrix m;
+        var result = vBar.GetEnumerator();
         for (int i = 0; i < vBar.Count; i++) {
+            result.MoveNext();
             if (!set.Contains(i)) {
                 //The i-th item was not used before; Store it in dictionary:
                 set.Add(i);
                 dictVector.Add(i, infoVector[i]);
+                dictState.Add(i, globalStateVector[i]);
                 List<Matrix> list = new List<Matrix>();
                 
             }
-            if (set.Contains(result[i])) {
+            if (set.Contains(result.Current)) {
                 //The result item can be found in the dictionary (old sorting):
-                infoVector[i] = dictVector[result[i]];
-                for (int j = 0; j < result.Length; j++) {
-                    if ((i > j && result[i] < result[j]) || (i < j && result[i] > result[j])) {
+                infoVector[i] = dictVector[result.Current];
+                var state = dictState[result.Current];
+                state.index = i;
+                globalStateVector[i] = state;
+                int j = 0;
+                foreach (int resJ in vBar) {
+                    if ((i > j && result.Current < resJ) || (i < j && result.Current > resJ)) {
                         //The matrix field has to be flipped from the (old) matrix:
-                        if (set.Contains(result[j])) m = dictMatrix[result[j]][result[i]];
-                        else m = infoMatrix[result[j], result[i]];
+                        if (set.Contains(resJ)) m = dictMatrix[resJ][result.Current];
+                        else m = infoMatrix[resJ, result.Current];
                         if (m != null) infoMatrix[i, j] = ~m;
                     } else {
-                        m = dictMatrix[result[i]][result[j]];
+                        m = dictMatrix[result.Current][resJ];
                         if (m != null) infoMatrix[i, j] = m;
                     }
+                    j++;
                 }
             } else {
                 //The result item can not be found in the dictionary:
-                infoVector[i] = infoVector[result[i]];
-                for (int j = 0; j < result.Length; j++) {
-                    if ((i > j && result[i] < result[j]) || (i < j && result[i] > result[j])) {
+                set.Add(result.Current);
+                infoVector[i] = infoVector[result.Current];
+                var state = globalStateVector[result.Current];
+                state.index = i;
+                globalStateVector[i] = state;
+                int j = 0;
+                foreach (int resJ in vBar) {
+                    if ((i > j && result.Current < resJ) || (i < j && result.Current > resJ)) {
                         //The matrix field has to be flipped from the (old) matrix:
-                        if (set.Contains(result[j])) m = dictMatrix[result[j]][result[i]];
-                        else m = infoMatrix[result[j], result[i]];
+                        if (set.Contains(resJ)) m = dictMatrix[resJ][result.Current];
+                        else m = infoMatrix[resJ, result.Current];
                         if (m != null) infoMatrix[i, j] = ~m;
                     } else {
-                        m = infoMatrix[result[i], result[j]];
+                        m = infoMatrix[result.Current, resJ];
                         if (m != null) infoMatrix[i, j] = m;
                     }
+                    j++;
                 }
             }
         }
