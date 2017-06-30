@@ -46,6 +46,7 @@ public class GlobalClientMap {
     public const float OBSERVATION_NOISE_SIGMA = 1f;
     public const float CHANGE_OF_ESTIMATE_CUTOFF = 1f;
     public const int MAX_SMOOTHING_ITERATIONS = 10;
+    public const int REORDERING_FREQUENCY = 100; // Reorders every REORDERING_FREQUENCY-th iteration
 
     private System.Random random = new System.Random();
     private List<SparseCovarianceMatrix> localInversedCovarianceCollection = new List<SparseCovarianceMatrix>();//(P^L)^-1
@@ -55,7 +56,9 @@ public class GlobalClientMap {
     public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
     public List<IFeature> globalStateVector = new List<IFeature>();//X^G(k)
     private List<List<Feature>> globalStateCollection = new List<List<Feature>>();//List of all submaps joined into the global map.
-    RobotPose lastPose = RobotPose.zero;
+    private RobotPose lastPose = RobotPose.zero;
+    private int reorderCounter = 1;
+    private bool reorderOverride = false;
 
     /* * * * * * * * * * * * * * * * * * * * * * * *
 * Algorithm 1 & 2 of Iterated SLSJF.          *
@@ -130,8 +133,17 @@ public class GlobalClientMap {
             localInversedCovarianceCollection.Add(localMapInversedCovariance);
             computeInfoAddition(globalCollection, localMapInversedCovariance);
             lastPose = pose;
-            //2.3.2) Reorder the global map state vector when necessary
-            minimalDegreeReorder();
+            //2.3.2) Reorder the global map state vector every 100 steps or after closing large loops
+            if (reorderOverride) {
+                reorderOverride = false;
+                reorderCounter = 0;
+                minimalDegreeReorder();
+            } else {
+                reorderCounter = (reorderCounter + 1) % REORDERING_FREQUENCY;
+                if (reorderCounter == 0) {
+                    minimalDegreeReorder();
+                }
+            }
             //2.3.3) to 2.4) Cholesky, recover global state estimate and least squares smoothing:
             recursiveConverging(MAX_SMOOTHING_ITERATIONS);
         }
@@ -179,6 +191,7 @@ public class GlobalClientMap {
         //2.1.4) Nearest Neighbor or Joint Compatibility Test method to find the match:
         //TODO: estimationError überarbeiten: Muss sich aus den local maps ergeben
         if (estimationError >= ESTIMATION_ERROR_CUTOFF) {
+            reorderOverride = true;//Reorder the info matrix, info vector and global state vector after this step!
             return pairDrivenGlobalLocalization(localMap, subMatrix, out unmatchedLocalFeatures, out matchedGlobalFeatures, prematchedFeatures);
         } else {
             return jointCompatibilityTest(localMap, subMatrix, out unmatchedLocalFeatures, out matchedGlobalFeatures, prematchedFeatures);
