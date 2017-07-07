@@ -21,7 +21,18 @@ class Geometry {
         return max;
     }
 
+    //Feature is rotated around end by z (z should be degrees)
     public static Vector2 Rotate(Vector2 feature, Vector2 end, float z) {
+        throw new NotImplementedException();
+    }
+
+    //Returns the range and bearing form the robot to the feature.
+    public static Vector2 ToRangeBearing(Vector2 feat, Vector3 origin) {
+        throw new NotImplementedException();
+    }
+
+    //Returns the position of the feature from the range and bearing. (Converting polar coordinates to carthesic coordinates)
+    public static Vector2 FromRangeBearing(float posRange, float posBearing) {
         throw new NotImplementedException();
     }
 }

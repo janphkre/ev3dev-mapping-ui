@@ -258,7 +258,7 @@ public class SLAMRobot : NetworkBehaviour {
                     if (localMap.featureCount >= MAX_MAP_SIZE) {
                         //5 a) If the current local map is full, we will create a new one and send the old to the ISLSJF global map and the server
                         LocalClientMap oldLocalMap = localMap;
-                        oldLocalMap.points.end = new Vector3(lastPosition.position.x, lastPosition.position.y, lastPosition.position.z);
+                        oldLocalMap.points.end = new Vector3(lastPosition.position.x, lastPosition.position.y, lastPosition.heading);
                         StartCoroutine(processLocalMap(oldLocalMap));
                         localMap = new LocalClientMap(random, MAX_MAP_SIZE);
                         observedFeatures.Clear();

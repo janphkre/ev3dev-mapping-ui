@@ -398,8 +398,9 @@ public class SparseColumn {
     }
 
     public void Addition(SparseColumn addition) {
-        //TODO
-        throw new NotImplementedException();
+        foreach(KeyValuePair<int, Matrix> pair in addition.val) {
+            val[pair.Key] += pair.Value;
+        }
     }
 
     public static SparseColumn operator +(SparseColumn a, SparseColumn b) {
