@@ -96,16 +96,15 @@ public class GlobalClientMap {
             List<int> unmatchedLocalFeatures;
             List<int> matchedGlobalFeatures;
             Vector3 match = DataAssociaton(localMap, out unmatchedLocalFeatures, out matchedGlobalFeatures);
-            /* * * * * * * * * * * * * * * * *
-             * 2.2) Initialization using EIF *
-             * * * * * * * * * * * * * * * * */
             if (unmatchedLocalFeatures.Count == 0) return;//The local map does not contain any new information so we can quit at this point.
             //TODO:(Is this true?)
             gridUncertanity += GRID_GROWTH;
-            
+            /* * * * * * * * * * * * * * * * *
+             * 2.2) Initialization using EIF *
+             * * * * * * * * * * * * * * * * */
+            Vector3 localMatchOffset = new Vector3(match.x - localMap.points.end.x, match.y - localMap.points.end.y, match.z - localMap.points.end.z);
             //Calculate the global positions of all unmatched features
-            localMap.points.end = new Vector3(localMap.points.end.x + match.x, localMap.points.end.y + match.y, localMap.points.end.z + match.z);
-            RobotPose pose = new RobotPose(localMap.points.end, lastPose, localMap.points.radius);
+            RobotPose pose = new RobotPose(match, lastPose, localMap.points.radius);
             List<Feature> localCollection = new List<Feature>();
             List<Feature> globalCollection = new List<Feature>();
             int j = 0,
@@ -113,9 +112,9 @@ public class GlobalClientMap {
             for (int i = 0; i < localMap.featureCount; i++) {
                 if (i == unmatchedLocalFeatures[j]) {
                     //Move first, rotate second: rotation happens around the moved end pose
-                    localMap.points.map[unmatchedLocalFeatures[j]].x += match.x;
-                    localMap.points.map[unmatchedLocalFeatures[j]].y += match.y;
-                    Feature feat = new Feature(Geometry.Rotate(localMap.points.map[unmatchedLocalFeatures[j++]], localMap.points.end, match.z), pose, globalStateVector.Count);
+                    localMap.points.map[unmatchedLocalFeatures[j]].x += localMatchOffset.x;
+                    localMap.points.map[unmatchedLocalFeatures[j]].y += localMatchOffset.y;
+                    Feature feat = new Feature(Geometry.Rotate(localMap.points.map[unmatchedLocalFeatures[j++]], match, localMatchOffset.z), pose, globalStateVector.Count);
                     globalStateVector.Add(feat);
                     localCollection.Add(feat);
                     globalCollection.Add(feat);
@@ -157,9 +156,9 @@ public class GlobalClientMap {
     }
 
     private Vector3 DataAssociaton(LocalClientMap localMap, out List<int> unmatchedLocalFeatures, out List<int> matchedGlobalFeatures) {
-        List<int> prematchedFeatures = new List<int>();
+        var prematchedFeatures = new HashSet<int>();
         float estimatedRadius = localMap.points.radius + estimationError;
-        Vector3 start = Vector3.zero;
+        var start = Vector3.zero;
         //2.1.1) Determine the set of potentially overlapping local maps:
         foreach (List<Feature> collection in globalStateCollection) {
             RobotPose pose = collection[0].ParentPose();
@@ -178,17 +177,17 @@ public class GlobalClientMap {
         if (estimationError >= ESTIMATION_ERROR_CUTOFF) {
             reorderOverride = true;//Reorder the info matrix, info vector and global state vector after this step!
             //2.1.4) Pair Driven Localization to find the match:
-            return pairDrivenGlobalLocalization(localMap, out unmatchedLocalFeatures, out matchedGlobalFeatures, prematchedFeatures);
+            return pairDrivenGlobalLocalization(localMap, prematchedFeatures, out unmatchedLocalFeatures, out matchedGlobalFeatures);
         } else {
             //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
             SparseColumn q = new SparseColumn(),
                          p;
             SparseColumn columnVector = new SparseColumn();
             SparseCovarianceMatrix subMatrix = new SparseCovarianceMatrix();
-            for (int i = 0; i < prematchedFeatures.Count; i++) {
-                columnVector[prematchedFeatures[i]] = new Matrix(2);
+            foreach (int feature in prematchedFeatures) {
+                columnVector[feature] = new Matrix(2);
                 solveLowerLeftSparse(choleskyFactorization, out q, columnVector);
-                columnVector.Remove(prematchedFeatures[i]);
+                columnVector.Remove(feature);
                 solveUpperRightSparse(choleskyFactorization, out p, q);
                 subMatrix.Add(p);
             }
@@ -201,8 +200,8 @@ public class GlobalClientMap {
             subMatrix.Add(p);
             //Remove the unneeded rows from the submatrix:
             subMatrix.Trim(prematchedFeatures, globalStateVector.Count);
-            //2.1.4) Joint Compatibility Test method to find the match:
-            return jointCompatibilityTest(localMap, subMatrix, out unmatchedLocalFeatures, out matchedGlobalFeatures, prematchedFeatures);
+            //2.1.4) Nearest Neighbor to find the match:
+            return nearestNeighbor(localMap, subMatrix, prematchedFeatures, out unmatchedLocalFeatures, out matchedGlobalFeatures);
         }
     }
 
@@ -240,21 +239,58 @@ public class GlobalClientMap {
      * Data Association in Stochastic Mapping Using the Joint Compatibility Test *
      * by Jose Neira, Juan D. Tardos                                             *
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-    private Vector3 jointCompatibilityTest(LocalClientMap localMap, SparseCovarianceMatrix subMatrix, out List<int> unmatchedLocalFeatures, out List<int> matchedGlobalFeatures, List<int> prematchedFeatures) {
+    //As the actual sensor input is already filter by RANSAC and an reobservation gate, nearest neighbor should be good enough to find the match between global frame and local frame.
+    private Vector3 nearestNeighbor(LocalClientMap localMap, SparseCovarianceMatrix subMatrix, HashSet<int> prematchedFeatures, out List<int> unmatchedLocalFeatures, out List<int> matchedGlobalFeatures) {
         unmatchedLocalFeatures = new List<int>();
         matchedGlobalFeatures = new List<int>();
-        throw new NotImplementedException();
+        Vector3 match = new Vector3();
+        Vector3 measurementPose = lastPose.pose + localMap.points.end;
+        for (int i = 0; i < localMap.points.map.Length; i++) {
+            var measurementRB = Geometry.ToRangeBearing(localMap.points.map[i], localMap.points.end);
+            var measurementTranslated = Geometry.FromRangeBearing(measurementRB.x, measurementRB.y, measurementPose + match);
+            float minimumDistance = float.MaxValue;
+            int minimumFeature = -1;
+            foreach (int f in prematchedFeatures) {
+                var feature = ((Feature) globalStateVector[f]).feature;
+                var currentDistance = Geometry.MahalanobisDistance(measurementTranslated, feature);
+                if (currentDistance < minimumDistance) {
+                    minimumDistance = currentDistance;
+                    minimumFeature = f;
+                }
+            }
+            if(minimumFeature == -1) unmatchedLocalFeatures.Add(i);
+            else {
+                matchedGlobalFeatures.Add(minimumFeature);
+                prematchedFeatures.Remove(minimumFeature);
+                //Update the match:
+                var feature = ((Feature)globalStateVector[minimumFeature]).feature;
+                var featureRB = Geometry.ToRangeBearing(feature, measurementPose + match);
+                float factor = 1.0f;
+                if (i > 0) {
+                    match *= i;
+                    factor /= (i + 1.0f);
+                }
+                match.z += featureRB.y - measurementRB.y;
+                feature = Geometry.FromRangeBearing(featureRB.x, measurementRB.y);
+                match.x += feature.x - measurementTranslated.x;
+                match.y += feature.y - measurementTranslated.y;
+                match *= factor;
+                //TODO: is this calculation of the match correct?
+            }
+        }
+        //TODO: eventually reconsider matched features
+        return measurementPose + match;
     }
 
     //Internal class for the pair driven global localization.
-    private class Vote {
+    private class PairingVote {
         internal int votes;
         internal float bearing;
         internal HashSet<int> matchedLocalFeatures;
         internal HashSet<int> matchedGlobalFeatures;
         internal Dictionary<int, int> matches;
 
-        internal Vote(float bearing) {
+        internal PairingVote(float bearing) {
             votes = 1;
             this.bearing = bearing;
             matchedLocalFeatures = new HashSet<int>();
@@ -268,40 +304,42 @@ public class GlobalClientMap {
      * Global Localization in SLAM in Bilinear Time                        *
      * by Lina M. Paz, Pedro Pinies, Jose Neira, Juan D. Tardos            *
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-    private Vector3 pairDrivenGlobalLocalization(LocalClientMap localMap, out List<int> unmatchedLocalFeatures, out List<int> matchedGlobalFeatures, List<int> prematchedFeatures) {
+    private Vector3 pairDrivenGlobalLocalization(LocalClientMap localMap, HashSet<int> prematchedFeatures, out List<int> unmatchedLocalFeatures, out List<int> matchedGlobalFeatures) {
         int size = ((localMap.points.radius + estimationError) * gridUncertanity) / GRID_SAMPLING_RATE;
         int halfSize = size / 2;
         var gridSamples = new Vector2[size, size];
-        var votes = new Dictionary<int, Dictionary<int, Vote>>();
+        var votes = new Dictionary<int, Dictionary<int, PairingVote>>();
         int j = 0;
-        foreach(Vector2 measurement in localMap.points.map) {
+        float gridOffsetX = lastPose.pose.x + localMap.points.end.x;
+        float gridOffsetY = lastPose.pose.y + localMap.points.end.y;
+        foreach (Vector2 measurement in localMap.points.map) {
             var measurementRB = Geometry.ToRangeBearing(measurement, localMap.points.end);
             foreach(int feature in prematchedFeatures) {
                 var f = ((Feature) globalStateVector[feature]).feature;
-                for(float g = 0.0f; g < 360f; g+= PAIR_DRIVEN_G_STEP) {
+                for(float g = 0.0f; g < 360f; g+= PAIR_DRIVEN_G_STEP) { //TODO: Add PAIR_DRIVEN_G_RANGE to not check the whole 360 degrees around each feature. 
                     var i = Geometry.FromRangeBearing(measurementRB.x, measurementRB.y + g);
                     var hypothesis = new Vector2(f.x - i.y, f.y - i.y);
-                    int gridX = (int) ((hypothesis.x - lastPose.pose.x) * size / GRID_SAMPLING_RATE) + halfSize;
-                    int gridY = (int) ((hypothesis.y - lastPose.pose.y) * size / GRID_SAMPLING_RATE) + halfSize;
+                    int gridX = (int) ((hypothesis.x - gridOffsetX) * size / GRID_SAMPLING_RATE) + halfSize;
+                    int gridY = (int) ((hypothesis.y - gridOffsetY) * size / GRID_SAMPLING_RATE) + halfSize;
                     if (gridX < 0) gridX = 0;
                     else if (gridX >= size) gridX = size - 1;
                     if (gridY < 0) gridY = 0;
                     else if (gridY >= size) gridY = size - 1;//TODO: This means that the grid sampling space is possibly too small.
-                    Dictionary<int, Vote> votesX;
-                    Vote votesY;
+                    Dictionary<int, PairingVote> votesX;
+                    PairingVote votesY;
                     if(!votes.TryGetValue(gridX,out votesX)) {
-                        votesX = new Dictionary<int, Vote>();
+                        votesX = new Dictionary<int, PairingVote>();
                         votes.Add(gridX, votesX);
-                        votesY = new Vote(g);
+                        votesY = new PairingVote(g);
                         votesX[gridY] = votesY;
                     } else {
                         if (!votesX.TryGetValue(gridY, out votesY)) {
-                            votesY = new Vote(g);
+                            votesY = new PairingVote(g);
                             votesX[gridY] = votesY;
 
                         } else {
                             if (votesY.matchedLocalFeatures.Contains(j) || votesY.matchedGlobalFeatures.Contains(feature))//TODO: remove eventually alongside Vote.matchedGlobalFeatures
-                                throw new Exception("Either a feature or a measurement have already been used for this grid sample?"); 
+                                throw new Exception("Either a feature or a measurement has already been used for this grid sample?"); 
                             votesY.votes++;
                         }
                     }
@@ -315,15 +353,14 @@ public class GlobalClientMap {
         //Find the match as the grid sample with the highest votes:
         int maxX = 0,
             maxY = 0;
-        Vote vote = new Vote(float.NaN);
+        PairingVote vote = new PairingVote(float.NaN);
         vote.votes = 0;
-        foreach(KeyValuePair<int, Dictionary<int, Vote>> pairX in votes) {
-            foreach(KeyValuePair<int, Vote> pairY in pairX.Value) {
+        foreach(KeyValuePair<int, Dictionary<int, PairingVote>> pairX in votes) {
+            foreach(KeyValuePair<int, PairingVote> pairY in pairX.Value) {
                 if(vote.votes < pairY.Value.votes) {
                     maxX = pairX.Key;
                     maxY = pairY.Key;
                     vote = pairY.Value;
-                    
                 }
             }
         }
@@ -334,7 +371,8 @@ public class GlobalClientMap {
             if(vote.matchedLocalFeatures.Contains(i)) matchedGlobalFeatures.Add(vote.matches[i]);
             else unmatchedLocalFeatures.Add(i);
         }
-        return new Vector3((maxX - halfSize) * GRID_SAMPLING_RATE + lastPose.pose.x, (maxY - halfSize) * GRID_SAMPLING_RATE + lastPose.pose.y, vote.bearing / vote.votes);
+        //Transform match to proper values and return:
+        return new Vector3((maxX - halfSize) * GRID_SAMPLING_RATE + gridOffsetX, (maxY - halfSize) * GRID_SAMPLING_RATE + gridOffsetY, (vote.bearing / vote.votes));
     }
 
     private SparseMatrix computeJacobianH(List<Feature> localMapFeatures) {

@@ -559,9 +559,9 @@ public class SparseCovarianceMatrix {
     }
 
     //KeepRows must be sorted!
-    public void Trim(List<int> keepRows, int size) {
+    public void Trim(HashSet<int> keepRows, int size) {
         foreach (SparseColumn col in val) {
-            List<int>.Enumerator enumerator = keepRows.GetEnumerator();
+            var enumerator = keepRows.GetEnumerator();
             if (!enumerator.MoveNext()) throw new ArgumentException("keepRows is empty");
             int j = 0;
             for (int i = 0; i < size - 1; i++) {
