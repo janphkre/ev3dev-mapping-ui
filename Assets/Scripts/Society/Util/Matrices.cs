@@ -538,10 +538,6 @@ public class SparseCovarianceMatrix {
         set { val[i][j] = value; }
     }
 
-    public SparseColumn GetRow(int i) {
-        throw new NotImplementedException();
-    }
-
     public SparseColumn GetColumn(int i) {
         return val[i];
     }

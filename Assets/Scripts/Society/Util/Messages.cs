@@ -2,7 +2,7 @@
 using UnityEngine.Networking;
 
 public enum MessageType {
-    LocalClientMap,
+    //LocalClientMap,
     GlobalClientMap,
     Quit
 };

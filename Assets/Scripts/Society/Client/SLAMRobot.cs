@@ -33,10 +33,6 @@ public class SLAMInputData {
 
 public class SLAMRobot : NetworkBehaviour {
 
-    private const int RANSAC_TRIALS = 5;
-    private const float RANSAC_INITIAL = 0.015f;
-    private const float RANSAC_DISTANCE = 0.01f;
-    private const float RANSAC_MIN_FOUND = RANSAC_INITIAL * 2f;
     private const int MAX_MAP_SIZE = 32;
     //private const float VALIDATION_LAMBDA = ???;
     private const float MAX_VALIDATION_INNOVATION = 0.01f;//meters
@@ -49,6 +45,7 @@ public class SLAMRobot : NetworkBehaviour {
 
     private System.Random random;
     private Queue<SLAMInputData> input;
+    private RANSAC ransac;
 
     private PositionData lastPosition;
     private LocalClientMap localMap;
@@ -69,7 +66,7 @@ public class SLAMRobot : NetworkBehaviour {
 
         random = new System.Random();
         input = new Queue<SLAMInputData>();
-
+        ransac = new RANSAC();
         lastPosition = new PositionData();
         lastPosition.position = Vector3.zero;
         lastPosition.heading = 0.0f;
@@ -98,55 +95,8 @@ public class SLAMRobot : NetworkBehaviour {
         }
         if (data.Readings.Length == 0) return;
         //1) Landmark Extraction: RANSAC
-        //Each landmark is made out of two two dimensional vectors. These two vectors are put into one four dimensional vector: [x, y] for the start of the obstacle and [z, w] for the end. As x <= z is ensured we can safe a comparison when merging obstacles.
-        List<Vector2> landmarks = new List<Vector2>();
-        Vector3[] unmatchedReadings = new Vector3[data.Readings.Length];
-        int unmatchedCount = data.Readings.Length;
-        data.Readings.CopyTo(unmatchedReadings, 0);
-        int trials = 0;
-        int additionalSide = (int)((data.Readings.Length * RANSAC_INITIAL - 1f) / 2f);
-        if (additionalSide == 0) additionalSide++;
-        while (unmatchedCount > Math.Ceiling(RANSAC_MIN_FOUND * data.Readings.Length) && RANSAC_TRIALS > trials++) {
-            int sampleStart = (random.Next(unmatchedCount)),
-                sampleEnd; //assuming that the samples are ordered;
-            if (sampleStart + additionalSide >= unmatchedCount) {
-                sampleEnd = input.Count - 1;
-                sampleStart = sampleEnd - 2 * additionalSide;
-            } else if (sampleStart - additionalSide < 0) {
-                sampleStart = 0;
-                sampleEnd = 2 * additionalSide;
-            } else {
-                sampleEnd = sampleStart + additionalSide;
-                sampleStart -= additionalSide;
-            }
-            //Please note that this least squares is not robust against y-parallel lines? Is this still true with the changes applied? At least the x-coordinate sorting is useless in this case.
-            LeastSquares.Linear leastSquares = new LeastSquares.Linear(Range(unmatchedReadings, sampleStart, sampleEnd - sampleStart));
-            List<Vector3> matchedReadings = new List<Vector3>();
-            List<int> matchedIndexes = new List<int>();
-            for (int i = 0; i < unmatchedCount; i++) {
-                float distance1 = Vector3.Cross(leastSquares.Slope, unmatchedReadings[i] - leastSquares.Average).magnitude;
-                float distance2 = Vector3.Cross(-leastSquares.Slope, unmatchedReadings[i] - leastSquares.Average).magnitude;//Necessary?
-                if (distance1 < RANSAC_DISTANCE || distance2 < RANSAC_DISTANCE) {
-                    matchedReadings.Add(unmatchedReadings[i]);
-                    matchedIndexes.Add(i);
-                }
-            }
-            if (matchedReadings.Count > Math.Ceiling(RANSAC_MIN_FOUND * data.Readings.Length)) {
-                //Consensus that points form a line
-                leastSquares = new LeastSquares.Linear(matchedReadings);
-                //A second ray is formed that is orthogonal to the least squares ray and calculate the landmark as the point closest to (0, 0) on the least squres ray.
-                Vector3 point = Vector3.Dot(-leastSquares.Ray.origin, leastSquares.Ray.direction) * leastSquares.Ray.direction + leastSquares.Ray.origin;
-                landmarks.Add(new Vector2(point.x, point.z));
-                //Remove matched readings from the unmatched readings array:
-                Vector3[] oldUnmatched = unmatchedReadings;
-                unmatchedReadings = new Vector3[unmatchedCount - matchedIndexes.Count];
-                for (int i = 0, j = 0; i < unmatchedReadings.Length; j++) {
-                    if (!matchedIndexes.Contains(j)) unmatchedReadings[i++] = oldUnmatched[j];
-                }
-            }
-        }
-        //TODO: DISPLAY LINES? -> matchedReadings or unmatchedReadings in another color
-
+        var landmarks = ransac.FindCorners(data.Readings);
+        //TODO: DISPLAY CORNERS?
         //2) Data Association
         //Find the nearest neighbor in the localMap to the extracted landmarks:
         int[] associatedFeature = new int[landmarks.Count];
@@ -171,17 +121,15 @@ public class SLAMRobot : NetworkBehaviour {
         //Validation:
         for (int i = 0; i < landmarks.Count; i++) {
             if (associatedFeature[i] != MAX_MAP_SIZE) {
-                /*NOT TRUE ANYMORE: each feature in the database may only be associated to one new feature
-                for (int j = i; j < landmarks.Length; j++) {
+                //Each feature in the database may only be associated to one new feature.
+                for (int j = i + 1; j < landmarks.Count; j++) {
                     if (associatedFeature[i] == associatedFeature[j]) {
                         associatedFeature[i] = MAX_MAP_SIZE+1;
                         break;
                     }
-                }*/
+                }
                 //-Lambda Formula / EKF Uncertainty
                 //TODO!
-                //float innovation = Vector2.Distance(landmarks[i], localMap.points.map[associatedFeature[i]]);
-                //if (~innovation * !covariance * innovation > VALIDATION_LAMBDA) associatedFeature[i] = MAX_MAP_SIZE;
                 if (associatedFeature[i] > 0) { if (Geometry.Distance(landmarks[i], localMap.points.map[associatedFeature[i]]) > MAX_VALIDATION_INNOVATION) associatedFeature[i] = MAX_MAP_SIZE; }
                 else if (Geometry.Distance(landmarks[i], observedFeatures[-associatedFeature[i]-1].feature) > MAX_VALIDATION_INNOVATION) associatedFeature[i] = MAX_MAP_SIZE;
             }
@@ -307,7 +255,7 @@ public class SLAMRobot : NetworkBehaviour {
 
     private IEnumerator<LocalClientMap> processLocalMap(LocalClientMap oldLocalMap) {
         oldLocalMap.points.radius = Geometry.Radius(oldLocalMap.points.end, oldLocalMap.points.map);
-        NetworkManager.singleton.client.SendUnreliable((short)MessageType.LocalClientMap, oldLocalMap);
+        //NetworkManager.singleton.client.SendUnreliable((short)MessageType.LocalClientMap, oldLocalMap);
         globalMap.ConsumeLocalMap(oldLocalMap);
         yield return null;
     }
@@ -322,11 +270,5 @@ public class SLAMRobot : NetworkBehaviour {
 
     public void PostOdometryAndReadings(SLAMInputData data) {
         lock(input) input.Enqueue(data);
-    }
-
-    public static Vector3[] Range(Vector3[] a, int start, int count) {
-        Vector3[] result = new Vector3[count];
-        for (int i = 0; i < count; i++) result[i] = a[start + i];
-        return result;
     }
 }
