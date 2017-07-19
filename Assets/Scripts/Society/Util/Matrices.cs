@@ -645,4 +645,33 @@ public class SparseTriangularMatrix {
     public IEnumerator<SparseColumn> GetColumnEnumerator() {
         return val.GetEnumerator();
     }
+
+    public SparseColumn solveLowerLeftSparse(SparseColumn rightHandSide) {
+        SparseColumn result = new SparseColumn();
+        for (int i = 0; i < val.Count; i++) {//Rows
+            if (this[i, i] != null) {
+                Matrix m = rightHandSide[i];
+                for (int j = 0; j < i; j++) {//Columns
+                    m -= this[j, i] * result[j];
+                }
+                if (m != null) result[i] = m * !this[i, i];
+            }
+        }
+        return result;
+    }
+
+    public SparseColumn solveUpperRightSparse(SparseColumn rightHandSide) {
+        SparseColumn result = new SparseColumn();
+        for (int i = val.Count - 1; i >= 0; i++) {//Rows
+            if (this[i, i] != null) {
+                Matrix m = rightHandSide[i];
+                for (int j = val.Count - 1; j < i; j++) {//Columns
+                    //TODO:If we just switch rows and cols in the matrix here we do not have to translate it.(right?)Could this be made faster by accessing the dictionary-key-enumerator directly with skipping the zeros over the column?
+                    m -= this[i, j] * result[j];
+                }
+                if (m != null) result[i] = m * !this[i, i];
+            }
+        }
+        return result;
+    }
 }

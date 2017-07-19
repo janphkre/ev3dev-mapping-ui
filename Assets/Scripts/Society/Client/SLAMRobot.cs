@@ -33,21 +33,27 @@ public class SLAMInputData {
 
 public class SLAMRobot : NetworkBehaviour {
 
-    private const int MAX_MAP_SIZE = 32;
+    public const int MAX_MAP_SIZE = 8;
     //private const float VALIDATION_LAMBDA = ???;
-    private const float MAX_VALIDATION_INNOVATION = 0.01f;//meters
-    private const float MINIMUM_OBSERVED_COUNT = 3;
-    private const float GAUSSIAN_SIGMA = 0.15f;
-    private const float NOISE_GAUSSIAN_RANGE = 0.01f;//meters
-    private const float NOISE_GAUSSIAN_BEARING = 0.5f;//degree
+    public const float MAX_VALIDATION_INNOVATION = 0.01f;//meters
+    public const float MINIMUM_OBSERVED_COUNT = 3;
+    public const float GAUSSIAN_SIGMA = 0.15f;
+    public const float NOISE_GAUSSIAN_RANGE = 0.01f;//meters
+    public const float NOISE_GAUSSIAN_BEARING = 0.5f;//degree
+
+    public const float ROBOT_UNCERTAINTY = 1f;
+    public const float ESTIMATION_ERROR_RATE = 1f;
 
     public static SLAMRobot singelton;
 
     private System.Random random;
     private Queue<SLAMInputData> input;
     private RANSAC ransac;
+    private NearestNeighbour nearestNeighbour;
 
-    private PositionData lastPosition;
+    private int featureCount;
+    private Vector3 lastPose;
+    private Vector3 previousInputPose;
     private LocalClientMap localMap;
     private List<ObservedFeature> observedFeatures;
     //Matrices:
@@ -67,11 +73,12 @@ public class SLAMRobot : NetworkBehaviour {
         random = new System.Random();
         input = new Queue<SLAMInputData>();
         ransac = new RANSAC();
-        lastPosition = new PositionData();
-        lastPosition.position = Vector3.zero;
-        lastPosition.heading = 0.0f;
-        lastPosition.timestamp = 0L;
-        localMap = new LocalClientMap(random, MAX_MAP_SIZE);
+        nearestNeighbour = new NearestNeighbour();
+
+        featureCount = 0;
+        lastPose = Vector3.zero;
+        previousInputPose = Vector3.zero;
+        localMap = new LocalClientMap(random, MAX_MAP_SIZE, Vector3.zero);
         observedFeatures = new List<ObservedFeature>();
 
         jacobianA = new Matrix(3);
@@ -98,49 +105,19 @@ public class SLAMRobot : NetworkBehaviour {
         var landmarks = ransac.FindCorners(data.Readings);
         //TODO: DISPLAY CORNERS?
         //2) Data Association
-        //Find the nearest neighbor in the localMap to the extracted landmarks:
-        int[] associatedFeature = new int[landmarks.Count];
-        for (int i = 0; i < landmarks.Count; i++) {
-            associatedFeature[i] = MAX_MAP_SIZE;
-            float minDistance = float.PositiveInfinity;
-            for (int j = 0; j < localMap.featureCount; j++) {
-                float distance = Geometry.Distance(landmarks[i], localMap[j]);
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    associatedFeature[i] = j;
-                }
-            }
-            for (int j = 0; j < observedFeatures.Count; j++) {
-                float distance = Geometry.Distance(landmarks[i], observedFeatures[j].feature);
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    associatedFeature[i] = -j-1;
-                }
-            }
-        }
-        //Validation:
-        for (int i = 0; i < landmarks.Count; i++) {
-            if (associatedFeature[i] != MAX_MAP_SIZE) {
-                //Each feature in the database may only be associated to one new feature.
-                for (int j = i + 1; j < landmarks.Count; j++) {
-                    if (associatedFeature[i] == associatedFeature[j]) {
-                        associatedFeature[i] = MAX_MAP_SIZE+1;
-                        break;
-                    }
-                }
-                //-Lambda Formula / EKF Uncertainty
-                //TODO!
-                if (associatedFeature[i] > 0) { if (Geometry.Distance(landmarks[i], localMap.points.map[associatedFeature[i]]) > MAX_VALIDATION_INNOVATION) associatedFeature[i] = MAX_MAP_SIZE; }
-                else if (Geometry.Distance(landmarks[i], observedFeatures[-associatedFeature[i]-1].feature) > MAX_VALIDATION_INNOVATION) associatedFeature[i] = MAX_MAP_SIZE;
-            }
-        }
-
+        //Find the nearest neighbour in the localMap to the extracted landmarks:
+        Vector3 inputPose = data.LastPos.position;
+        inputPose.y = inputPose.z;
+        inputPose.z = data.LastPos.heading;
+        List<int> unmatchedLandmarks;
+        List<int> matchedFeatures;
+        var match = nearestNeighbour.Match(inputPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.points.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
         //3) Odometry Update
-        float deltaX = data.LastPos.position.x - lastPosition.position.x;
-        float deltaY = data.LastPos.position.z - lastPosition.position.y;
+        float deltaX = match.x - lastPose.x;
+        float deltaY = match.y - lastPose.y;
         jacobianA[0, 2] = -deltaY;//actually this is y.
         jacobianA[1, 2] = deltaX;
-        float headingDelta = data.LastPos.heading - lastPosition.heading;
+        float headingDelta = match.z - lastPose.z;
         noiseQ[0, 0] = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * deltaX * deltaX;
         noiseQ[0, 1] = deltaX * deltaY;
         noiseQ[0, 2] = deltaX * deltaThrust;
@@ -153,28 +130,36 @@ public class SLAMRobot : NetworkBehaviour {
         noiseQ[0, 1] *= RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA);
         noiseQ[0, 2] *= RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA);
         noiseQ[1, 2] *= RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA);
-        Vector3 posNoise = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * (data.LastPos.position - lastPosition.position);
-        float headingNoise = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * headingDelta;
-        lastPosition = data.LastPos;
-        lastPosition.position.y = lastPosition.position.z;
+        //Vector3 posNoise = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * (data.LastPos.position - lastPose);
+        //float headingNoise = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * headingDelta;
+        lastPose = match;
+        previousInputPose = inputPose;
         //Updating the first covariance row(transposed):
         localMap.covariance[0, 0] = jacobianA * localMap.covariance[0, 0] * ~jacobianA + noiseQ;
         for(int i = 1; i < localMap.covariance.count; i++) localMap.covariance[0, i] = jacobianA * localMap.covariance[0, i];//May throw an error, transpose the matrices then
 
         //4) Re-observation
-        if(jacobianH.sizeX < 3 + localMap.featureCount * 2) jacobianH = new Matrix(3 + localMap.featureCount * 2, 2);
+        if(jacobianH.sizeX < 3 + featureCount * 2) jacobianH = new Matrix(3 + featureCount * 2, 2);
         jacobianH[1, 2] = -1;
+        var unmatchedEnumerator = unmatchedLandmarks.GetEnumerator();
+        var matchedEnumerator = matchedFeatures.GetEnumerator();
+        unmatchedEnumerator.MoveNext();
+        var unmatchedItem = unmatchedEnumerator.Current;
         for (int i = 0; i < landmarks.Count; i++) {
-            //TODO: EVENTUELL ANPASSEN -> LANDMARKS ANDERS VERARBEITEN.
-            float range = (float)Math.Sqrt((landmarks[i].x - lastPosition.position.x) * (landmarks[i].x - lastPosition.position.x)
-                + (landmarks[i].y - lastPosition.position.y) * (landmarks[i].y - lastPosition.position.y))
+            if(unmatchedItem == i) {
+                if(unmatchedEnumerator.MoveNext()) unmatchedItem = unmatchedEnumerator.Current;
+                continue;
+            }
+            matchedEnumerator.MoveNext();
+            if (matchedEnumerator.Current < 0) continue;
+            float range = (float)Math.Sqrt((landmarks[i].x - lastPose.x) * (landmarks[i].x - lastPose.x)
+                + (landmarks[i].y - lastPose.y) * (landmarks[i].y - lastPose.y))
                 + vr;//???
-            if (associatedFeature[i] < 0 || associatedFeature[i] >= MAX_MAP_SIZE) continue;
             jacobianH[0, 0] = -landmarks[i].x / range;
             jacobianH[0, 1] = -landmarks[i].y / range; 
             jacobianH[1, 0] = landmarks[i].y / range * range;
             jacobianH[1, 1] = landmarks[i].x / range * range;
-            int l = associatedFeature[i] * 2 + 3;
+            int l = matchedEnumerator.Current * 2 + 3;
             jacobianH[l, l] = -jacobianH[0, 0];
             jacobianH[l, l + 1] = -jacobianH[0, 1];
             jacobianH[l + 1, l] = -jacobianH[1, 0];
@@ -184,9 +169,9 @@ public class SLAMRobot : NetworkBehaviour {
             noiseR[1, 1] = 1;// TODO: page 36/39 - 1degree error. otherwise : (float) Math.Atan2(landmarks[i].y, landmarks[i].x) * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
             Matrix kalmanGainK = localMap.covariance * ~jacobianH * !(jacobianH * (localMap.covariance * ~jacobianH) + noiseV * noiseR * ~noiseV);
             //Update robot position and landmark positions:
-            lastPosition.position.x += kalmanGainK[0, 0];
-            lastPosition.position.y += kalmanGainK[1, 0];
-            lastPosition.heading += kalmanGainK[2, 0];
+            lastPose.x += kalmanGainK[0, 0];
+            lastPose.y += kalmanGainK[1, 0];
+            lastPose.z += kalmanGainK[2, 0];
             Matrix landmarkDisplacement = new Matrix(1, 2);//TODO: Range and bearing will be needed
             //landmarkDisplacement[0, 0] = landmarks[i].magnitude - localMap.points.map[associatedFeature[i]].magnitude;
             //landmarkDisplacement[0, 1] = ; //TODO!
@@ -195,33 +180,40 @@ public class SLAMRobot : NetworkBehaviour {
                 localMap.points.map[j].y += kalmanGainK[(j * 2) + 4, 0];
             }
         }
-        
+        unmatchedEnumerator.Dispose();
+        matchedEnumerator.Dispose();
+        unmatchedEnumerator = unmatchedLandmarks.GetEnumerator();
+        matchedEnumerator = matchedFeatures.GetEnumerator();
+        unmatchedEnumerator.MoveNext();
+        unmatchedItem = unmatchedEnumerator.Current;
         //5 b) New-observation
         for (int i = 0; i < landmarks.Count; i++) {
-            if (associatedFeature[i] < 0) {
-                //Feature has not been observed more than MINIMUM_OBSERVED_COUNT but at least once
-                int l = -associatedFeature[i] - 1;
-                if (++observedFeatures[l].observedCount > MINIMUM_OBSERVED_COUNT) {
-                    //The feature has been observed multiple times and is now considered a feature in the local map.
-                    if (localMap.featureCount >= MAX_MAP_SIZE) {
-                        //5 a) If the current local map is full, we will create a new one and send the old to the ISLSJF global map and the server
-                        LocalClientMap oldLocalMap = localMap;
-                        oldLocalMap.points.end = new Vector3(lastPosition.position.x, lastPosition.position.y, lastPosition.heading);
-                        StartCoroutine(processLocalMap(oldLocalMap));
-                        localMap = new LocalClientMap(random, MAX_MAP_SIZE);
-                        observedFeatures.Clear();
-                        for (int j = 0; j < landmarks.Count; j++) {
-                            if (associatedFeature[i] > MAX_MAP_SIZE) continue;
-                            observedFeatures.Add(new ObservedFeature(landmarks[i]));
-                        }
-                        return; //As we have cleared the observedFeatures list and added all valid landmarks to it we are done with the current scan.
-                    }
-                    localMap.points.map[localMap.featureCount] = observedFeatures[i].feature;
-                    localMap.featureCount++;
-                }
-            } else if (associatedFeature[i] == MAX_MAP_SIZE) {
+            if(i == unmatchedItem) {
                 //Feature has not been observed yet.
                 observedFeatures.Add(new ObservedFeature(landmarks[i]));
+                if (unmatchedEnumerator.MoveNext()) unmatchedItem = unmatchedEnumerator.Current;
+                continue;
+            }
+            matchedEnumerator.MoveNext();
+            if (matchedEnumerator.Current < 0) {
+                //Feature has not been observed more than MINIMUM_OBSERVED_COUNT but at least once
+                int l = -matchedEnumerator.Current - 1;
+                if (++observedFeatures[l].observedCount > MINIMUM_OBSERVED_COUNT) {
+                    //The feature has been observed multiple times and is now considered a feature in the local map.
+                    if (featureCount >= MAX_MAP_SIZE) {
+                        //5 a) If the current local map is full, we will create a new one and send the old to the ISLSJF global map and the server
+                        LocalClientMap oldLocalMap = localMap;
+                        oldLocalMap.points.end = lastPose;
+                        StartCoroutine("processLocalMap", oldLocalMap);
+                        localMap = new LocalClientMap(random, MAX_MAP_SIZE, lastPose);
+                        featureCount = 0;
+                        observedFeatures.Clear();
+                        for (int j = 0; j < landmarks.Count; j++) observedFeatures.Add(new ObservedFeature(landmarks[i]));
+                        return; //As we have cleared the observedFeatures list and added all valid landmarks to it we are done with the current scan.
+                    }
+                    localMap.points.map[featureCount] = observedFeatures[i].feature;
+                    featureCount++;
+                }
             }
         }
         //Remove all features from the observedFeatures list which have passed MINIMUM_OBSERVED_COUNT
@@ -236,7 +228,7 @@ public class SLAMRobot : NetworkBehaviour {
                 jacobianZ[0, 1] = -deltaThrust * jacobianZ[1, 0];
                 jacobianZ[1, 1] = deltaThrust * jacobianZ[0, 0];
                 
-                float range = (float)Math.Sqrt((localMap.points.map[i].x - lastPosition.position.x) * (localMap.points.map[i].x - lastPosition.position.x) + (localMap.points.map[i].y - lastPosition.position.y) * (localMap.points.map[i].y - lastPosition.position.y)) + vr;//???
+                float range = (float)Math.Sqrt((localMap.points.map[i].x - lastPose.x) * (localMap.points.map[i].x - lastPose.x) + (localMap.points.map[i].y - lastPose.y) * (localMap.points.map[i].y - lastPose.y)) + vr;//???
                 noiseR[0, 0] = range * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
                 noiseR[1, 1] = 1;//TODO: see above (step 4)
                 //Calculate the landmark covariance:
@@ -253,11 +245,10 @@ public class SLAMRobot : NetworkBehaviour {
         }
     }
 
-    private IEnumerator<LocalClientMap> processLocalMap(LocalClientMap oldLocalMap) {
+    private void processLocalMap(LocalClientMap oldLocalMap) {
         oldLocalMap.points.radius = Geometry.Radius(oldLocalMap.points.end, oldLocalMap.points.map);
         //NetworkManager.singleton.client.SendUnreliable((short)MessageType.LocalClientMap, oldLocalMap);
         globalMap.ConsumeLocalMap(oldLocalMap);
-        yield return null;
     }
 
     public bool CheckObservedFeature(ObservedFeature obj) {
@@ -265,7 +256,7 @@ public class SLAMRobot : NetworkBehaviour {
     }
 
     public int GetPointCount() {
-        return localMap.featureCount;
+        return featureCount;
     }
 
     public void PostOdometryAndReadings(SLAMInputData data) {

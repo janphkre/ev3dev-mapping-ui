@@ -26,10 +26,12 @@ public class LocalClientMap {
 
     public FeatureCollection points;
     public CovarianceMatrix covariance;
+    public Vector3 start;
 
-    public LocalClientMap(System.Random random, int size) {
+    public LocalClientMap(System.Random random, int size, Vector3 start) {
         covariance = new CovarianceMatrix(random);
         points = new FeatureCollection(size);
+        this.start = start;
     }
 
     public Vector2 this[int i] {
@@ -38,29 +40,56 @@ public class LocalClientMap {
     }
 }
 
+public class GlobalClientMapMessage : MessageBase {
 
-public class GlobalClientMap : MessageBase {
+    public RobotPose lastPose;
+    public SparseCovarianceMatrix infoMatrix;//I(k)
+    public SparseColumn infoVector;//i(k)
+    public List<IFeature> globalStateVector;//X^G(k)
+    //public List<List<Feature>> globalStateCollection;//List of all submaps joined into the global map.
+    public int localMapCount;
+
+    //Only used for the network messaging.
+    public GlobalClientMapMessage() { }
+    
+    public GlobalClientMapMessage(SparseCovarianceMatrix infoMatrix, SparseColumn infoVector, List<IFeature> globalStateVector, List<List<Feature>> globalStateCollection) {
+        this.infoMatrix = infoMatrix;
+        this.infoVector = infoVector;
+        this.globalStateVector = globalStateVector;
+        //this.globalStateCollection = globalStateCollection;
+    }
+}
+
+public class GlobalClientMap {
 
     public const float ESTIMATION_ERROR_CUTOFF = 1f;//TODO:Tune
+    public const float ESTIMATION_ERROR_RATE = 1f;
     public const float OBSERVATION_NOISE_SIGMA = 1f;
     public const float CHANGE_OF_ESTIMATE_CUTOFF = 1f;
-    public const float GLOBAL_ROBOT_UNCERTAINTY = 1f;
     public const int MAX_SMOOTHING_ITERATIONS = 10;
     public const int REORDERING_FREQUENCY = 100; // Reorders every REORDERING_FREQUENCY-th iteration
-
+    public const int SEND_FREQUENCY = 10;
+    
     private System.Random random = new System.Random();
     private PairingLocalization pairingLocalization = new PairingLocalization();
-    private RobotPose lastPose = RobotPose.zero;
+    private NearestNeighbour nearestNeighbour = new NearestNeighbour();
     private int reorderCounter = 1;
     private bool reorderOverride = false;
+    private int sendCounter = 0;
 
+    private RobotPose lastPose = RobotPose.zero;
     private List<SparseCovarianceMatrix> localInversedCovarianceCollection = new List<SparseCovarianceMatrix>();//(P^L)^-1
+    private SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
+    private SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
     private SparseColumn infoVector = new SparseColumn();//i(k)
+    private List<IFeature> globalStateVector = new List<IFeature>();//X^G(k)
+    private List<List<Feature>> globalStateCollection = new List<List<Feature>>();//List of all submaps joined into the global map.
 
-    public SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
-    public SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
-    public List<IFeature> globalStateVector = new List<IFeature>();//X^G(k)
-    public List<List<Feature>> globalStateCollection = new List<List<Feature>>();//List of all submaps joined into the global map.
+    public GlobalClientMapMessage message;
+
+    public GlobalClientMap() {
+        message = new GlobalClientMapMessage(infoMatrix, infoVector, globalStateVector, globalStateCollection);
+    }
 
     /* * * * * * * * * * * * * * * * * * * * * * * *
      * Algorithm 1 & 2 of Iterated SLSJF.          *
@@ -102,10 +131,9 @@ public class GlobalClientMap : MessageBase {
             Vector3 localMatchOffset = new Vector3(match.x - localMap.points.end.x, match.y - localMap.points.end.y, match.z - localMap.points.end.z);
             //Calculate the global positions of all unmatched features
             RobotPose pose = new RobotPose(match, lastPose, localMap.points.radius);
-            List<Feature> localCollection = new List<Feature>();
             List<Feature> globalCollection = new List<Feature>();
-            int j = 0,
-                k = 0;
+            int j = 0;
+            var matchedGlobalFeaturesEnumerator = matchedGlobalFeatures.GetEnumerator();
             for (int i = 0; i < localMap.points.map.Length; i++) {
                 if (i == unmatchedLocalFeatures[j]) {
                     //Move first, rotate second: rotation happens around the moved end pose
@@ -113,14 +141,16 @@ public class GlobalClientMap : MessageBase {
                     localMap.points.map[unmatchedLocalFeatures[j]].y += localMatchOffset.y;
                     Feature feat = new Feature(Geometry.Rotate(localMap.points.map[unmatchedLocalFeatures[j++]], match, localMatchOffset.z), pose, globalStateVector.Count);
                     globalStateVector.Add(feat);
-                    localCollection.Add(feat);
                     globalCollection.Add(feat);
-                } else globalCollection.Add((Feature)globalStateVector[matchedGlobalFeatures[k++]]);
+                } else {
+                    matchedGlobalFeaturesEnumerator.MoveNext();
+                    globalCollection.Add((Feature)globalStateVector[matchedGlobalFeaturesEnumerator.Current]);
+                }
             }
+            matchedGlobalFeaturesEnumerator.Dispose();
             pose.index = globalStateVector.Count;
 
             globalStateVector.Add(pose);
-            //localStateCollection.Add(localCollection);
             globalStateCollection.Add(globalCollection);
             //Enlarge the info vector, info matrix and cholesky factorization by adding zeros:
             //infoVector is a dictionary, so no enlarging is needed.
@@ -147,6 +177,15 @@ public class GlobalClientMap : MessageBase {
             }
             //2.3.3) to 2.4) Cholesky, recover global state estimate and least squares smoothing:
             recursiveConverging(MAX_SMOOTHING_ITERATIONS);
+
+            //Send the map to the server
+            sendCounter++;
+            sendCounter %= SEND_FREQUENCY;
+            if(sendCounter == 0) {
+                message.lastPose = lastPose;
+                message.localMapCount = globalStateCollection.Count;
+                NetworkManager.singleton.client.SendUnreliable((short)MessageType.GlobalClientMap, message);
+            }
         }
     }
 
@@ -158,12 +197,11 @@ public class GlobalClientMap : MessageBase {
         int j = 0;
         foreach (List<Feature> collection in globalStateCollection) {
             RobotPose pose = collection[0].ParentPose();
-            float estimationError = GLOBAL_ROBOT_UNCERTAINTY + ESTIMATION_ERROR_CUTOFF * globalStateCollection.Count * (Geometry.Distance(pose.pose, lastPose.pose));
+            float estimationError = SLAMRobot.ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * globalStateCollection.Count * (Geometry.Distance(pose.pose, lastPose.pose));
             if ((localMap.points.end - start).magnitude <= estimationError + localMap.points.radius + pose.radius) {
                 //2.1.2) Find the set of potentially matched features:
                 for (int i = 0; i < collection.Count; i++) {
                     if (Geometry.Distance(localMap.points.end, collection[i].feature) <= estimationError + localMap.points.radius) {
-                        //The first index is the matched map; The second index is the matched feature in the matched map.
                         prematchedFeatures.Add(collection[i].index);//Like this the matchedFeatures should be sorted at all times.
                         if (estimationError > maxEstimationError) maxEstimationError = estimationError;
                     }
@@ -175,110 +213,37 @@ public class GlobalClientMap : MessageBase {
         if (maxEstimationError >= ESTIMATION_ERROR_CUTOFF) {
             reorderOverride = true;//Reorder the info matrix, info vector and global state vector after this step!
             //2.1.4) Pair Driven Localization to find the match:
-            return pairingLocalization.Match(localMap.points, lastPose.pose, globalStateVector, prematchedFeatures, maxEstimationError, out unmatchedLocalFeatures, out matchedGlobalFeatures);
+            return pairingLocalization.Match(lastPose.pose + (localMap.points.end - localMap.start), localMap.points.radius + maxEstimationError, localMap.points.end, localMap.points.map.GetEnumerator(), new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), out unmatchedLocalFeatures, out matchedGlobalFeatures);
         } else {
-            //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
+            //TODO: What are the covariance submatrices needed for?
+            /** //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
             SparseColumn q = new SparseColumn(),
                          p;
             SparseColumn columnVector = new SparseColumn();
             SparseCovarianceMatrix subMatrix = new SparseCovarianceMatrix();
             foreach (int feature in prematchedFeatures) {
                 columnVector[feature] = new Matrix(2);
-                solveLowerLeftSparse(choleskyFactorization, out q, columnVector);
+                q = choleskyFactorization.solveLowerLeftSparse(columnVector);
                 columnVector.Remove(feature);
-                solveUpperRightSparse(choleskyFactorization, out p, q);
+                p = choleskyFactorization.solveUpperRightSparse(q);
                 subMatrix.Add(p);
             }
             //Add the last robot position: 
             columnVector = new SparseColumn();
             columnVector[lastPose.index] = new Matrix(3);
             //Solve the sparse linear equations:
-            solveLowerLeftSparse(choleskyFactorization, out q, columnVector);
-            solveUpperRightSparse(choleskyFactorization, out p, q);
+            q = choleskyFactorization.solveLowerLeftSparse(columnVector);
+            p = choleskyFactorization.solveUpperRightSparse(q);
             subMatrix.Add(p);
             //Remove the unneeded rows from the submatrix:
-            subMatrix.Trim(prematchedFeatures, globalStateVector.Count);
+            subMatrix.Trim(prematchedFeatures, globalStateVector.Count);*/
             //2.1.4) Nearest Neighbor to find the match:
-            return nearestNeighbor(localMap, subMatrix, prematchedFeatures, out unmatchedLocalFeatures, out matchedGlobalFeatures);
+            //As the actual sensor input is already filter by RANSAC and an reobservation gate, nearest neighbor should be good enough to find the match between global frame and local frame.
+            return nearestNeighbour.Match(localMap.points.end, localMap.points.map.GetEnumerator(), localMap.start, lastPose.pose, new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), maxEstimationError, out unmatchedLocalFeatures, out matchedGlobalFeatures);
         }
     }
+    
 
-    private void solveLowerLeftSparse(SparseTriangularMatrix matrix, out SparseColumn result, SparseColumn rightHandSide) {
-        result = new SparseColumn();
-        int size = matrix.ColumnCount();
-        for (int i = 0;i < size; i++) {//Rows
-            if(matrix[i, i] != null) {
-                Matrix m = rightHandSide[i];
-                for(int j = 0; j < i; j++) {//Columns
-                    m -= matrix[j, i] * result[j];
-                }
-                if (m != null) result[i] = m * !matrix[i, i];
-            }
-        }
-    }
-
-    private void solveUpperRightSparse(SparseTriangularMatrix matrix, out SparseColumn result, SparseColumn rightHandSide) {
-        result = new SparseColumn();
-        int size = matrix.ColumnCount();
-        for (int i = size - 1; i >= 0; i++) {//Rows
-            if (matrix[i, i] != null) {
-                Matrix m = rightHandSide[i];
-                for (int j = size - 1; j < i; j++) {//Columns
-                    //TODO:If we just switch rows and cols in the matrix here we do not have to translate it.(right?)Could this be made faster by accessing the dictionary-key-enumerator directly with skipping the zeros over the column?
-                    m -= matrix[i, j] * result[j];
-                }
-                if (m != null) result[i] = m * !matrix[i, i];
-            }
-        }
-    }
-
-    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-     * See http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.15.7847       *
-     * Data Association in Stochastic Mapping Using the Joint Compatibility Test *
-     * by Jose Neira, Juan D. Tardos                                             *
-     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-    //As the actual sensor input is already filter by RANSAC and an reobservation gate, nearest neighbor should be good enough to find the match between global frame and local frame.
-    private Vector3 nearestNeighbor(LocalClientMap localMap, SparseCovarianceMatrix subMatrix, HashSet<int> prematchedFeatures, out List<int> unmatchedLocalFeatures, out List<int> matchedGlobalFeatures) {
-        unmatchedLocalFeatures = new List<int>();
-        matchedGlobalFeatures = new List<int>();
-        Vector3 match = new Vector3();
-        Vector3 measurementPose = lastPose.pose + localMap.points.end;
-        for (int i = 0; i < localMap.points.map.Length; i++) {
-            var measurementRB = Geometry.ToRangeBearing(localMap.points.map[i], localMap.points.end);
-            var measurementTranslated = Geometry.FromRangeBearing(measurementRB.x, measurementRB.y, measurementPose + match);
-            float minimumDistance = float.MaxValue;
-            int minimumFeature = -1;
-            foreach (int f in prematchedFeatures) {
-                var feature = ((Feature) globalStateVector[f]).feature;
-                var currentDistance = Geometry.MahalanobisDistance(measurementTranslated, feature);
-                if (currentDistance < minimumDistance) {
-                    minimumDistance = currentDistance;
-                    minimumFeature = f;
-                }
-            }
-            if(minimumFeature == -1) unmatchedLocalFeatures.Add(i);
-            else {
-                matchedGlobalFeatures.Add(minimumFeature);
-                prematchedFeatures.Remove(minimumFeature);
-                //Update the match:
-                var feature = ((Feature)globalStateVector[minimumFeature]).feature;
-                var featureRB = Geometry.ToRangeBearing(feature, measurementPose + match);
-                float factor = 1.0f;
-                if (i > 0) {
-                    match *= i;
-                    factor /= (i + 1.0f);
-                }
-                match.z += featureRB.y - measurementRB.y;
-                feature = Geometry.FromRangeBearing(featureRB.x, measurementRB.y);
-                match.x += feature.x - measurementTranslated.x;
-                match.y += feature.y - measurementTranslated.y;
-                match *= factor;
-                //TODO: is this calculation of the match correct?
-            }
-        }
-        //TODO: eventually reconsider matched features
-        return measurementPose + match;
-    }
 
     private SparseMatrix computeJacobianH(List<Feature> localMapFeatures) {
         //H_k+1 = relative positions of robot and features in respect to previous global robot position and rotation
@@ -583,9 +548,8 @@ public class GlobalClientMap : MessageBase {
         //2.3.3) and 2.4.2) Compute the Cholesky Factorization of I(k+1)
         computeCholesky();
         //2.3.4) and 2.4.3) Recover the global map state estimate X^G(k+1)
-        SparseColumn y, globalStateVectorNew;
-        solveLowerLeftSparse(choleskyFactorization, out y, infoVector);
-        solveUpperRightSparse(choleskyFactorization, out globalStateVectorNew, y);
+        SparseColumn y = choleskyFactorization.solveLowerLeftSparse(infoVector);
+        SparseColumn globalStateVectorNew = choleskyFactorization.solveUpperRightSparse(y);
         float changeOfEstimate = 0f;//TODO!
         for(int i=0;i<globalStateVector.Count;i++) {
             IFeature v = globalStateVector[i];
