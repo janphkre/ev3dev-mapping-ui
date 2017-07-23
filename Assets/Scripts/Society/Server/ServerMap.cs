@@ -2,23 +2,35 @@
 using UnityEngine;
 using UnityEngine.Networking;
 
-[RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class ServerMap : NetworkBehaviour {
+
+    public const int MINIMUM_MERGE_COUNT = SLAMRobot.MAX_MAP_SIZE * 2;
 
     //Every connection has its own coordinate system. Therefor the different clouds have to be merged through a filter into a complete map.
     private Dictionary<int, ServerClientItem> clientMaps;
-    private int cloudCount;
     private PairingLocalization pairingLocalization;
-        
-    private class ServerClientItem {
-        internal GlobalClientMap clientMap;
+    private ISLSJFBase utils;
+    private PointCloud pointCloud;
 
-        internal ServerClientItem(GlobalClientMap clientMap) {
+    private List<SparseCovarianceMatrix> clientInversedCovarianceCollection;//(P^L)^-1
+    //private SparseTriangularMatrix choleskyFactorization;//L(k)
+    private SparseCovarianceMatrix infoMatrix;//I(k)
+    private SparseColumn infoVector;//i(k)
+    private List<IFeature> globalStateVector;//X^G(k)
+    private List<List<Feature>> globalStateCollection;//List of all submaps joined into the global map.
+
+    private class ServerClientItem {
+        internal GlobalClientMapMessage clientMap;
+        internal Vector3 lastClientPose = Vector3.zero;
+        internal RobotPose lastGlobalPose = RobotPose.zero;
+        internal bool wasMatched = false;
+
+        internal ServerClientItem(GlobalClientMapMessage clientMap) {
             this.clientMap = clientMap;
         }
 
         internal int GetFeatureCount() {
-            return clientMap.globalStateVector.Count - clientMap.globalStateCollection.Count;
+            return clientMap.globalStateVector.Count - clientMap.localMapCount;
         }
     }
 
@@ -27,9 +39,16 @@ public class ServerMap : NetworkBehaviour {
         //NetworkServer.RegisterHandler((short)MessageType.LocalClientMap, OnLocalClientMap);
         NetworkServer.RegisterHandler((short)MessageType.GlobalClientMap, OnGlobalClientMap);
         NetworkServer.RegisterHandler((short)MessageType.Quit, OnQuitMessage);
+
         clientMaps = new Dictionary<int, ServerClientItem>();
-        cloudCount = 0;
         pairingLocalization = new PairingLocalization();
+        
+        clientInversedCovarianceCollection = new List<SparseCovarianceMatrix>();
+        //choleskyFactorization = new SparseTriangularMatrix();
+        infoMatrix = new SparseCovarianceMatrix();
+        infoVector = new SparseColumn();
+        globalStateVector = new List<IFeature>();
+        globalStateCollection = new List<List<Feature>>();
     }
 
     /*void OnLocalClientMap(NetworkMessage netMsg) {
@@ -46,16 +65,15 @@ public class ServerMap : NetworkBehaviour {
 
     void OnGlobalClientMap(NetworkMessage netMsg) {
         Debug.Log("Recieved Map Message from " + netMsg.conn.connectionId);
-        GlobalClientMap msg = netMsg.ReadMessage<GlobalClientMap>();
+        GlobalClientMapMessage msg = netMsg.ReadMessage<GlobalClientMapMessage>();
         ServerClientItem value = null;
         if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) {
-            cloudCount++;
             value = new ServerClientItem(msg);
             clientMaps.Add(netMsg.conn.connectionId, value);
         } else {
             value.clientMap = msg;
         }
-
+        StartCoroutine("mergeSubCloud");
     }
 
     void OnWifiMessage(NetworkMessage netMsg) {
@@ -66,22 +84,91 @@ public class ServerMap : NetworkBehaviour {
 
     void OnQuitMessage(NetworkMessage netMsg) {
         Debug.Log("Recieved Quit Message from " + netMsg.conn.connectionId);
-        if (clientMaps.Remove(netMsg.conn.connectionId)) cloudCount--;//TODO: does the map from that client really have to be deleted? -> it is some sort of knowledge that can still be used by the other robots.
+        clientMaps.Remove(netMsg.conn.connectionId);//TODO: does the map from that client really have to be deleted? -> it is some sort of knowledge that can still be used by the other robots.
     }
 
-    internal int GetMinimumFeatureCount() {
-        int result = int.MaxValue;
-        foreach (KeyValuePair<int, ServerClientItem> cloudPair in clientMaps) {
-            var currentCount = cloudPair.Value.GetFeatureCount();
-            result = result > currentCount ? currentCount : result;
+    private void mergeSubCloud(ServerClientItem clientMap) {
+        if (clientMap.GetFeatureCount() < MINIMUM_MERGE_COUNT) return;
+        //Data Association:
+        Vector2 gridOffset;
+        float gridSize;
+        if (clientMap.wasMatched) {
+            gridOffset = clientMap.lastGlobalPose.pose + (clientMap.clientMap.lastPose.pose - clientMap.lastClientPose);
+            //TODO:
+            gridSize = 1f;
+        } else {
+            gridOffset = new Vector2();
+            float maxEstimationDistance = Geometry.EuclideanDistance(Vector3.zero, clientMap.lastGlobalPose.pose);
+            foreach(KeyValuePair<int, ServerClientItem> pair in clientMaps) {
+                var currentDistance = Geometry.EuclideanDistance(pair.Value.lastGlobalPose.pose, clientMap.lastGlobalPose.pose);
+                if(currentDistance > maxEstimationDistance) maxEstimationDistance = currentDistance;
+            }
+            if (maxEstimationDistance == 0.0f) maxEstimationDistance = 1.0f;
+            float radius = 0.0f;
+            int featureCount = 0;
+            foreach (IFeature f in globalStateVector) {
+                if (radius < f.Magnitude()) radius = f.Magnitude();
+                if (f.IsFeature()) {
+                    featureCount++;
+                    gridOffset += ((Feature)f).feature / globalStateVector.Count;
+                }
+            }
+            gridOffset *= (float)globalStateVector.Count / featureCount;
+            gridSize = radius * 2 + SLAMRobot.ROBOT_UNCERTAINTY + SLAMRobot.ESTIMATION_ERROR_RATE * globalStateCollection.Count * maxEstimationDistance;
+            clientMap.wasMatched = true;
         }
-        return result;
+        List<int> unmatchedClientFeatures;
+        List<int> matchedGlobalFeatures;
+        Vector3 match = pairingLocalization.Match(gridOffset, gridSize, clientMap.clientMap.lastPose.pose, new FeatureVectorEnumerator(clientMap.clientMap.globalStateVector), new FeatureEnumerator(globalStateVector), out unmatchedClientFeatures, out matchedGlobalFeatures);
+        //TODO: check if the match was successful!!
+        pairingLocalization.increaseGridUncertanity();
+        var pose = new RobotPose(match, clientMap.lastGlobalPose, 0.0f);
+        //Initialize EIF:
+        var globalCollection = utils.OffsetLocalMap(pose, clientMap.clientMap.lastPose.pose, new FeatureVectorArray(clientMap.clientMap.globalStateVector), unmatchedClientFeatures, matchedGlobalFeatures, globalStateVector);
+        globalStateCollection.Add(globalCollection);
+        infoMatrix.Enlarge(unmatchedClientFeatures.Count + 1);
+        //Update EIF:
+        clientInversedCovarianceCollection.Add(clientMap.clientMap.infoMatrix);
+        utils.computeInfoAddition(globalCollection, clientMap.clientMap.infoMatrix, infoMatrix, infoVector, globalStateVector);
+        clientMap.lastGlobalPose = pose;
+        clientMap.lastClientPose = clientMap.clientMap.lastPose.pose;
+        utils.MinimumDegreeReorder(infoMatrix, infoVector, globalStateVector);
+
+        recursiveConverging(GlobalClientMap.MAX_SMOOTHING_ITERATIONS);
     }
 
-    public void MergeSubClouds() {
-        foreach(KeyValuePair<int, ServerClientItem> pair in clientMaps) {
-            Vector3 match = pairingLocalization.MatchServer(pair.Value.clientMap.globalStateVector, pair.Value.clientMap.globalStateVector);
-            Vector3 localMatchOffset = new Vector3(match.x - localMap.points.end.x, match.y - localMap.points.end.y, match.z - localMap.points.end.z);
+    private int indexSize(int i) {
+        return globalStateVector[i].IsFeature() ? 2 : 3;
+    }
+
+    private void recursiveConverging(int maxIterations) {
+        //2.3.3) and 2.4.2) Compute the Cholesky Factorization of I(k+1)
+        SparseTriangularMatrix choleskyFactorization = utils.ComputeCholesky(infoMatrix, indexSize);
+        //2.3.4) and 2.4.3) Recover the global map state estimate X^G(k+1)
+        SparseColumn y = choleskyFactorization.solveLowerLeftSparse(infoVector);
+        SparseColumn globalStateVectorNew = choleskyFactorization.solveUpperRightSparse(y);
+        float changeOfEstimate = 0f;//TODO!
+        for (int i = 0; i < globalStateVector.Count; i++) {
+            IFeature v = globalStateVector[i];
+            Matrix m = globalStateVectorNew[i];
+            if (v.IsFeature()) {
+                Feature f = (Feature)v;
+                f.feature.x = m[0, 0];
+                f.feature.y = m[0, 1];
+            } else {
+                RobotPose r = (RobotPose)v;
+                r.pose.x = m[0, 0];
+                r.pose.y = m[0, 1];
+                r.pose.z = m[0, 2];
+            }
         }
+        //2.4) Least squares for smoothing if necessary
+        if (changeOfEstimate <= GlobalClientMap.CHANGE_OF_ESTIMATE_CUTOFF || maxIterations <= 0) return;
+        //2.4.1) Recompute the information matrix and the information vector
+        infoMatrix.Clear();
+        infoVector.Clear();
+        for (int i = 0; i < globalStateVector.Count; i++) utils.computeInfoAddition(globalStateCollection[i], clientInversedCovarianceCollection[i], infoMatrix, infoVector, globalStateVector);
+        //TODO: clientInversedCovarianceCollection will use a lot of memory. Maybe use clientMaps instead somehow?
+        recursiveConverging(maxIterations - 1);
     }
 }

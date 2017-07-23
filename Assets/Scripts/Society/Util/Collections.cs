@@ -88,7 +88,12 @@ public class FeatureEnumerator : IEnumerator<Feature> {
     }
 
     public bool MoveNext() {
-        return features.MoveNext();
+        bool b = features.MoveNext();
+        while (b) {
+            if (features.Current.IsFeature()) break;
+            b = features.MoveNext();
+        }
+        return b;
     }
 
     public void Reset() {
@@ -110,7 +115,12 @@ public class FeatureVectorEnumerator : IEnumerator {
     }
 
     public bool MoveNext() {
-        return features.MoveNext();
+        bool b = features.MoveNext();
+        while (b) {
+            if (features.Current.IsFeature()) break;
+            b = features.MoveNext();
+        }
+        return b;
     }
 
     public void Reset() {
@@ -203,5 +213,51 @@ public class CombinedFeatureEnumerator : IEnumerator<Feature> {
         i = 0;
         features1.Reset();
         features2.Reset();
+    }
+}
+
+public interface IArray<T> {
+    T this[int i] {
+        get;
+        set;
+    }
+    int Count {
+        get;
+    }
+}
+
+public class VectorArray : IArray<Vector2> {
+
+    private Vector2[] arr;
+
+    public VectorArray(Vector2[] arr) {
+        this.arr = arr;
+    }
+
+    public Vector2 this[int i] {
+        get { return arr[i]; }
+        set { arr[i] = value; }
+    }
+
+    public int Count {
+        get { return arr.Length; }
+    }
+}
+
+public class FeatureVectorArray: IArray<Vector2> {
+
+    private List<IFeature> list;
+
+    public FeatureVectorArray(List<IFeature> list) {
+        this.list = list;
+    }
+
+    public Vector2 this[int i] {
+        get { return ((Feature) list[i]).feature; }
+        set { ((Feature)list[i]).feature = value; }
+    }
+
+    public int Count {
+        get { return list.Count; }
     }
 }

@@ -4,10 +4,13 @@ using UnityEngine;
 class Geometry {
 
     //Calculates the distance between two points.
-    public static float Distance(Vector2 a, Vector2 b) {
+    public static float EuclideanDistance(Vector2 a, Vector2 b) {
         return Math.Abs((b - a).magnitude);
     }
 
+    /*
+    http://hdl.handle.net/10216/348
+    */
     //Calculates the mahalanobis distance between two points.
     public static float MahalanobisDistance(Vector2 a, Vector2 b) {
         throw new NotImplementedException();
@@ -17,7 +20,7 @@ class Geometry {
     public static float Radius(Vector2 pos, Vector2[] features) {
         float max = 0f;
         foreach(Vector4 feature in features) {
-            float distance = Distance(pos, feature);
+            float distance = EuclideanDistance(pos, feature);
             if (max < distance) max = distance;
         }
         return max;

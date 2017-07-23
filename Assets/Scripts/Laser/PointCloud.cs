@@ -16,7 +16,6 @@
 */
 
 using UnityEngine;
-using System.Collections;
 using System.IO;
 
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
