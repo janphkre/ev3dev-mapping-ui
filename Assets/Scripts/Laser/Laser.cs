@@ -11,7 +11,6 @@
  */
 
 using UnityEngine;
-using System.Collections;
 using System;
 using System.IO;
 
@@ -31,7 +30,7 @@ public class LaserPlotProperties
 {
 	public PlotType plotType;
 	public float distanceLimit=10.0f;
-	public SocietyPointCloud laserPointCloud;
+	public PointCloud laserPointCloud;
 }
 	
 class LaserThreadSharedData
@@ -101,7 +100,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 	public LaserModuleProperties module;
 	public LaserPlotProperties plot;
 
-	private SocietyPointCloud laserPointCloud;
+	private PointCloud laserPointCloud;
 	private Map3D map3D;
 
 	private LaserThreadSharedData data=new LaserThreadSharedData();
@@ -127,7 +126,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 	protected override void Awake()
 	{
 		base.Awake();
-		laserPointCloud = SafeInstantiate<SocietyPointCloud> (plot.laserPointCloud);
+		laserPointCloud = SafeInstantiate<PointCloud> (plot.laserPointCloud);
 		laserTRS =  Matrix4x4.TRS (transform.localPosition, transform.localRotation, Vector3.one);
 	}
 
@@ -299,7 +298,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 			threadShared.crcFailurePercentage = threadInternal.crcFailurePercentage;
 		}
 
-        SLAMRobot.singelton.postOdometryAndReadings(new SLAMInputData(lastPackageFirstPos, lastPackageLastPos, threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount));
+        SLAMRobot.singelton.PostOdometryAndReadings(new SLAMInputData(lastPackageFirstPos, lastPackageLastPos, threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount));
     }
 
 
