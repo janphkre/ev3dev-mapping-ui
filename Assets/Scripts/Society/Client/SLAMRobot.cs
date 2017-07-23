@@ -111,7 +111,8 @@ public class SLAMRobot : NetworkBehaviour {
         inputPose.z = data.LastPos.heading;
         List<int> unmatchedLandmarks;
         List<int> matchedFeatures;
-        var match = nearestNeighbour.Match(inputPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.points.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
+        var inversedCovariance = new DefaultedSparseCovarianceMatrix(!localMap.covariance, new Matrix(2));
+        var match = nearestNeighbour.Match(inputPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.points.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), inversedCovariance, ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
         //3) Odometry Update
         float deltaX = match.x - lastPose.x;
         float deltaY = match.y - lastPose.y;

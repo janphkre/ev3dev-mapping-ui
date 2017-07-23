@@ -8,12 +8,21 @@ class Geometry {
         return Math.Abs((b - a).magnitude);
     }
 
-    /*
-    http://hdl.handle.net/10216/348
-    */
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+     * Efficient Approximation of the Mahalanobis Distance for Tracking with the Kalman Filter *
+     * See http://hdl.handle.net/10216/348                                                     *
+     * Paper by R. R. Pinho, J. M. R. S Tavares, M. F. V. Correia                              *
+     * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+    //Calculates the approximated mahalanobis distance between two points.
+    public static float MahalanobisDistance(Vector2 a, Vector2 b, Matrix inversedCovariance) {
+        var v = a - b;
+        return ((v.x * v.x) / inversedCovariance[0, 0]) + ((v.y * v.y) / inversedCovariance[1, 1]);
+    }
+
     //Calculates the mahalanobis distance between two points.
-    public static float MahalanobisDistance(Vector2 a, Vector2 b) {
-        throw new NotImplementedException();
+    public static float RealMahalanobisDistance(Vector2 a, Vector2 b, Matrix inversedCovariance) {
+        var v = a - b;
+        return (float) Math.Sqrt((v * inversedCovariance * v)[0, 0]);
     }
 
     //Calculates the maximum distance from a pose to all features:

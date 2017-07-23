@@ -1,6 +1,7 @@
 ﻿using Superbest_random;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class MatrixSizeException : Exception {
     public MatrixSizeException(int sizeAX, int sizeBX, int sizeAY, int sizeBY, String op) : base("A size of a matrix is wrong:" + sizeAX + ", " + sizeAY + op + sizeBX + ", " + sizeBY) { }
@@ -8,6 +9,7 @@ public class MatrixSizeException : Exception {
 }
 
 public class Matrix {
+
     private float[,] val;
     public int sizeX;
     public int sizeY;
@@ -118,7 +120,7 @@ public class Matrix {
         return result;
     }
 
-    public static Matrix operator *(Matrix a, UnityEngine.Vector3 b) {
+    public static Matrix operator *(Matrix a, Vector3 b) {
         if (a == null || b == null) return null;
         if (a.sizeX != 3) throw new MatrixSizeException(a.sizeX, 3, "*");
         Matrix result = new Matrix(1, a.sizeY);
@@ -128,7 +130,17 @@ public class Matrix {
         return result;
     }
 
-    public static Matrix operator *(Matrix a, UnityEngine.Vector2 b) {
+    public static Matrix operator *(Vector2 a, Matrix b) {
+        if (a == null || b == null) return null;
+        if (b.sizeY != 2) throw new MatrixSizeException(2, b.sizeX, "*");
+        Matrix result = new Matrix(b.sizeX, 1);
+        for (int j = 0; j < result.sizeY; j++) {
+            result[0, j] = a.x * b[0, j] + a.y * b[1, j];
+        }
+        return result;
+    }
+
+    public static Matrix operator *(Matrix a, Vector2 b) {
         if (a == null || b == null) return null;
         if (a.sizeX != 2) throw new MatrixSizeException(a.sizeX, 2, "*");
         Matrix result = new Matrix(1, a.sizeY);
@@ -524,7 +536,11 @@ public class SparseTranslatedMatrix {
     }
 }
 
-public class SparseCovarianceMatrix {
+public interface ISparseCovarianceMatrix {
+    Matrix this[int i, int j] { get; }
+}
+
+public class SparseCovarianceMatrix : ISparseCovarianceMatrix {
     public List<SparseColumn> val = new List<SparseColumn>();
 
     public SparseCovarianceMatrix() { }
@@ -622,7 +638,23 @@ public class SparseCovarianceMatrix {
     }
 }
 
+public class DefaultedSparseCovarianceMatrix : ISparseCovarianceMatrix {
 
+    private SparseCovarianceMatrix m;
+    private Matrix def;
+
+    public DefaultedSparseCovarianceMatrix(SparseCovarianceMatrix m, Matrix def) {
+        this.m = m;
+        this.def = def;
+    }
+
+    public Matrix this[int i, int j] {
+        get {
+            if (i < 0) return def;
+            return m[i, j];
+        }
+    }
+}
 
 public class SparseTriangularMatrix {
     private List<SparseColumn> val = new List<SparseColumn>();

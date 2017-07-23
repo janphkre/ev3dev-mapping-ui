@@ -13,7 +13,7 @@ class NearestNeighbour {
 
     public const float MAX_MATCH_DISTANCE = 1.0f;
 
-    public Vector3 Match(Vector3 measurementsPose, IEnumerator measurements, Vector3 measurementsStart, Vector3 lastMatch, IEnumerator<Feature> features, float estimationError, out List<int> unmatchedMeasurements, out List<int> matchedFeatures) {
+    public Vector3 Match(Vector3 measurementsPose, IEnumerator measurements, Vector3 measurementsStart, Vector3 lastMatch, IEnumerator<Feature> features, ISparseCovarianceMatrix featureInversedCovariance, float estimationError, out List<int> unmatchedMeasurements, out List<int> matchedFeatures) {
         Vector3 match = lastMatch + (measurementsPose - measurementsStart);
         unmatchedMeasurements = new List<int>();
         matchedFeatures = new List<int>();
@@ -25,7 +25,7 @@ class NearestNeighbour {
             Feature minimumFeature = null;
             while (features.MoveNext()) {
                 if (matchedFeatures.Contains(features.Current.index)) continue;
-                var currentDistance = Geometry.MahalanobisDistance(measurementTranslated, features.Current.feature);
+                var currentDistance = Geometry.MahalanobisDistance(features.Current.feature, measurementTranslated, featureInversedCovariance[features.Current.index, features.Current.index]);
                 if (currentDistance < minimumDistance) {
                     minimumDistance = currentDistance;
                     minimumFeature = features.Current;

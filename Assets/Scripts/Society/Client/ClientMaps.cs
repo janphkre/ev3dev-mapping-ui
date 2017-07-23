@@ -132,11 +132,11 @@ public class GlobalClientMap {
             int j = 0;
             foreach (List<Feature> collection in globalStateCollection) {
                 RobotPose collectionPose = collection[0].ParentPose();
-                float estimationError = SLAMRobot.ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * globalStateCollection.Count * (Geometry.Distance(collectionPose.pose, lastPose.pose));
+                float estimationError = SLAMRobot.ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * globalStateCollection.Count * (Geometry.EuclideanDistance(collectionPose.pose, lastPose.pose));
                 if ((localMap.points.end - start).magnitude <= estimationError + localMap.points.radius + collectionPose.radius) {
                     //2.1.2) Find the set of potentially matched features:
                     for (int i = 0; i < collection.Count; i++) {
-                        if (Geometry.MahalanobisDistance(localMap.points.end, collection[i].feature) <= estimationError + localMap.points.radius) {
+                        if (Geometry.EuclideanDistance(localMap.points.end, collection[i].feature) <= estimationError + localMap.points.radius) {
                             prematchedFeatures.Add(collection[i].index);//Like this the matchedFeatures should be sorted at all times.
                             if (estimationError > maxEstimationError) maxEstimationError = estimationError;
                         }
@@ -150,8 +150,7 @@ public class GlobalClientMap {
                                        //2.1.4) Pair Driven Localization to find the match:
                 match = pairingLocalization.Match(lastPose.pose + (localMap.points.end - localMap.start), localMap.points.radius + maxEstimationError, localMap.points.end, localMap.points.map.GetEnumerator(), new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), out unmatchedLocalFeatures, out matchedGlobalFeatures);
             } else {
-                //TODO: What are the covariance submatrices needed for?
-                /** //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
+                //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
                 SparseColumn q = new SparseColumn(),
                              p;
                 SparseColumn columnVector = new SparseColumn();
@@ -171,10 +170,10 @@ public class GlobalClientMap {
                 p = choleskyFactorization.solveUpperRightSparse(q);
                 subMatrix.Add(p);
                 //Remove the unneeded rows from the submatrix:
-                subMatrix.Trim(prematchedFeatures, globalStateVector.Count);*/
+                subMatrix.Trim(prematchedFeatures, globalStateVector.Count);
                 //2.1.4) Nearest Neighbor to find the match:
                 //As the actual sensor input is already filter by RANSAC and an reobservation gate, nearest neighbor should be good enough to find the match between global frame and local frame.
-                match = nearestNeighbour.Match(localMap.points.end, localMap.points.map.GetEnumerator(), localMap.start, lastPose.pose, new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), maxEstimationError, out unmatchedLocalFeatures, out matchedGlobalFeatures);
+                match = nearestNeighbour.Match(localMap.points.end, localMap.points.map.GetEnumerator(), localMap.start, lastPose.pose, new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), subMatrix, maxEstimationError, out unmatchedLocalFeatures, out matchedGlobalFeatures);
             }
             if (unmatchedLocalFeatures.Count == 0) return;//The local map does not contain any new information so we can quit at this point.
             //TODO:(Is this true?)
