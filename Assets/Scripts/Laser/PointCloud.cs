@@ -61,7 +61,7 @@ public class PointCloud : MonoBehaviour
 
 		mesh = new Mesh();
 		GetComponent<MeshFilter>().mesh = mesh;
-
+        
 		mesh.vertices = mesh_vertices;
 		mesh.colors = mesh_colors;
 		mesh.SetIndices(mesh_indices, MeshTopology.Points, 0);

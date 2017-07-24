@@ -1,15 +1,34 @@
 ﻿using Superbest_random;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 class ISLSJFBase {
 
     public const float OBSERVATION_NOISE_SIGMA = 1f;
+    public const int VERTICES_COUNT = SLAMRobot.MAX_MAP_SIZE * 16;
 
     private System.Random random = new System.Random();
 
     public ISLSJFBase() { }
+
+    //Points enumerates Vector2 or Vector3
+    public static void DisplayPoints(IEnumerator points, Map3D map) {
+        map.Clear();
+        Vector3[] vertices = new Vector3[VERTICES_COUNT];
+        bool b = true;
+        while(b) {
+            int i = 0;
+            while (i < VERTICES_COUNT) {
+                b = points.MoveNext();
+                if (!b) break;
+                vertices[i++] = (Vector3)points.Current;
+            }
+            map.AssignVertices(vertices, VERTICES_COUNT);
+            vertices = new Vector3[VERTICES_COUNT];
+        }
+    }
 
     public List<Feature> OffsetLocalMap(RobotPose pose, Vector3 localMapPose, IArray<Vector2> localFeatures, List<int> unmatchedLocalFeatures, List<int> matchedGlobalFeatures, List<IFeature> globalStateVector) {
         Vector3 localMatchOffset = pose.pose - localMapPose;
@@ -17,7 +36,8 @@ class ISLSJFBase {
         List<Feature> globalCollection = new List<Feature>();
         int j = 0;
         var matchedGlobalFeaturesEnumerator = matchedGlobalFeatures.GetEnumerator();
-        for(int i = 0; i < localFeatures.Count; i++) {
+        matchedGlobalFeaturesEnumerator.MoveNext();
+        for (int i = 0; i < localFeatures.Count; i++) {
             if (i == unmatchedLocalFeatures[j]) {
                 //Move first, rotate second: rotation happens around the moved end pose
                 Vector2 v = new Vector2(localFeatures[unmatchedLocalFeatures[j]].x + localMatchOffset.x, localFeatures[unmatchedLocalFeatures[j]].y + localMatchOffset.y);
@@ -25,9 +45,9 @@ class ISLSJFBase {
                 j++;
                 globalStateVector.Add(feature);
                 globalCollection.Add(feature);
-            } else {
-                matchedGlobalFeaturesEnumerator.MoveNext();
+            } else if(i == matchedGlobalFeaturesEnumerator.Current) {
                 globalCollection.Add((Feature) globalStateVector[matchedGlobalFeaturesEnumerator.Current]);
+                matchedGlobalFeaturesEnumerator.MoveNext();
             }
         }
         matchedGlobalFeaturesEnumerator.Dispose();

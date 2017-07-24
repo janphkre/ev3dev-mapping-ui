@@ -13,7 +13,7 @@ using UnityEngine;
 class PairingLocalization {
 
     //public const float PAIR_DRIVEN_G_RANGE = 10f;
-    public const float PAIR_DRIVEN_G_STEP = 0.05f;
+    public const float PAIR_DRIVEN_G_STEP = (float) (Math.PI / 180);
     public const float GRID_SAMPLING_RATE = 0.05f;
     public const float GRID_GROWTH = 0.01f;
 
@@ -47,7 +47,7 @@ class PairingLocalization {
             var measurementRB = Geometry.ToRangeBearing((Vector2) measurements.Current, measurementsPose);
             while (features.MoveNext()) {
                 var f = features.Current;
-                for (float g = 0.0f; g < 360f; g += PAIR_DRIVEN_G_STEP) { //TODO: Add PAIR_DRIVEN_G_RANGE to not check the whole 360 degrees around each feature. 
+                for (float g = 0.0f; g < 2 * Math.PI; g += PAIR_DRIVEN_G_STEP) { //TODO: Add PAIR_DRIVEN_G_RANGE to not check the whole 360 degrees around each feature. 
                     var i = Geometry.FromRangeBearing(measurementRB.x, measurementRB.y + g);
                     var hypothesis = new Vector2(f.feature.x - i.y, f.feature.y - i.y);
                     int gridX = (int)((hypothesis.x - gridOffset.x) * size / GRID_SAMPLING_RATE) + halfSize;

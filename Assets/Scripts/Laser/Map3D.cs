@@ -11,7 +11,6 @@
  */
 
 using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 
@@ -52,6 +51,9 @@ public class Map3D : MonoBehaviour
 		return pc.AssignVertices(data, len);
 	}
 
+    public void Clear() {
+        mapPointClouds.Clear();
+    }
 
 	public int VertexCount()
 	{

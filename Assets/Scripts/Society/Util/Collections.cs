@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -125,6 +124,40 @@ public class FeatureVectorEnumerator : IEnumerator {
 
     public void Reset() {
         features.Reset();
+    }
+}
+
+public class FeatureListVectorEnumerator : IEnumerator {
+
+    private IEnumerator<List<Feature>> featureLists;
+    private IEnumerator<Feature> features;
+
+    public FeatureListVectorEnumerator(List<List<Feature>> featureLists) {
+        this.featureLists = featureLists.GetEnumerator();
+        this.featureLists.MoveNext();
+        features = this.featureLists.Current.GetEnumerator();
+    }
+
+    public object Current {
+        get { return features.Current.feature; }
+    }
+
+    public bool MoveNext() {
+        bool b = features.MoveNext();
+        while(!b) {
+            if(featureLists.MoveNext()) {
+                features = featureLists.Current.GetEnumerator();
+                b = features.MoveNext();
+            }
+            else return false;
+        }
+        return true;
+    }
+
+    public void Reset() {
+        featureLists.Reset();
+        featureLists.MoveNext();
+        features = featureLists.Current.GetEnumerator();
     }
 }
 

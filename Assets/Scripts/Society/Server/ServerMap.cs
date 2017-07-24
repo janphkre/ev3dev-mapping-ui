@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.Networking;
 
+[RequireComponent(typeof(Map3D))]
 public class ServerMap : NetworkBehaviour {
 
     public const int MINIMUM_MERGE_COUNT = SLAMRobot.MAX_MAP_SIZE * 2;
@@ -10,7 +11,7 @@ public class ServerMap : NetworkBehaviour {
     private Dictionary<int, ServerClientItem> clientMaps;
     private PairingLocalization pairingLocalization;
     private ISLSJFBase utils;
-    private PointCloud pointCloud;
+    private Map3D map;
 
     private List<SparseCovarianceMatrix> clientInversedCovarianceCollection;//(P^L)^-1
     //private SparseTriangularMatrix choleskyFactorization;//L(k)
@@ -49,6 +50,8 @@ public class ServerMap : NetworkBehaviour {
         infoVector = new SparseColumn();
         globalStateVector = new List<IFeature>();
         globalStateCollection = new List<List<Feature>>();
+
+        map = GetComponent<Map3D>();
     }
 
     /*void OnLocalClientMap(NetworkMessage netMsg) {
@@ -67,13 +70,15 @@ public class ServerMap : NetworkBehaviour {
         Debug.Log("Recieved Map Message from " + netMsg.conn.connectionId);
         GlobalClientMapMessage msg = netMsg.ReadMessage<GlobalClientMapMessage>();
         ServerClientItem value = null;
-        if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) {
-            value = new ServerClientItem(msg);
-            clientMaps.Add(netMsg.conn.connectionId, value);
-        } else {
-            value.clientMap = msg;
+        lock (clientMaps) {
+            if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) {
+                value = new ServerClientItem(msg);
+                clientMaps.Add(netMsg.conn.connectionId, value);
+            } else {
+                value.clientMap = msg;
+            }
         }
-        StartCoroutine("mergeSubCloud");
+        StartCoroutine("mergeSubCloud", value);
     }
 
     void OnWifiMessage(NetworkMessage netMsg) {
@@ -87,54 +92,64 @@ public class ServerMap : NetworkBehaviour {
         clientMaps.Remove(netMsg.conn.connectionId);//TODO: does the map from that client really have to be deleted? -> it is some sort of knowledge that can still be used by the other robots.
     }
 
-    private void mergeSubCloud(ServerClientItem clientMap) {
+    void mergeSubCloud(ServerClientItem clientMap) {
         if (clientMap.GetFeatureCount() < MINIMUM_MERGE_COUNT) return;
-        //Data Association:
-        Vector2 gridOffset;
-        float gridSize;
-        if (clientMap.wasMatched) {
-            gridOffset = clientMap.lastGlobalPose.pose + (clientMap.clientMap.lastPose.pose - clientMap.lastClientPose);
-            //TODO:
-            gridSize = 1f;
-        } else {
-            gridOffset = new Vector2();
-            float maxEstimationDistance = Geometry.EuclideanDistance(Vector3.zero, clientMap.lastGlobalPose.pose);
-            foreach(KeyValuePair<int, ServerClientItem> pair in clientMaps) {
-                var currentDistance = Geometry.EuclideanDistance(pair.Value.lastGlobalPose.pose, clientMap.lastGlobalPose.pose);
-                if(currentDistance > maxEstimationDistance) maxEstimationDistance = currentDistance;
-            }
-            if (maxEstimationDistance == 0.0f) maxEstimationDistance = 1.0f;
-            float radius = 0.0f;
-            int featureCount = 0;
-            foreach (IFeature f in globalStateVector) {
-                if (radius < f.Magnitude()) radius = f.Magnitude();
-                if (f.IsFeature()) {
-                    featureCount++;
-                    gridOffset += ((Feature)f).feature / globalStateVector.Count;
+        lock(globalStateVector) {
+            //Data Association:
+            Vector2 gridOffset;
+            float gridSize;
+            if (clientMap.wasMatched) {
+                gridOffset = clientMap.lastGlobalPose.pose + (clientMap.clientMap.lastPose.pose - clientMap.lastClientPose);
+                //TODO:
+                gridSize = 1f;
+            } else {
+                gridOffset = new Vector2();
+                float maxEstimationDistance = Geometry.EuclideanDistance(Vector3.zero, clientMap.lastGlobalPose.pose);
+                lock(clientMaps) {
+                    foreach (KeyValuePair<int, ServerClientItem> pair in clientMaps) {
+                        if (!clientMap.wasMatched) continue;
+                        var currentDistance = Geometry.EuclideanDistance(pair.Value.lastGlobalPose.pose, clientMap.lastGlobalPose.pose);
+                        if (currentDistance > maxEstimationDistance) maxEstimationDistance = currentDistance;
+                    }
                 }
+                if (maxEstimationDistance == 0.0f) maxEstimationDistance = 1.0f;
+                float radius = 0.0f;
+                int featureCount = 0;
+                foreach (IFeature f in globalStateVector) {
+                    if (radius < f.Magnitude()) radius = f.Magnitude();
+                    if (f.IsFeature()) {
+                        featureCount++;
+                        gridOffset += ((Feature)f).feature / globalStateVector.Count;
+                    }
+                }
+                gridOffset *= (float)globalStateVector.Count / featureCount;
+                gridSize = radius * 2 + SLAMRobot.ROBOT_UNCERTAINTY + SLAMRobot.ESTIMATION_ERROR_RATE * globalStateCollection.Count * maxEstimationDistance;
+                clientMap.wasMatched = true;
             }
-            gridOffset *= (float)globalStateVector.Count / featureCount;
-            gridSize = radius * 2 + SLAMRobot.ROBOT_UNCERTAINTY + SLAMRobot.ESTIMATION_ERROR_RATE * globalStateCollection.Count * maxEstimationDistance;
-            clientMap.wasMatched = true;
-        }
-        List<int> unmatchedClientFeatures;
-        List<int> matchedGlobalFeatures;
-        Vector3 match = pairingLocalization.Match(gridOffset, gridSize, clientMap.clientMap.lastPose.pose, new FeatureVectorEnumerator(clientMap.clientMap.globalStateVector), new FeatureEnumerator(globalStateVector), out unmatchedClientFeatures, out matchedGlobalFeatures);
-        //TODO: check if the match was successful!!
-        pairingLocalization.increaseGridUncertanity();
-        var pose = new RobotPose(match, clientMap.lastGlobalPose, 0.0f);
-        //Initialize EIF:
-        var globalCollection = utils.OffsetLocalMap(pose, clientMap.clientMap.lastPose.pose, new FeatureVectorArray(clientMap.clientMap.globalStateVector), unmatchedClientFeatures, matchedGlobalFeatures, globalStateVector);
-        globalStateCollection.Add(globalCollection);
-        infoMatrix.Enlarge(unmatchedClientFeatures.Count + 1);
-        //Update EIF:
-        clientInversedCovarianceCollection.Add(clientMap.clientMap.infoMatrix);
-        utils.computeInfoAddition(globalCollection, clientMap.clientMap.infoMatrix, infoMatrix, infoVector, globalStateVector);
-        clientMap.lastGlobalPose = pose;
-        clientMap.lastClientPose = clientMap.clientMap.lastPose.pose;
-        utils.MinimumDegreeReorder(infoMatrix, infoVector, globalStateVector);
+            List<int> unmatchedClientFeatures;
+            List<int> matchedGlobalFeatures;
+            Vector3 match = pairingLocalization.Match(gridOffset, gridSize, clientMap.clientMap.lastPose.pose, new FeatureVectorEnumerator(clientMap.clientMap.globalStateVector), new FeatureEnumerator(globalStateVector), out unmatchedClientFeatures, out matchedGlobalFeatures);
+            //TODO: check if the match was successful!!
+            pairingLocalization.increaseGridUncertanity();
+            var pose = new RobotPose(match, clientMap.lastGlobalPose, 0.0f);
+            //Initialize EIF:
+            var globalCollection = utils.OffsetLocalMap(pose, clientMap.clientMap.lastPose.pose, new FeatureVectorArray(clientMap.clientMap.globalStateVector), unmatchedClientFeatures, matchedGlobalFeatures, globalStateVector);
+            globalStateCollection.Add(globalCollection);
+            infoMatrix.Enlarge(unmatchedClientFeatures.Count + 1);
+            //Update EIF:
+            clientInversedCovarianceCollection.Add(clientMap.clientMap.infoMatrix);
+            utils.computeInfoAddition(globalCollection, clientMap.clientMap.infoMatrix, infoMatrix, infoVector, globalStateVector);
+            clientMap.lastGlobalPose = pose;
+            clientMap.lastClientPose = clientMap.clientMap.lastPose.pose;
+            utils.MinimumDegreeReorder(infoMatrix, infoVector, globalStateVector);
 
-        recursiveConverging(GlobalClientMap.MAX_SMOOTHING_ITERATIONS);
+            recursiveConverging(GlobalClientMap.MAX_SMOOTHING_ITERATIONS);
+
+            if (clientMap.wasMatched) {
+                ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map);
+                //TODO: Display Robots.
+            }
+        }
     }
 
     private int indexSize(int i) {

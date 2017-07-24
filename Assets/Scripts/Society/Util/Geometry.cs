@@ -11,12 +11,12 @@ class Geometry {
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      * Efficient Approximation of the Mahalanobis Distance for Tracking with the Kalman Filter *
      * See http://hdl.handle.net/10216/348                                                     *
-     * Paper by R. R. Pinho, J. M. R. S Tavares, M. F. V. Correia                              *
+     * Paper by R. R. Pinho, J. M. R. S Tavares and M. F. V. Correia                           *
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
     //Calculates the approximated mahalanobis distance between two points.
     public static float MahalanobisDistance(Vector2 a, Vector2 b, Matrix inversedCovariance) {
         var v = a - b;
-        return ((v.x * v.x) / inversedCovariance[0, 0]) + ((v.y * v.y) / inversedCovariance[1, 1]);
+        return ((v.x * v.x) / inversedCovariance[0, 0]) + ((v.y * v.y) / inversedCovariance[1, 1]);//TODO: which part of the (whole) inversed covariance matrix is to be used?
     }
 
     //Calculates the mahalanobis distance between two points.
@@ -45,20 +45,17 @@ class Geometry {
     public static Vector2 ToRangeBearing(Vector2 feat, Vector3 origin) {
         var f = feat - (Vector2) origin;
         var result = new Vector2(Math.Abs(f.magnitude), origin.z);
-        result.y += (float)(Math.Atan2(f.x, f.y) * 180.0d / Math.PI);
-        result.y %= 360;
+        result.y += (float)Math.Atan2(f.x, f.y);
         return result;
     }
 
-    //Returns the position of the feature from the range and bearing. (Converting polar coordinates(with degrees) to carthesic coordinates)
+    //Returns the position of the feature from the range and bearing. (Converting polar coordinates into carthesic coordinates)
     public static Vector2 FromRangeBearing(float posRange, float posBearing) {
-        double d = posBearing * Math.PI / 180.0d;
-        return new Vector2((float) (posRange * Math.Cos(d)), (float) (posRange * Math.Sin(d)));
+        return new Vector2((float) (posRange * Math.Cos(posBearing)), (float) (posRange * Math.Sin(posBearing)));
     }
 
     //Returns the position of the feature from the range and bearing and the origin pose.
     public static Vector2 FromRangeBearing(float posRange, float posBearing, Vector3 origin) {
-        double d = (posBearing+origin.z) * Math.PI / 180.0d;
-        return new Vector2((float)(posRange * Math.Cos(d)) + origin.x, (float)(posRange * Math.Sin(d)) + origin.y);
+        return new Vector2((float)(posRange * Math.Cos(posBearing + origin.z)) + origin.x, (float)(posRange * Math.Sin(posBearing + origin.z)) + origin.y);
     }
 }

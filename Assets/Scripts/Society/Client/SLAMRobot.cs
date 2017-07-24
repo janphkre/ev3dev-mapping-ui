@@ -31,13 +31,15 @@ public class SLAMInputData {
     }
 }
 
+[RequireComponent(typeof(Map3D))]
+[RequireComponent(typeof(GlobalClientMap))]
 public class SLAMRobot : NetworkBehaviour {
 
     public const int MAX_MAP_SIZE = 8;
     //private const float VALIDATION_LAMBDA = ???;
     public const float MAX_VALIDATION_INNOVATION = 0.01f;//meters
     public const float MINIMUM_OBSERVED_COUNT = 3;
-    public const float GAUSSIAN_SIGMA = 0.15f;
+    public const float ODOMETRY_SIGMA = 0.15f;
     public const float NOISE_GAUSSIAN_RANGE = 0.01f;//meters
     public const float NOISE_GAUSSIAN_BEARING = 0.5f;//degree
 
@@ -66,6 +68,7 @@ public class SLAMRobot : NetworkBehaviour {
     private Matrix noiseV;
 
     private GlobalClientMap globalMap;
+    private Map3D map;
 
     public void Awake() {
         singelton = this;
@@ -88,7 +91,9 @@ public class SLAMRobot : NetworkBehaviour {
         noiseQ = new Matrix(3, 3);
         noiseR = new Matrix(2, 2);
         noiseV = new Matrix(2); //just a identitiy matrix...
-        globalMap = new GlobalClientMap();
+
+        globalMap = GetComponent<GlobalClientMap>();
+        map = GetComponent<Map3D>();
 
         jacobianXR[0, 0] = 1;
         jacobianXR[1, 1] = 1;
@@ -108,31 +113,25 @@ public class SLAMRobot : NetworkBehaviour {
         //Find the nearest neighbour in the localMap to the extracted landmarks:
         Vector3 inputPose = data.LastPos.position;
         inputPose.y = inputPose.z;
-        inputPose.z = data.LastPos.heading;
+        inputPose.z = (float) (data.LastPos.heading / 180f * Math.PI);
         List<int> unmatchedLandmarks;
         List<int> matchedFeatures;
         var inversedCovariance = new DefaultedSparseCovarianceMatrix(!localMap.covariance, new Matrix(2));
         var match = nearestNeighbour.Match(inputPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.points.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), inversedCovariance, ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
+        //Offset found landmarks by match:
+        var matchOffset = match - inputPose;
+        for(int i = 0; i < landmarks.Count; i++) {
+            landmarks[i] += (Vector2)matchOffset;
+            Geometry.Rotate(landmarks[i], match, matchOffset.z);
+        }
         //3) Odometry Update
-        float deltaX = match.x - lastPose.x;
-        float deltaY = match.y - lastPose.y;
-        jacobianA[0, 2] = -deltaY;//actually this is y.
-        jacobianA[1, 2] = deltaX;
+        var delta = match - lastPose;
+        jacobianA[0, 2] = -delta.y;//actually this is y.
+        jacobianA[1, 2] = delta.x;
         float headingDelta = match.z - lastPose.z;
-        noiseQ[0, 0] = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * deltaX * deltaX;
-        noiseQ[0, 1] = deltaX * deltaY;
-        noiseQ[0, 2] = deltaX * deltaThrust;
-        noiseQ[1, 0] = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * noiseQ[0, 1];
-        noiseQ[1, 1] = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * deltaY * deltaY;
-        noiseQ[1, 2] = deltaY * deltaThrust;
-        noiseQ[2, 0] = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * noiseQ[0, 2];
-        noiseQ[2, 1] = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * noiseQ[1, 2];
-        noiseQ[2, 2] = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * deltaThrust * deltaThrust;
-        noiseQ[0, 1] *= RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA);
-        noiseQ[0, 2] *= RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA);
-        noiseQ[1, 2] *= RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA);
-        //Vector3 posNoise = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * (data.LastPos.position - lastPose);
-        //float headingNoise = RandomExtensions.NextGaussian(random, 0, GAUSSIAN_SIGMA) * headingDelta;
+        noiseQ[0, 0] = RandomExtensions.NextGaussian(random, 0, ODOMETRY_SIGMA) * delta.x * delta.x;
+        noiseQ[1, 1] = RandomExtensions.NextGaussian(random, 0, ODOMETRY_SIGMA) * delta.y * delta.y;
+        noiseQ[2, 2] = RandomExtensions.NextGaussian(random, 0, ODOMETRY_SIGMA) * delta.z * delta.z;
         lastPose = match;
         previousInputPose = inputPose;
         //Updating the first covariance row(transposed):
@@ -153,21 +152,19 @@ public class SLAMRobot : NetworkBehaviour {
             }
             matchedEnumerator.MoveNext();
             if (matchedEnumerator.Current < 0) continue;
-            float range = (float)Math.Sqrt((landmarks[i].x - lastPose.x) * (landmarks[i].x - lastPose.x)
-                + (landmarks[i].y - lastPose.y) * (landmarks[i].y - lastPose.y))
-                + vr;//???
-            jacobianH[0, 0] = -landmarks[i].x / range;
-            jacobianH[0, 1] = -landmarks[i].y / range; 
-            jacobianH[1, 0] = landmarks[i].y / range * range;
-            jacobianH[1, 1] = landmarks[i].x / range * range;
+            Vector2 rangeBearing = Geometry.ToRangeBearing(landmarks[i], lastPose);
+            jacobianH[0, 0] = -landmarks[i].x / rangeBearing.x;
+            jacobianH[0, 1] = -landmarks[i].y / rangeBearing.x; 
+            jacobianH[1, 0] = landmarks[i].y / rangeBearing.x * rangeBearing.x;
+            jacobianH[1, 1] = landmarks[i].x / rangeBearing.x * rangeBearing.x;
             int l = matchedEnumerator.Current * 2 + 3;
             jacobianH[l, l] = -jacobianH[0, 0];
             jacobianH[l, l + 1] = -jacobianH[0, 1];
             jacobianH[l + 1, l] = -jacobianH[1, 0];
             jacobianH[l + 1, l + 1] = -jacobianH[1, 1];
 
-            noiseR[0, 0] = range * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
-            noiseR[1, 1] = 1;// TODO: page 36/39 - 1degree error. otherwise : (float) Math.Atan2(landmarks[i].y, landmarks[i].x) * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
+            noiseR[0, 0] = rangeBearing.x * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
+            noiseR[1, 1] = rangeBearing.y * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
             Matrix kalmanGainK = localMap.covariance * ~jacobianH * !(jacobianH * (localMap.covariance * ~jacobianH) + noiseV * noiseR * ~noiseV);
             //Update robot position and landmark positions:
             lastPose.x += kalmanGainK[0, 0];
@@ -188,6 +185,7 @@ public class SLAMRobot : NetworkBehaviour {
         unmatchedEnumerator.MoveNext();
         unmatchedItem = unmatchedEnumerator.Current;
         //5 b) New-observation
+        var newFeatures = new List<int>();
         for (int i = 0; i < landmarks.Count; i++) {
             if(i == unmatchedItem) {
                 //Feature has not been observed yet.
@@ -212,7 +210,8 @@ public class SLAMRobot : NetworkBehaviour {
                         for (int j = 0; j < landmarks.Count; j++) observedFeatures.Add(new ObservedFeature(landmarks[i]));
                         return; //As we have cleared the observedFeatures list and added all valid landmarks to it we are done with the current scan.
                     }
-                    localMap.points.map[featureCount] = observedFeatures[i].feature;
+                    localMap.points.map[featureCount] = observedFeatures[l].feature;
+                    newFeatures.Add(i);
                     featureCount++;
                 }
             }
@@ -221,17 +220,19 @@ public class SLAMRobot : NetworkBehaviour {
         int k = observedFeatures.RemoveAll(CheckObservedFeature);
         if (k > 0) {
             localMap.covariance.Enlarge(k);
+            var newFeaturesEnumerator = newFeatures.GetEnumerator();
+            newFeaturesEnumerator.MoveNext();
             for (int i = localMap.covariance.count - k; i < localMap.covariance.count; i++) {
-                jacobianXR[0, 2] = -deltaY;//eventuell deltaTheata einführen
-                jacobianXR[0, 2] = deltaX;
-                jacobianZ[0, 0] = (float) Math.Cos(data.LastPos.heading);
-                jacobianZ[1, 0] = (float) Math.Sin(data.LastPos.heading);
-                jacobianZ[0, 1] = -deltaThrust * jacobianZ[1, 0];
-                jacobianZ[1, 1] = deltaThrust * jacobianZ[0, 0];
-                
-                float range = (float)Math.Sqrt((localMap.points.map[i].x - lastPose.x) * (localMap.points.map[i].x - lastPose.x) + (localMap.points.map[i].y - lastPose.y) * (localMap.points.map[i].y - lastPose.y)) + vr;//???
-                noiseR[0, 0] = range * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
-                noiseR[1, 1] = 1;//TODO: see above (step 4)
+                jacobianXR[0, 2] = -delta.y;
+                jacobianXR[0, 2] = delta.x;
+
+                Vector2 rangeBearing = Geometry.ToRangeBearing(landmarks[newFeaturesEnumerator.Current], lastPose);
+                jacobianZ[0, 0] = (float) Math.Cos(match.z+rangeBearing.y);
+                jacobianZ[1, 0] = (float) Math.Sin(match.z+rangeBearing.y);
+                jacobianZ[0, 1] = -delta.z * jacobianZ[1, 0];//TODO: what is deltaT supposed to be?
+                jacobianZ[1, 1] = delta.z * jacobianZ[0, 0];
+                noiseR[0, 0] = rangeBearing.x * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
+                noiseR[1, 1] = rangeBearing.y * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
                 //Calculate the landmark covariance:
                 localMap.covariance[i, i] = jacobianXR * localMap.covariance[0, 0] * ~jacobianXR + jacobianZ * noiseR * ~jacobianZ; //TODO: THIS WONT WORK? WHY SHOULD THE WHOLE(!) COVARIANCE MATRIX BE USED FOR THE COVARIANCE OF THE NEW LANDMARK (Cell C)
                 //Calculate the robot - landmark covariance:
@@ -242,8 +243,10 @@ public class SLAMRobot : NetworkBehaviour {
                     localMap.covariance[j, i] = jacobianXR * ~localMap.covariance[0, j];
                     localMap.covariance[i, j] = ~localMap.covariance[j, i];
                 }
+                newFeaturesEnumerator.MoveNext();
             }
         }
+        ISLSJFBase.DisplayPoints(localMap.points.map.GetEnumerator(), map);
     }
 
     private void processLocalMap(LocalClientMap oldLocalMap) {

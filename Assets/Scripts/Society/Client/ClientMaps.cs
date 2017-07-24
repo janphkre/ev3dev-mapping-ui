@@ -58,7 +58,8 @@ public class GlobalClientMapMessage : MessageBase {
     }
 }
 
-public class GlobalClientMap {
+[RequireComponent(typeof(Map3D))]
+public class GlobalClientMap: Behaviour {
 
     public const float ESTIMATION_ERROR_CUTOFF = 1f;//TODO:Tune
     public const float ESTIMATION_ERROR_RATE = 1f;
@@ -85,9 +86,14 @@ public class GlobalClientMap {
     private List<List<Feature>> globalStateCollection = new List<List<Feature>>();//List of all submaps joined into the global map.
 
     public GlobalClientMapMessage message;
+    private Map3D map;
 
     public GlobalClientMap() {
         message = new GlobalClientMapMessage(infoMatrix, infoVector, globalStateVector, globalStateCollection);
+    }
+
+    public void Awake() {        
+        map = GetComponent<Map3D>();
     }
 
     private int indexSize(int i) {
@@ -217,6 +223,7 @@ public class GlobalClientMap {
                 message.localMapCount = globalStateCollection.Count;
                 NetworkManager.singleton.client.SendUnreliable((short)MessageType.GlobalClientMap, message);
             }
+            ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map);
         }
     }
 
