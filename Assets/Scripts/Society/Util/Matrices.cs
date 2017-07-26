@@ -113,7 +113,7 @@ public class Matrix {
             for (int j = 0; j < result.sizeY; j++) {
                 result[i, j] = 0.0f;
                 for (int k = 0; k < a.sizeX; k++) {
-                    result[i, j] += a[i, k] * b[k, j];
+                    result[i, j] += a[k, i] * b[j, k];
                 }
             }
         }
@@ -121,7 +121,7 @@ public class Matrix {
     }
 
     public static Matrix operator *(Matrix a, Vector3 b) {
-        if (a == null || b == null) return null;
+        if (a == null) return null;
         if (a.sizeX != 3) throw new MatrixSizeException(a.sizeX, 3, "*");
         Matrix result = new Matrix(1, a.sizeY);
         for (int j = 0; j < result.sizeY; j++) {
@@ -131,7 +131,7 @@ public class Matrix {
     }
 
     public static Matrix operator *(Vector2 a, Matrix b) {
-        if (a == null || b == null) return null;
+        if (b == null) return null;
         if (b.sizeY != 2) throw new MatrixSizeException(2, b.sizeX, "*");
         Matrix result = new Matrix(b.sizeX, 1);
         for (int j = 0; j < result.sizeY; j++) {
@@ -141,7 +141,7 @@ public class Matrix {
     }
 
     public static Matrix operator *(Matrix a, Vector2 b) {
-        if (a == null || b == null) return null;
+        if (a == null) return null;
         if (a.sizeX != 2) throw new MatrixSizeException(a.sizeX, 2, "*");
         Matrix result = new Matrix(1, a.sizeY);
         for (int j = 0; j < result.sizeY; j++) {
@@ -264,14 +264,13 @@ public class Row {
 
     public Row() {
         sizeY = 3;
-        val.Add(new Matrix(3));
+        val.Add(new Matrix(3, 3));
     }
 
     public Row(int count) {
         sizeY = 2;
         val.Add(new Matrix(3, 2));
-        for (int i = 1; i < count - 1; i++) val.Add(new Matrix(2, 2));
-        val.Add(new Matrix(2));
+        for (int i = 1; i < count; i++) val.Add(new Matrix(2, 2));
     }
 
     public void Enlarge(int count) {
@@ -289,7 +288,14 @@ public class CovarianceMatrix {
     public List<Row> val = new List<Row>();
     public int count;
 
-    public CovarianceMatrix(System.Random random) {//TODO: first matrix should include initial error for the robot pose
+    public CovarianceMatrix(int i) {
+        val.Add(new Row());
+        for (count = 2; count <= i; count++) val.Add(new Row(count));
+        count--;
+    }
+
+    public CovarianceMatrix(System.Random random) {
+        //First matrix should include initial error for the robot pose.
         count = 1;
         val.Add(new Row());
         val[0].val[0][0, 0] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
@@ -354,6 +360,33 @@ public class CovarianceMatrix {
         return result;
     }
 
+    public static CovarianceMatrix operator *(Matrix a, CovarianceMatrix b) {
+        if (a.sizeY != b.count) throw new MatrixSizeException(a.sizeY, b.count, "*");
+        var result = new CovarianceMatrix(b.count);
+        for (int i = 0; i < result.count; i++) {
+            for (int j = 0; j <= i; j++) {
+                result[i, j] = getMutlipliedCell(a, b, i, j);
+            }
+        }
+        return result;
+    }
+
+    private static Matrix getMutlipliedCell(Matrix a, CovarianceMatrix b, int i, int j) {
+        Matrix result = new Matrix(b[i, j].sizeX, b[i, j].sizeY);
+        j = j == 0 ? 0 : (j - 1) * 2 + 3;
+        for (int k = 0; k < result.sizeX; k++) {
+            for (int l = 0; l < result.sizeY; l++) {
+                for (int m = 0; m < b.count; m++) {
+                    var aM = m == 0 ? 0 : (m - 1) * 2 + 3;
+                    for (int n = 0; n < b[m, 0].sizeX; n++) {
+                        result[k, l] = a[n + aM, l+j] * b[i, m][k, n];
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
     //inverse
     //https://gist.github.com/occar421/feb03a0183e69ecc0189
     public static SparseCovarianceMatrix operator !(CovarianceMatrix a) {
@@ -385,9 +418,10 @@ public class CovarianceMatrix {
     }
 }
 
+[Serializable]
 public class SparseColumn {
 
-    public Dictionary<int, Matrix> val = new Dictionary<int, Matrix>();
+    public IntMatrixDictionary val = new IntMatrixDictionary();
     //public readonly int size;
 
     public SparseColumn() { }
@@ -426,6 +460,8 @@ public class SparseColumn {
         }
         return result;
     }
+
+    
 }
 
 public class SparseMatrix {
@@ -540,8 +576,9 @@ public interface ISparseCovarianceMatrix {
     Matrix this[int i, int j] { get; }
 }
 
+[Serializable]
 public class SparseCovarianceMatrix : ISparseCovarianceMatrix {
-    public List<SparseColumn> val = new List<SparseColumn>();
+    public SparseColumnList val = new SparseColumnList();
 
     public SparseCovarianceMatrix() { }
 

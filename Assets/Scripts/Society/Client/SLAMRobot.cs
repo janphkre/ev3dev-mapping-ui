@@ -5,13 +5,12 @@
  * Implementation by Jan Phillip Kretzschmar                                                                                           *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+using Superbest_random;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
-using Superbest_random;
 
-[Serializable]
 public class SLAMInputData {
 
     public PositionData FirstPos;
@@ -128,7 +127,6 @@ public class SLAMRobot : NetworkBehaviour {
         var delta = match - lastPose;
         jacobianA[0, 2] = -delta.y;//actually this is y.
         jacobianA[1, 2] = delta.x;
-        float headingDelta = match.z - lastPose.z;
         noiseQ[0, 0] = RandomExtensions.NextGaussian(random, 0, ODOMETRY_SIGMA) * delta.x * delta.x;
         noiseQ[1, 1] = RandomExtensions.NextGaussian(random, 0, ODOMETRY_SIGMA) * delta.y * delta.y;
         noiseQ[2, 2] = RandomExtensions.NextGaussian(random, 0, ODOMETRY_SIGMA) * delta.z * delta.z;
@@ -136,8 +134,9 @@ public class SLAMRobot : NetworkBehaviour {
         previousInputPose = inputPose;
         //Updating the first covariance row(transposed):
         localMap.covariance[0, 0] = jacobianA * localMap.covariance[0, 0] * ~jacobianA + noiseQ;
-        for(int i = 1; i < localMap.covariance.count; i++) localMap.covariance[0, i] = jacobianA * localMap.covariance[0, i];//May throw an error, transpose the matrices then
-
+        for (int i = 1; i < localMap.covariance.count; i++) {
+            localMap.covariance[0, i] = ~(jacobianA * ~localMap.covariance[0, i]);
+        }
         //4) Re-observation
         if(jacobianH.sizeX < 3 + featureCount * 2) jacobianH = new Matrix(3 + featureCount * 2, 2);
         jacobianH[1, 2] = -1;
@@ -153,10 +152,10 @@ public class SLAMRobot : NetworkBehaviour {
             matchedEnumerator.MoveNext();
             if (matchedEnumerator.Current < 0) continue;
             Vector2 rangeBearing = Geometry.ToRangeBearing(landmarks[i], lastPose);
-            jacobianH[0, 0] = -landmarks[i].x / rangeBearing.x;
-            jacobianH[0, 1] = -landmarks[i].y / rangeBearing.x; 
-            jacobianH[1, 0] = landmarks[i].y / rangeBearing.x * rangeBearing.x;
-            jacobianH[1, 1] = landmarks[i].x / rangeBearing.x * rangeBearing.x;
+            jacobianH[0, 0] = lastPose.x - landmarks[i].x / rangeBearing.x;
+            jacobianH[0, 1] = lastPose.y - landmarks[i].y / rangeBearing.x; 
+            jacobianH[1, 0] = landmarks[i].y - lastPose.y / rangeBearing.x * rangeBearing.x;
+            jacobianH[1, 1] = landmarks[i].x - lastPose.x / rangeBearing.x * rangeBearing.x;
             int l = matchedEnumerator.Current * 2 + 3;
             jacobianH[l, l] = -jacobianH[0, 0];
             jacobianH[l, l + 1] = -jacobianH[0, 1];
@@ -165,18 +164,18 @@ public class SLAMRobot : NetworkBehaviour {
 
             noiseR[0, 0] = rangeBearing.x * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
             noiseR[1, 1] = rangeBearing.y * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
-            Matrix kalmanGainK = localMap.covariance * ~jacobianH * !(jacobianH * (localMap.covariance * ~jacobianH) + noiseV * noiseR * ~noiseV);
+            Matrix kalmanGainK = localMap.covariance * ~jacobianH * !(jacobianH * (localMap.covariance * ~jacobianH) + noiseV * noiseR * noiseV);//noiseV would have to be translated when used for the second time, but it is an identity matrix.
             //Update robot position and landmark positions:
-            lastPose.x += kalmanGainK[0, 0];
-            lastPose.y += kalmanGainK[1, 0];
-            lastPose.z += kalmanGainK[2, 0];
-            Matrix landmarkDisplacement = new Matrix(1, 2);//TODO: Range and bearing will be needed
-            //landmarkDisplacement[0, 0] = landmarks[i].magnitude - localMap.points.map[associatedFeature[i]].magnitude;
-            //landmarkDisplacement[0, 1] = ; //TODO!
-            for (int j = 0; j < localMap.covariance.count; j++) {
-                localMap.points.map[j].x += kalmanGainK[(j * 2) + 3, 0];
-                localMap.points.map[j].y += kalmanGainK[(j * 2) + 4, 0];
-            }
+            Vector2 landmarkDisplacement = landmarks[i] - localMap.points.map[matchedEnumerator.Current];
+            //TODO: Test! is this landmark Displacement correct? (Or do the points in the local map need to be moved by the match as well?)
+            lastPose.x += kalmanGainK[0, 0] * landmarkDisplacement.x;
+            lastPose.y += kalmanGainK[1, 0] * landmarkDisplacement.x;
+            lastPose.z += kalmanGainK[2, 0] * landmarkDisplacement.y;
+            localMap.points.map[matchedEnumerator.Current].x += kalmanGainK[(matchedEnumerator.Current * 2) + 3, 0] * landmarkDisplacement.x;
+            localMap.points.map[matchedEnumerator.Current].y += kalmanGainK[(matchedEnumerator.Current * 2) + 4, 0] * landmarkDisplacement.y;
+            //TODO: update covariance: is this correct?
+            Matrix identity = new Matrix(localMap.covariance.count);
+            localMap.covariance = (identity - kalmanGainK * jacobianH) * localMap.covariance;
         }
         unmatchedEnumerator.Dispose();
         matchedEnumerator.Dispose();
@@ -236,13 +235,9 @@ public class SLAMRobot : NetworkBehaviour {
                 //Calculate the landmark covariance:
                 localMap.covariance[i, i] = jacobianXR * localMap.covariance[0, 0] * ~jacobianXR + jacobianZ * noiseR * ~jacobianZ; //TODO: THIS WONT WORK? WHY SHOULD THE WHOLE(!) COVARIANCE MATRIX BE USED FOR THE COVARIANCE OF THE NEW LANDMARK (Cell C)
                 //Calculate the robot - landmark covariance:
-                localMap.covariance[0, i] = localMap.covariance[0, 0] * ~jacobianXR;
-                localMap.covariance[i, 0] = ~localMap.covariance[0, i];
+                localMap.covariance[i, 0] = ~(localMap.covariance[0, 0] * ~jacobianXR);
                 //Calculate the landmark - landmark covariance:
-                for (int j = 1; j < i; j++) {
-                    localMap.covariance[j, i] = jacobianXR * ~localMap.covariance[0, j];
-                    localMap.covariance[i, j] = ~localMap.covariance[j, i];
-                }
+                for (int j = 1; j < i; j++) localMap.covariance[j, i] = jacobianXR * localMap.covariance[j, 0];
                 newFeaturesEnumerator.MoveNext();
             }
         }
