@@ -40,7 +40,6 @@ class PairingLocalization {
     public Vector3 Match(Vector2 gridOffset, float gridSize, Vector3 measurementsPose, IEnumerator measurements, IEnumerator<Feature> features, out List<int> unmatchedMeasurements, out List<int> matchedFeatures) {
         int size = (int) (gridSize * gridUncertanity / GRID_SAMPLING_RATE);
         int halfSize = size / 2;
-        var gridSamples = new Vector2[size, size];
         var votes = new Dictionary<int, Dictionary<int, PairingVote>>();
         int j = 0;
         while (measurements.MoveNext()) {

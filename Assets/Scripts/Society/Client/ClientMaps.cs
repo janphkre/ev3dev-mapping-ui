@@ -43,18 +43,16 @@ public class GlobalClientMapMessage : MessageBase {
     public RobotPose lastPose;
     public SparseCovarianceMatrix infoMatrix;//I(k)
     public SparseColumn infoVector;//i(k)
-    public List<IFeature> globalStateVector;//X^G(k)
-    //public List<List<Feature>> globalStateCollection;//List of all submaps joined into the global map.
+    public IFeatureList globalStateVector;//X^G(k)
     public int localMapCount;
 
-    //Only used for the network messaging.
+    //Should be used only for the network messaging.
     public GlobalClientMapMessage() { }
     
-    public GlobalClientMapMessage(SparseCovarianceMatrix infoMatrix, SparseColumn infoVector, List<IFeature> globalStateVector, List<List<Feature>> globalStateCollection) {
+    public GlobalClientMapMessage(SparseCovarianceMatrix infoMatrix, SparseColumn infoVector, List<IFeature> globalStateVector) {
         this.infoMatrix = infoMatrix;
         this.infoVector = infoVector;
-        this.globalStateVector = globalStateVector;
-        //this.globalStateCollection = globalStateCollection;
+        this.globalStateVector = (IFeatureList) globalStateVector;
     }
 }
 
@@ -68,14 +66,13 @@ public class GlobalClientMap: Behaviour {
     public const int REORDERING_FREQUENCY = 100; // Reorders every REORDERING_FREQUENCY-th iteration
     public const int SEND_FREQUENCY = 10;
     
-    private System.Random random = new System.Random();
     private PairingLocalization pairingLocalization = new PairingLocalization();
     private NearestNeighbour nearestNeighbour = new NearestNeighbour();
     private ISLSJFBase utils = new ISLSJFBase();
 
     private int reorderCounter = 1;
     private bool reorderOverride = false;
-    private int sendCounter = 0;
+    private int sendCounter = 1;
 
     private RobotPose lastPose = RobotPose.zero;
     private List<SparseCovarianceMatrix> localInversedCovarianceCollection = new List<SparseCovarianceMatrix>();//(P^L)^-1
@@ -89,7 +86,7 @@ public class GlobalClientMap: Behaviour {
     private Map3D map;
 
     public GlobalClientMap() {
-        message = new GlobalClientMapMessage(infoMatrix, infoVector, globalStateVector, globalStateCollection);
+        message = new GlobalClientMapMessage(infoMatrix, infoVector, globalStateVector);
     }
 
     public void Awake() {        
@@ -110,7 +107,7 @@ public class GlobalClientMap: Behaviour {
             /* * * * * * * * * * * * * * * * * * * * *
              * 1) Set local map 1 as the global map  *
              * * * * * * * * * * * * * * * * * * * * */
-            RobotPose pose = new RobotPose(localMap.points.end, RobotPose.zero, localMap.points.radius);
+            RobotPose pose = new RobotPose(localMap.points.end, localMap.points.radius);
             List<Feature> collection = new List<Feature>();
             for (int i = 0; i < localMap.points.map.Length; i++) {
                 Feature feat = new Feature(localMap.points.map[i], pose, globalStateVector.Count);
@@ -122,7 +119,7 @@ public class GlobalClientMap: Behaviour {
             globalStateVector.Add(pose);
             globalStateCollection.Add(collection);
             localInversedCovarianceCollection.Add(!localMap.covariance);
-            utils.computeInfoAddition(collection, localInversedCovarianceCollection[0], infoMatrix, infoVector, globalStateVector);
+            utils.computeInfoAddition(RobotPose.zero, collection, localInversedCovarianceCollection[0], infoMatrix, infoVector, globalStateVector);
             //choleskyFactorization = utils.ComputeCholesky(infoMatrix, indexSize);
         } else {
             /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -187,7 +184,7 @@ public class GlobalClientMap: Behaviour {
             /* * * * * * * * * * * * * * * * *
              * 2.2) Initialization using EIF *
              * * * * * * * * * * * * * * * * */
-            var pose = new RobotPose(match, lastPose, localMap.points.radius);
+            var pose = new RobotPose(match, localMap.points.radius);
             var globalCollection = utils.OffsetLocalMap(pose, localMap.points.end, new VectorArray(localMap.points.map), unmatchedLocalFeatures, matchedGlobalFeatures, globalStateVector);
             globalStateCollection.Add(globalCollection);
             //Enlarge the info vector, info matrix and cholesky factorization by adding zeros:
@@ -199,8 +196,7 @@ public class GlobalClientMap: Behaviour {
             //2.3.1) Compute the information matrix and vector using EIF
             SparseCovarianceMatrix localMapInversedCovariance = !localMap.covariance;
             localInversedCovarianceCollection.Add(localMapInversedCovariance);
-            utils.computeInfoAddition(globalCollection, localMapInversedCovariance, infoMatrix, infoVector, globalStateVector);
-            lastPose = pose;
+            utils.computeInfoAddition(lastPose, globalCollection, localMapInversedCovariance, infoMatrix, infoVector, globalStateVector);
             //2.3.2) Reorder the global map state vector every 100 steps or after closing large loops
             if (reorderOverride) {
                 reorderOverride = false;
@@ -213,8 +209,8 @@ public class GlobalClientMap: Behaviour {
                 }
             }
             //2.3.3) to 2.4) Cholesky, recover global state estimate and least squares smoothing:
-            recursiveConverging(MAX_SMOOTHING_ITERATIONS);
-
+            recursiveConverging(lastPose, MAX_SMOOTHING_ITERATIONS);
+            lastPose = pose;
             //Send the map to the server
             sendCounter++;
             sendCounter %= SEND_FREQUENCY;
@@ -223,11 +219,11 @@ public class GlobalClientMap: Behaviour {
                 message.localMapCount = globalStateCollection.Count;
                 NetworkManager.singleton.client.SendUnreliable((short)MessageType.GlobalClientMap, message);
             }
-            ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map);
         }
+        ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map);
     }
 
-    private void recursiveConverging(int maxIterations) {
+    private void recursiveConverging(RobotPose lastPose, int maxIterations) {
         //2.3.3) and 2.4.2) Compute the Cholesky Factorization of I(k+1)
         choleskyFactorization = utils.ComputeCholesky(infoMatrix, indexSize);
         //2.3.4) and 2.4.3) Recover the global map state estimate X^G(k+1)
@@ -253,7 +249,7 @@ public class GlobalClientMap: Behaviour {
         //2.4.1) Recompute the information matrix and the information vector
         infoMatrix.Clear();
         infoVector.Clear();
-        for (int i = 0; i < globalStateVector.Count; i++) utils.computeInfoAddition(globalStateCollection[i], localInversedCovarianceCollection[i], infoMatrix, infoVector, globalStateVector);
-        recursiveConverging(maxIterations-1);
+        for (int i = 0; i < globalStateVector.Count; i++) utils.computeInfoAddition(lastPose, globalStateCollection[i], localInversedCovarianceCollection[i], infoMatrix, infoVector, globalStateVector);
+        recursiveConverging(lastPose, maxIterations - 1);
     }
 }

@@ -56,11 +56,10 @@ class ISLSJFBase {
         return globalCollection;
     }
 
-    private SparseMatrix ComputeJacobianH(List<Feature> localMapFeatures) {
+    private SparseMatrix ComputeJacobianH(RobotPose previousPose, List<Feature> localMapFeatures) {
         //H_k+1 = relative positions of robot and features in respect to previous global robot position and rotation
         FeatureCollection relativePositionsH = new FeatureCollection(localMapFeatures.Count);
         RobotPose currentPose = localMapFeatures[0].ParentPose();
-        RobotPose previousPose = currentPose.PreviousPose();
         for (int i = 0; i < localMapFeatures.Count; i++) {
             Vector2 vec = (localMapFeatures[i]).feature;
             relativePositionsH.map[i] = new Vector2(
@@ -135,8 +134,8 @@ class ISLSJFBase {
         return noiseW;
     }
 
-    public void computeInfoAddition(List<Feature> features, SparseCovarianceMatrix inversedCovariance, SparseCovarianceMatrix infoMatrix, SparseColumn infoVector, List<IFeature> globalStateVector) {
-        SparseMatrix jacobianH = ComputeJacobianH(features);
+    public void computeInfoAddition(RobotPose previousPose, List<Feature> features, SparseCovarianceMatrix inversedCovariance, SparseCovarianceMatrix infoMatrix, SparseColumn infoVector, List<IFeature> globalStateVector) {
+        SparseMatrix jacobianH = ComputeJacobianH(previousPose, features);
         //SparseColumn noiseW = computeNoiseW(localMapFeatures);
 
         SparseMatrix infoMatrixAddition = ~jacobianH * inversedCovariance;
@@ -374,7 +373,7 @@ class ISLSJFBase {
         HashSet<int> set = new HashSet<int>();
         Dictionary<int, Matrix> dictVector = new Dictionary<int, Matrix>();
         Dictionary<int, IFeature> dictState = new Dictionary<int, IFeature>();
-        Dictionary<int, List<Matrix>> dictMatrix = new Dictionary<int, List<Matrix>>();
+        Dictionary<int, Dictionary<int, Matrix>> dictMatrix = new Dictionary<int, Dictionary<int, Matrix>>();
         Matrix m;
         var result = vBar.GetEnumerator();
         for (int i = 0; i < vBar.Count; i++) {
@@ -384,8 +383,12 @@ class ISLSJFBase {
                 set.Add(i);
                 dictVector.Add(i, inputVector1[i]);
                 dictState.Add(i, inputVector2[i]);
-                List<Matrix> list = new List<Matrix>();
-
+                var list = new Dictionary<int, Matrix>();
+                var col = inputMatrix.GetColumn(i);
+                foreach(KeyValuePair<int, Matrix> pair in col.val) {
+                    list.Add(pair.Key, pair.Value);
+                }
+                dictMatrix.Add(i, list);
             }
             if (set.Contains(result.Current)) {
                 //The result item can be found in the dictionary (old sorting):

@@ -31,7 +31,6 @@ public class ObservedFeature {
 
 public abstract class IFeature {
     public int index;
-    protected RobotPose parent;
 
     public abstract bool IsFeature();
     public abstract float Magnitude();
@@ -39,6 +38,10 @@ public abstract class IFeature {
 
 public class Feature: IFeature {
     public Vector2 feature;
+    private RobotPose parent;//Parent will not be serialized.
+
+    //Should be used only for the network messaging.
+    public Feature() { }
 
     public Feature(Vector2 f, RobotPose p, int index) {
         feature = f;
@@ -50,19 +53,20 @@ public class Feature: IFeature {
 }
 
 public class RobotPose: IFeature {
-    public static RobotPose zero = new RobotPose(Vector3.zero,null, 0f);
+    public static RobotPose zero = new RobotPose(Vector3.zero, 0f);
 
     public Vector3 pose;
     public float radius;
 
-    public RobotPose(Vector3 f, RobotPose p, float r) {
+    //Should be used only for the network messaging.
+    public RobotPose() { }
+
+    public RobotPose(Vector3 f, float r) {
         pose = f;
-        parent = p;
         radius = r;
     }
     public override bool IsFeature() { return false; }
     public override float Magnitude() { return pose.magnitude; }
-    public RobotPose PreviousPose() { return parent; }
 }
 
 public class FeatureEnumerator : IEnumerator<Feature> {

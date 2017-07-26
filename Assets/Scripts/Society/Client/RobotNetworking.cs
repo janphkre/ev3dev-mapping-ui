@@ -17,38 +17,38 @@ public class RobotNetworking : NetworkBehaviour {
 
         gameObject.AddComponent<Network>();
         Network network = gameObject.GetComponent<Network>();
-        network.copyFrom(mainMenu.getNetwork());
+        network.copyFrom(mainMenu.GetNetwork());
 
         gameObject.AddComponent<Replay>();
         Replay replay = gameObject.GetComponent<Replay>();
-        replay.copyFrom(mainMenu.getReplay());
+        replay.copyFrom(mainMenu.GetReplay());
 
         gameObject.AddComponent<PositionHistory>();
         PositionHistory positionHistory = gameObject.GetComponent<PositionHistory>();
-        positionHistory.copyFrom(mainMenu.getPositionHistory());
+        positionHistory.copyFrom(mainMenu.GetPositionHistory());
 
         gameObject.AddComponent<Physics>();
         Physics physics = gameObject.GetComponent<Physics>();
-        physics.copyFrom(mainMenu.getPhysics());
+        physics.copyFrom(mainMenu.GetPhysics());
 
         gameObject.AddComponent<Limits>();
         Limits limits = gameObject.GetComponent<Limits>();
-        limits.copyFrom(mainMenu.getLimits());
+        limits.copyFrom(mainMenu.GetLimits());
 
         gameObject.AddComponent<UserInput>();
         UserInput userInput = gameObject.GetComponent<UserInput>();
-        userInput.copyFrom(mainMenu.getUserInput());
+        userInput.copyFrom(mainMenu.GetUserInput());
 
         gameObject.AddComponent<RobotRequired>();
         RobotRequired robotRequired = gameObject.GetComponent<RobotRequired>();
-        robotRequired.copyFrom(mainMenu.getRobotRequired());
+        robotRequired.copyFrom(mainMenu.GetRobotRequired());
 
-        GameObject obj = (GameObject) Instantiate(control, gameObject.transform);
-        obj = (GameObject) Instantiate(deadReconning, gameObject.transform);
-        obj = (GameObject) Instantiate(drive, gameObject.transform);
-        obj = (GameObject) Instantiate(laserXY, gameObject.transform);
-        obj = (GameObject) Instantiate(laserXZ, gameObject.transform);
-        obj = (GameObject) Instantiate(wifi, gameObject.transform);
+        /*var obj = Instantiate(control, gameObject.transform);
+        obj = Instantiate(deadReconning, gameObject.transform);
+        obj = Instantiate(drive, gameObject.transform);
+        obj = Instantiate(laserXY, gameObject.transform);
+        obj = Instantiate(laserXZ, gameObject.transform);
+        obj = Instantiate(wifi, gameObject.transform);*/
     }
 
     public override void OnStartClient() {

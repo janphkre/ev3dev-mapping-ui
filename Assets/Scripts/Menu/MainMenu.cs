@@ -1,11 +1,9 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Networking;
 
 [RequireComponent(typeof(RobotRequired))]
 public class MainMenu : MonoBehaviour {
 
-    private NetworkManager society;
     private RobotRequired robot;
     private Network network;
     private Replay replay;
@@ -15,7 +13,6 @@ public class MainMenu : MonoBehaviour {
     private UserInput input;
 
     protected virtual void Start() {
-        society = GameObject.Find("Society").GetComponent<NetworkManager>();
         robot = gameObject.GetComponent<RobotRequired>();
         network = gameObject.GetComponent<Network>();
         replay = gameObject.GetComponent<Replay>();
@@ -35,35 +32,41 @@ public class MainMenu : MonoBehaviour {
         GameObject.Find("InputAngularSpeed").GetComponent<InputField>().text = "" + limits.MaxAngularSpeedDegPerSec;
         GameObject.Find("InputOwnIP").GetComponent<InputField>().text = "" + network.hostIp;
         GameObject.Find("InputRobotIP").GetComponent<InputField>().text = "" + network.robotIp;
-
+        //Make Networ
+        //TODO: move input values into fields!
         DontDestroyOnLoad(gameObject);
     }
 
-    public RobotRequired getRobotRequired() {
+    public bool CheckInputs() {
+        //TODO!
+        return false;
+    }
+
+    public RobotRequired GetRobotRequired() {
         return robot;
     }
 
-    public Network getNetwork() {
+    public Network GetNetwork() {
         return network;
     }
 
-    public Replay getReplay() {
+    public Replay GetReplay() {
         return replay;
     }
 
-    public PositionHistory getPositionHistory() {
+    public PositionHistory GetPositionHistory() {
         return positionHistory;
     }
 
-    public Physics getPhysics() {
+    public Physics GetPhysics() {
         return physics;
     }
 
-    public Limits getLimits() {
+    public Limits GetLimits() {
         return limits;
     }
 
-    public UserInput getUserInput() {
+    public UserInput GetUserInput() {
         return input;
     }
 

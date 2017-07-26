@@ -95,56 +95,75 @@ public class ServerMap : NetworkBehaviour {
     void mergeSubCloud(ServerClientItem clientMap) {
         if (clientMap.GetFeatureCount() < MINIMUM_MERGE_COUNT) return;
         lock(globalStateVector) {
-            //Data Association:
-            Vector2 gridOffset;
-            float gridSize;
-            if (clientMap.wasMatched) {
-                gridOffset = clientMap.lastGlobalPose.pose + (clientMap.clientMap.lastPose.pose - clientMap.lastClientPose);
-                //TODO:
-                gridSize = 1f;
-            } else {
-                gridOffset = new Vector2();
-                float maxEstimationDistance = Geometry.EuclideanDistance(Vector3.zero, clientMap.lastGlobalPose.pose);
-                lock(clientMaps) {
-                    foreach (KeyValuePair<int, ServerClientItem> pair in clientMaps) {
-                        if (!clientMap.wasMatched) continue;
-                        var currentDistance = Geometry.EuclideanDistance(pair.Value.lastGlobalPose.pose, clientMap.lastGlobalPose.pose);
-                        if (currentDistance > maxEstimationDistance) maxEstimationDistance = currentDistance;
+            if (globalStateCollection.Count == 0) {
+                clientMap.lastClientPose = clientMap.clientMap.lastPose.pose;
+                clientMap.lastGlobalPose = new RobotPose(clientMap.lastClientPose, 0.0f);
+                List<Feature> collection = new List<Feature>();
+                var clientMapEnumerator = clientMap.clientMap.globalStateVector.GetEnumerator();
+                while (clientMapEnumerator.MoveNext()) {
+                    if (clientMapEnumerator.Current.IsFeature()) {
+                        Feature feat = new Feature(((Feature)clientMapEnumerator.Current).feature, clientMap.lastGlobalPose, globalStateVector.Count);
+                        globalStateVector.Add(feat);
+                        collection.Add(feat);
                     }
                 }
-                if (maxEstimationDistance == 0.0f) maxEstimationDistance = 1.0f;
-                float radius = 0.0f;
-                int featureCount = 0;
-                foreach (IFeature f in globalStateVector) {
-                    if (radius < f.Magnitude()) radius = f.Magnitude();
-                    if (f.IsFeature()) {
-                        featureCount++;
-                        gridOffset += ((Feature)f).feature / globalStateVector.Count;
-                    }
-                }
-                gridOffset *= (float)globalStateVector.Count / featureCount;
-                gridSize = radius * 2 + SLAMRobot.ROBOT_UNCERTAINTY + SLAMRobot.ESTIMATION_ERROR_RATE * globalStateCollection.Count * maxEstimationDistance;
+                clientMap.lastGlobalPose.index = globalStateVector.Count;
+                globalStateVector.Add(clientMap.lastGlobalPose);
+                globalStateCollection.Add(collection);
+                clientInversedCovarianceCollection.Add(clientMap.clientMap.infoMatrix);
+                utils.computeInfoAddition(RobotPose.zero, collection, clientMap.clientMap.infoMatrix, infoMatrix, infoVector, globalStateVector);
                 clientMap.wasMatched = true;
+            } else {
+                //Data Association:
+                Vector2 gridOffset;
+                float gridSize;
+                if (clientMap.wasMatched) {
+                    gridOffset = clientMap.lastGlobalPose.pose + (clientMap.clientMap.lastPose.pose - clientMap.lastClientPose);
+                    //TODO:
+                    gridSize = 1f;
+                } else {
+                    gridOffset = new Vector2();
+                    float maxEstimationDistance = Geometry.EuclideanDistance(Vector3.zero, clientMap.lastGlobalPose.pose);
+                    lock (clientMaps) {
+                        foreach (KeyValuePair<int, ServerClientItem> pair in clientMaps) {
+                            if (!clientMap.wasMatched) continue;
+                            var currentDistance = Geometry.EuclideanDistance(pair.Value.lastGlobalPose.pose, clientMap.lastGlobalPose.pose);
+                            if (currentDistance > maxEstimationDistance) maxEstimationDistance = currentDistance;
+                        }
+                    }
+                    if (maxEstimationDistance == 0.0f) maxEstimationDistance = 1.0f;
+                    float radius = 0.0f;
+                    int featureCount = 0;
+                    foreach (IFeature f in globalStateVector) {
+                        if (radius < f.Magnitude()) radius = f.Magnitude();
+                        if (f.IsFeature()) {
+                            featureCount++;
+                            gridOffset += ((Feature)f).feature / globalStateVector.Count;
+                        }
+                    }
+                    gridOffset *= (float)globalStateVector.Count / featureCount;
+                    gridSize = radius * 2 + SLAMRobot.ROBOT_UNCERTAINTY + SLAMRobot.ESTIMATION_ERROR_RATE * globalStateCollection.Count * maxEstimationDistance;
+                    clientMap.wasMatched = true;
+                }
+                List<int> unmatchedClientFeatures;
+                List<int> matchedGlobalFeatures;
+                Vector3 match = pairingLocalization.Match(gridOffset, gridSize, clientMap.clientMap.lastPose.pose, new FeatureVectorEnumerator(clientMap.clientMap.globalStateVector), new FeatureEnumerator(globalStateVector), out unmatchedClientFeatures, out matchedGlobalFeatures);
+                //TODO: check if the match was successful!!
+                pairingLocalization.increaseGridUncertanity();
+                var pose = new RobotPose(match, 0.0f);
+                //Initialize EIF:
+                var globalCollection = utils.OffsetLocalMap(pose, clientMap.clientMap.lastPose.pose, new FeatureVectorArray(clientMap.clientMap.globalStateVector), unmatchedClientFeatures, matchedGlobalFeatures, globalStateVector);
+                globalStateCollection.Add(globalCollection);
+                infoMatrix.Enlarge(unmatchedClientFeatures.Count + 1);
+                //Update EIF:
+                clientInversedCovarianceCollection.Add(clientMap.clientMap.infoMatrix);
+                utils.computeInfoAddition(clientMap.lastGlobalPose, globalCollection, clientMap.clientMap.infoMatrix, infoMatrix, infoVector, globalStateVector);
+                utils.MinimumDegreeReorder(infoMatrix, infoVector, globalStateVector);
+
+                recursiveConverging(clientMap.lastGlobalPose, GlobalClientMap.MAX_SMOOTHING_ITERATIONS);
+                clientMap.lastGlobalPose = pose;
+                clientMap.lastClientPose = clientMap.clientMap.lastPose.pose;
             }
-            List<int> unmatchedClientFeatures;
-            List<int> matchedGlobalFeatures;
-            Vector3 match = pairingLocalization.Match(gridOffset, gridSize, clientMap.clientMap.lastPose.pose, new FeatureVectorEnumerator(clientMap.clientMap.globalStateVector), new FeatureEnumerator(globalStateVector), out unmatchedClientFeatures, out matchedGlobalFeatures);
-            //TODO: check if the match was successful!!
-            pairingLocalization.increaseGridUncertanity();
-            var pose = new RobotPose(match, clientMap.lastGlobalPose, 0.0f);
-            //Initialize EIF:
-            var globalCollection = utils.OffsetLocalMap(pose, clientMap.clientMap.lastPose.pose, new FeatureVectorArray(clientMap.clientMap.globalStateVector), unmatchedClientFeatures, matchedGlobalFeatures, globalStateVector);
-            globalStateCollection.Add(globalCollection);
-            infoMatrix.Enlarge(unmatchedClientFeatures.Count + 1);
-            //Update EIF:
-            clientInversedCovarianceCollection.Add(clientMap.clientMap.infoMatrix);
-            utils.computeInfoAddition(globalCollection, clientMap.clientMap.infoMatrix, infoMatrix, infoVector, globalStateVector);
-            clientMap.lastGlobalPose = pose;
-            clientMap.lastClientPose = clientMap.clientMap.lastPose.pose;
-            utils.MinimumDegreeReorder(infoMatrix, infoVector, globalStateVector);
-
-            recursiveConverging(GlobalClientMap.MAX_SMOOTHING_ITERATIONS);
-
             if (clientMap.wasMatched) {
                 ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map);
                 //TODO: Display Robots.
@@ -156,7 +175,7 @@ public class ServerMap : NetworkBehaviour {
         return globalStateVector[i].IsFeature() ? 2 : 3;
     }
 
-    private void recursiveConverging(int maxIterations) {
+    private void recursiveConverging(RobotPose previousPose, int maxIterations) {
         //2.3.3) and 2.4.2) Compute the Cholesky Factorization of I(k+1)
         SparseTriangularMatrix choleskyFactorization = utils.ComputeCholesky(infoMatrix, indexSize);
         //2.3.4) and 2.4.3) Recover the global map state estimate X^G(k+1)
@@ -182,8 +201,8 @@ public class ServerMap : NetworkBehaviour {
         //2.4.1) Recompute the information matrix and the information vector
         infoMatrix.Clear();
         infoVector.Clear();
-        for (int i = 0; i < globalStateVector.Count; i++) utils.computeInfoAddition(globalStateCollection[i], clientInversedCovarianceCollection[i], infoMatrix, infoVector, globalStateVector);
+        for (int i = 0; i < globalStateVector.Count; i++) utils.computeInfoAddition(previousPose, globalStateCollection[i], clientInversedCovarianceCollection[i], infoMatrix, infoVector, globalStateVector);
         //TODO: clientInversedCovarianceCollection will use a lot of memory. Maybe use clientMaps instead somehow?
-        recursiveConverging(maxIterations - 1);
+        recursiveConverging(previousPose, maxIterations - 1);
     }
 }
