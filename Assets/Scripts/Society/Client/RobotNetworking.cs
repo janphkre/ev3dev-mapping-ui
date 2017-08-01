@@ -13,35 +13,34 @@ public class RobotNetworking : NetworkBehaviour {
     //The local player will control the local robot:
     public override void OnStartLocalPlayer() {
         base.OnStartLocalPlayer();
-        MainMenu mainMenu = GameObject.Find("Settings").GetComponent<MainMenu>();
 
         gameObject.AddComponent<Network>();
         Network network = gameObject.GetComponent<Network>();
-        network.copyFrom(mainMenu.GetNetwork());
+        network.copyFrom(MainMenu.Network);
 
         gameObject.AddComponent<Replay>();
         Replay replay = gameObject.GetComponent<Replay>();
-        replay.copyFrom(mainMenu.GetReplay());
+        replay.copyFrom(MainMenu.Replay);
 
         gameObject.AddComponent<PositionHistory>();
         PositionHistory positionHistory = gameObject.GetComponent<PositionHistory>();
-        positionHistory.copyFrom(mainMenu.GetPositionHistory());
+        positionHistory.copyFrom(MainMenu.PositionHistory);
 
         gameObject.AddComponent<Physics>();
         Physics physics = gameObject.GetComponent<Physics>();
-        physics.copyFrom(mainMenu.GetPhysics());
+        physics.copyFrom(MainMenu.Physics);
 
         gameObject.AddComponent<Limits>();
         Limits limits = gameObject.GetComponent<Limits>();
-        limits.copyFrom(mainMenu.GetLimits());
+        limits.copyFrom(MainMenu.Limits);
 
         gameObject.AddComponent<UserInput>();
         UserInput userInput = gameObject.GetComponent<UserInput>();
-        userInput.copyFrom(mainMenu.GetUserInput());
+        userInput.copyFrom(MainMenu.Input);
 
         gameObject.AddComponent<RobotRequired>();
         RobotRequired robotRequired = gameObject.GetComponent<RobotRequired>();
-        robotRequired.copyFrom(mainMenu.GetRobotRequired());
+        robotRequired.copyFrom(MainMenu.Robot);
 
         /*var obj = Instantiate(control, gameObject.transform);
         obj = Instantiate(deadReconning, gameObject.transform);
@@ -49,6 +48,9 @@ public class RobotNetworking : NetworkBehaviour {
         obj = Instantiate(laserXY, gameObject.transform);
         obj = Instantiate(laserXZ, gameObject.transform);
         obj = Instantiate(wifi, gameObject.transform);*/
+
+        //TODO: add CarDrive (DRIVE?) to robot.
+        gameObject.AddComponent<Planing>();
     }
 
     public override void OnStartClient() {

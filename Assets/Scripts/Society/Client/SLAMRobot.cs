@@ -2,26 +2,28 @@
  * SLAM for Dummies                                                                                                                    *
  * See: https://ocw.mit.edu/courses/aeronautics-and-astronautics/16-412j-cognitive-robotics-spring-2005/projects/1aslam_blas_repo.pdf  *
  * Paper by Søren Riisgaard and Morten Rufus Blas                                                                                      *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * An EKF-SLAM algorithm with consistency properties                                                                                   *
+ * See: https://aps.arxiv.org/abs/1510.06263v3                                                                                         *
+ * Paper by Axel Barrau, Silvère Bonnabel                                                                                              *
  * Implementation by Jan Phillip Kretzschmar                                                                                           *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 using Superbest_random;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Networking;
 
 public class SLAMInputData {
 
-    public PositionData FirstPos;
-    public PositionData LastPos;
+    public Vector3 LastPose;
     public Vector3[] Readings;
 
     public SLAMInputData() { }
 
-    public SLAMInputData(PositionData firstPos, PositionData lastPos, Vector3[] readings, bool[] invalid, int invalidCount) {
-        FirstPos = firstPos;
-        LastPos = lastPos;
+    public SLAMInputData(PositionData lastPos, Vector3[] readings, bool[] invalid, int invalidCount) {
+        LastPose = new Vector3(lastPos.position.x, lastPos.position.z, (float)(lastPos.heading / 180f * Math.PI));
         Readings = new Vector3[readings.Length - invalidCount];
         int count = 0;
         for (int i = 0; i < Readings.Length; i++) {
@@ -32,7 +34,7 @@ public class SLAMInputData {
 
 [RequireComponent(typeof(Map3D))]
 [RequireComponent(typeof(GlobalClientMap))]
-public class SLAMRobot : NetworkBehaviour {
+public class SLAMRobot : MonoBehaviour {
 
     public const int MAX_MAP_SIZE = 8;
     //private const float VALIDATION_LAMBDA = ???;
@@ -40,7 +42,7 @@ public class SLAMRobot : NetworkBehaviour {
     public const float MINIMUM_OBSERVED_COUNT = 3;
     public const float ODOMETRY_SIGMA = 0.15f;
     public const float NOISE_GAUSSIAN_RANGE = 0.01f;//meters
-    public const float NOISE_GAUSSIAN_BEARING = 0.5f;//degree
+    public const float NOISE_GAUSSIAN_BEARING = 0.5f;//radiant
 
     public const float ROBOT_UNCERTAINTY = 1f;
     public const float ESTIMATION_ERROR_RATE = 1f;
@@ -98,27 +100,28 @@ public class SLAMRobot : NetworkBehaviour {
         jacobianXR[1, 1] = 1;
     }
 
-    public void Update() {
-        SLAMInputData data;
-        lock(input) {
-            if (input.Count == 0) return;
-            data = input.Dequeue();
+    private IEnumerator workerRoutine() {
+        while (true) {
+            yield return new WaitWhile(() => input.Count == 0);
+            SLAM();
         }
+    }
+
+    private void SLAM() {
+        SLAMInputData data;
+        lock(input) data = input.Dequeue();
         if (data.Readings.Length == 0) return;
         //1) Landmark Extraction: RANSAC
         var landmarks = ransac.FindCorners(data.Readings);
         //TODO: DISPLAY CORNERS?
         //2) Data Association
         //Find the nearest neighbour in the localMap to the extracted landmarks:
-        Vector3 inputPose = data.LastPos.position;
-        inputPose.y = inputPose.z;
-        inputPose.z = (float) (data.LastPos.heading / 180f * Math.PI);
         List<int> unmatchedLandmarks;
         List<int> matchedFeatures;
         var inversedCovariance = new DefaultedSparseCovarianceMatrix(!localMap.covariance, new Matrix(2));
-        var match = nearestNeighbour.Match(inputPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.points.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), inversedCovariance, ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
+        var match = nearestNeighbour.Match(data.LastPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.points.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), inversedCovariance, ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
         //Offset found landmarks by match:
-        var matchOffset = match - inputPose;
+        var matchOffset = match - data.LastPose;
         for(int i = 0; i < landmarks.Count; i++) {
             landmarks[i] += (Vector2)matchOffset;
             Geometry.Rotate(landmarks[i], match, matchOffset.z);
@@ -131,7 +134,7 @@ public class SLAMRobot : NetworkBehaviour {
         noiseQ[1, 1] = RandomExtensions.NextGaussian(random, 0, ODOMETRY_SIGMA) * delta.y * delta.y;
         noiseQ[2, 2] = RandomExtensions.NextGaussian(random, 0, ODOMETRY_SIGMA) * delta.z * delta.z;
         lastPose = match;
-        previousInputPose = inputPose;
+        previousInputPose = data.LastPose;
         //Updating the first covariance row(transposed):
         localMap.covariance[0, 0] = jacobianA * localMap.covariance[0, 0] * ~jacobianA + noiseQ;
         for (int i = 1; i < localMap.covariance.count; i++) {
@@ -216,7 +219,7 @@ public class SLAMRobot : NetworkBehaviour {
             }
         }
         //Remove all features from the observedFeatures list which have passed MINIMUM_OBSERVED_COUNT
-        int k = observedFeatures.RemoveAll(CheckObservedFeature);
+        int k = observedFeatures.RemoveAll((ObservedFeature obj) => obj.observedCount > MINIMUM_OBSERVED_COUNT);
         if (k > 0) {
             localMap.covariance.Enlarge(k);
             var newFeaturesEnumerator = newFeatures.GetEnumerator();
@@ -244,14 +247,11 @@ public class SLAMRobot : NetworkBehaviour {
         ISLSJFBase.DisplayPoints(localMap.points.map.GetEnumerator(), map);
     }
 
-    private void processLocalMap(LocalClientMap oldLocalMap) {
+    private IEnumerator processLocalMap(LocalClientMap oldLocalMap) {
         oldLocalMap.points.radius = Geometry.Radius(oldLocalMap.points.end, oldLocalMap.points.map);
         //NetworkManager.singleton.client.SendUnreliable((short)MessageType.LocalClientMap, oldLocalMap);
         globalMap.ConsumeLocalMap(oldLocalMap);
-    }
-
-    public bool CheckObservedFeature(ObservedFeature obj) {
-        return obj.observedCount > MINIMUM_OBSERVED_COUNT;
+        yield return null;
     }
 
     public int GetPointCount() {

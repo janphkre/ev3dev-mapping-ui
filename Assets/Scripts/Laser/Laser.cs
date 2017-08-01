@@ -298,7 +298,8 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 			threadShared.crcFailurePercentage = threadInternal.crcFailurePercentage;
 		}
 
-        SLAMRobot.singelton.PostOdometryAndReadings(new SLAMInputData(lastPackageFirstPos, lastPackageLastPos, threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount));
+        SLAMRobot.singelton.PostOdometryAndReadings(new SLAMInputData(lastPackageLastPos, threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount));
+        Planing.singleton.LaserReadings = new PlaningInputData(lastPackageFirstPos, lastPackageLastPos, threadInternal.readings, threadInternal.invalid_data);
     }
 
 

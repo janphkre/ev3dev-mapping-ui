@@ -334,6 +334,7 @@ public class CovarianceMatrix {
         set { val[i] = value; }
     }*/
 
+    //TODO fix multiplication!
     public static Matrix operator *(CovarianceMatrix a, Matrix b) {
         if (a.count != b.sizeY) throw new MatrixSizeException(a.count, b.sizeY, "*");
         Matrix result = new Matrix(b.sizeX, a.count);
@@ -343,9 +344,9 @@ public class CovarianceMatrix {
                 for (int k = 0; k < b.sizeY; k++) {
                     if (i < 3) {
                         if (k < 3) {
-                            result[i, j] += a[0, 0][i, k] * b[k, j];
+                            result[i, j] += a[0, 0][k, i] * b[j, k];
                         } else {
-                            result[i, j] += a[0, (k - 3) / 2][i, (k - 3) % 2] * b[k, j];
+                            result[i, j] += a[(k - 3) / 2, 0][i, (k - 3) % 2] * b[k, j];
                         }
                     } else {
                         if (k < 3) {

@@ -4,35 +4,36 @@ using UnityEngine.UI;
 [RequireComponent(typeof(RobotRequired))]
 public class MainMenu : MonoBehaviour {
 
-    private RobotRequired robot;
-    private Network network;
-    private Replay replay;
-    private PositionHistory positionHistory;
-    private Physics physics;
-    private Limits limits;
-    private UserInput input;
+    public static RobotRequired Robot;
+    public static Network Network;
+    public static Replay Replay;
+    public static PositionHistory PositionHistory;
+    public static Physics Physics;
+    public static Limits Limits;
+    public static UserInput Input;
 
     protected virtual void Start() {
-        robot = gameObject.GetComponent<RobotRequired>();
-        network = gameObject.GetComponent<Network>();
-        replay = gameObject.GetComponent<Replay>();
-        positionHistory = gameObject.GetComponent<PositionHistory>();
-        physics = gameObject.GetComponent<Physics>();
-        limits = gameObject.GetComponent<Limits>();
-        input = gameObject.GetComponent<UserInput>();
-        GameObject.Find("InputAcceleration").GetComponent<InputField>().text = "" + input.accelerationPower;
-        GameObject.Find("InputSessionDirectory").GetComponent<InputField>().text = "" + robot.sessionDirectory;
-        GameObject.Find("InputPositionsKept").GetComponent<InputField>().text = "" + positionHistory.positionsKept;
-        GameObject.Find("InputWheelDiameter").GetComponent<InputField>().text = "" + physics.wheelDiameterMm;
-        GameObject.Find("InputWheelBase").GetComponent<InputField>().text = "" + physics.wheelbaseMm;
-        GameObject.Find("InputEncoderRotation").GetComponent<InputField>().text = "" + physics.encoderCountsPerRotation;
-        GameObject.Find("InputEncoderMax").GetComponent<InputField>().text = "" + physics.maxEncoderCountsPerSecond;
-        GameObject.Find("InputPolarity").GetComponent<InputField>().text = "" + physics.reverseMotorPolarity;
-        GameObject.Find("InputLinearSpeed").GetComponent<InputField>().text = "" + limits.MaxLinearSpeedMmPerSec;
-        GameObject.Find("InputAngularSpeed").GetComponent<InputField>().text = "" + limits.MaxAngularSpeedDegPerSec;
-        GameObject.Find("InputOwnIP").GetComponent<InputField>().text = "" + network.hostIp;
-        GameObject.Find("InputRobotIP").GetComponent<InputField>().text = "" + network.robotIp;
-        //Make Networ
+        Robot = gameObject.GetComponent<RobotRequired>();
+        Network = gameObject.GetComponent<Network>();
+        Replay = gameObject.GetComponent<Replay>();
+        PositionHistory = gameObject.GetComponent<PositionHistory>();
+        Physics = gameObject.GetComponent<Physics>();
+        Limits = gameObject.GetComponent<Limits>();
+        Input = gameObject.GetComponent<UserInput>();
+        GameObject.Find("InputAcceleration").GetComponent<InputField>().text = "" + Input.accelerationPower;
+        GameObject.Find("InputSessionDirectory").GetComponent<InputField>().text = "" + Robot.sessionDirectory;
+        GameObject.Find("InputPositionsKept").GetComponent<InputField>().text = "" + PositionHistory.positionsKept;
+        GameObject.Find("InputWheelDiameter").GetComponent<InputField>().text = "" + Physics.wheelDiameterMm;
+        GameObject.Find("InputWheelBase").GetComponent<InputField>().text = "" + Physics.wheelbaseMm;
+        GameObject.Find("InputEncoderRotation").GetComponent<InputField>().text = "" + Physics.encoderCountsPerRotation;
+        GameObject.Find("InputEncoderMax").GetComponent<InputField>().text = "" + Physics.maxEncoderCountsPerSecond;
+        GameObject.Find("InputPolarity").GetComponent<InputField>().text = "" + Physics.reverseMotorPolarity;
+        GameObject.Find("InputLinearSpeed").GetComponent<InputField>().text = "" + Limits.MaxLinearSpeedMmPerSec;
+        GameObject.Find("InputAngularSpeed").GetComponent<InputField>().text = "" + Limits.MaxAngularSpeedDegPerSec;
+        GameObject.Find("InputOwnIP").GetComponent<InputField>().text = "" + Network.hostIp;
+        GameObject.Find("InputRobotIP").GetComponent<InputField>().text = "" + Network.robotIp;
+        //TODO:physics.maxTurningAngle
+        //TODO:physics.innerTurningDiameter: 2 * MainMenu.Physics.TurningRadius - (MainMenu.Physics.wheelbaseMm / 1000.0f)
         //TODO: move input values into fields!
         DontDestroyOnLoad(gameObject);
     }
@@ -40,34 +41,6 @@ public class MainMenu : MonoBehaviour {
     public bool CheckInputs() {
         //TODO!
         return false;
-    }
-
-    public RobotRequired GetRobotRequired() {
-        return robot;
-    }
-
-    public Network GetNetwork() {
-        return network;
-    }
-
-    public Replay GetReplay() {
-        return replay;
-    }
-
-    public PositionHistory GetPositionHistory() {
-        return positionHistory;
-    }
-
-    public Physics GetPhysics() {
-        return physics;
-    }
-
-    public Limits GetLimits() {
-        return limits;
-    }
-
-    public UserInput GetUserInput() {
-        return input;
     }
 
 }
