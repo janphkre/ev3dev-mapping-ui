@@ -11,7 +11,6 @@
  */
 
 using UnityEngine;
-using System.Collections.Generic;
 
 //SceneManager just for testing, rewrite needed
 public class SceneManager : MonoBehaviour
@@ -38,11 +37,6 @@ public class SceneManager : MonoBehaviour
 		get{ return Instance.uiCanvas.transform; }
 	}
 
-    public static GameObject Society
-    {
-        get { return Instance.society; }
-    }
-
     private void Destroy()
 	{
 		Instance = null;
@@ -59,7 +53,6 @@ public class SceneManager : MonoBehaviour
 		dynamicObjects = new GameObject("DynamicObjects").transform;
 		uiCanvas = GameObject.Find("UICanvas");
 		robotsPanel = GameObject.Find("RobotsPanel");
-        society = GameObject.Find("Society");
 
     }
 

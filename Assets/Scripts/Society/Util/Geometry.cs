@@ -56,7 +56,7 @@ class Geometry {
     //Returns the range and bearing form the robot to the feature.
     public static Vector2 ToRangeBearing(Vector2 feat, Vector3 origin) {
         var f = feat - (Vector2) origin;
-        var result = new Vector2(Math.Abs(f.magnitude), origin.z);
+        var result = new Vector2(Math.Abs(f.magnitude), -origin.z);
         result.y += (float)Math.Atan2(f.x, f.y);
         return result;
     }
@@ -65,7 +65,7 @@ class Geometry {
     //The y coordinate of feat will be ignored
     public static Vector2 ToRangeBearing(Vector3 feat, Vector3 origin) {
         var f = new Vector2(feat.x - origin.x, feat.z - origin.y);
-        var result = new Vector2(Math.Abs(f.magnitude), origin.z);
+        var result = new Vector2(Math.Abs(f.magnitude), -origin.z);
         result.y += (float)Math.Atan2(f.x, f.y);
         return result;
     }

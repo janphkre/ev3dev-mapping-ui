@@ -23,6 +23,10 @@ class CarDrive: MonoBehaviour {
         throw new NotImplementedException();
     }
 
+    public bool IsTurning() {
+        throw new NotImplementedException();
+    }
+
     public void Steer(float segment, bool backwards) {
         throw new NotImplementedException();
     }
