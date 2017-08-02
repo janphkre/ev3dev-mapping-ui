@@ -23,7 +23,7 @@ public class SLAMInputData {
     public SLAMInputData() { }
 
     public SLAMInputData(PositionData lastPos, Vector3[] readings, bool[] invalid, int invalidCount) {
-        LastPose = new Vector3(lastPos.position.x, lastPos.position.z, (float)(lastPos.heading / 180f * Math.PI));
+        LastPose = new Vector3(lastPos.position.x, lastPos.position.z, lastPos.heading / 180f * (float) Math.PI);
         Readings = new Vector3[readings.Length - invalidCount];
         int count = 0;
         for (int i = 0; i < Readings.Length; i++) {

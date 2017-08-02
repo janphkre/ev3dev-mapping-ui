@@ -5,6 +5,7 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
     public float innerTurningDiameter = 0.0f;
     public float turningRadius = 0.0f;
     public float turningRadiusSquared = 0.0f;
+    public float turningRadiusAngledSquared = 0.0f;//Math.Sqrt(2*turningRadiusSquared)
     public float halfWheelbase = 0.0f;
     public float maxTurningAngle = 0.0f;//TODO!
 	public float wheelDiameterMm=43.2f;

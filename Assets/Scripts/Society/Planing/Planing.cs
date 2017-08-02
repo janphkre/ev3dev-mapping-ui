@@ -5,24 +5,20 @@ using UnityEngine;
 
 enum TargetCommand {
     RandomMove,
-    Turn,
     ExplorePosition,
-    Backtrack
-    //TODO:More Commands?
+    Backtrack,
+    Turn
 }
 
 class PlaningInputData {
 
-    public Vector3 FirstPose;
     public Vector3 LastPose;
     public Vector3[] Readings;
     public bool[] Invalid;
 
     public PlaningInputData() { }
 
-    public PlaningInputData(PositionData firstPos, PositionData lastPos, Vector3[] readings, bool[] invalid) {
-        FirstPose = new Vector3(firstPos.position.x, firstPos.position.z, (float)(firstPos.heading / 180f * Math.PI));
-        LastPose = new Vector3(lastPos.position.x, lastPos.position.z, (float)(lastPos.heading / 180f * Math.PI));
+    public PlaningInputData(Vector3[] readings, bool[] invalid) {
         Readings = new Vector3[readings.Length];
         for (int i = 0; i < Readings.Length; i++) Readings[i] = readings[i];
     }
@@ -31,17 +27,21 @@ class PlaningInputData {
 class Planing: MonoBehaviour {
 
     public const int GRAPH_FEED_INTERVAL = 5;
-    public const float RIGHT_ANGLE = (float) (Math.PI / 2f);
-    public const float FULL_CIRCLE = (float)(Math.PI * 2f);
+    public const float HALF_CIRCLE = (float) Math.PI;
+    public const float RIGHT_ANGLE = HALF_CIRCLE / 2f;
+    public const float FULL_CIRCLE = HALF_CIRCLE * 2f;
+    public const float EIGHTH_CIRCLE = RIGHT_ANGLE / 2f;
+
     //Parameters:
-    public const float ALPHA = (float)(RIGHT_ANGLE + Math.PI / 4f);
-    public const float OBSTACLE_PLANING_STEP = (float)(Math.PI / 180);
+    public const float ALPHA = HALF_CIRCLE + HALF_CIRCLE / 4f;
+    public const float OBSTACLE_PLANING_STEP = HALF_CIRCLE / 36f;
     public const float MIN_OBSTACLE_DISTANCE = 0.3f;
+    public const float UNOBSTRUCTED_OBSTACLE_MULTIPLIER = 1.5f;
     public const float TARGET_RADIUS = 0.1f;
-    public const float MAX_OFFSET_ANGLE = RIGHT_ANGLE;
+    public const float MAX_OFFSET_ANGLE = HALF_CIRCLE;
 
     //Calculated once at Startup:
-    public float UNOBSTRUCTED_OFFSET;
+    public static float UNOBSTRUCTED_OFFSET;
 
     public static Planing singleton;
     /***********************************************************************
@@ -55,24 +55,28 @@ class Planing: MonoBehaviour {
     ***********************************************************************/
     
     public PlaningInputData LaserReadings {
-        get { lock (laserReadingsLock) return currentLaserReadings; }
+        private get { lock (laserReadingsLock) return currentLaserReadings; }
         set { lock (laserReadingsLock) currentLaserReadings = value; }
     }
     public Graph GlobalGraph = new Graph();
 
+    private CarDrive steering;
+    private PositionHistory positionHistory;
     private Stack<TargetCommand> currentTarget = new Stack<TargetCommand>();
     private Vector2 currentTargetPosition = new Vector2(1f, 0f);
+    private Queue<Vector2> currentPath;
     private object laserReadingsLock = new object();
     private PlaningInputData currentLaserReadings = null;
     private PlaningInputData lastLaserReadings = null;
-    private int graphCounter = 4;
-    private CarDrive steering;
+    private int graphCounter = 0;
+    private bool backwards = false;
 
     public void Awake() {
         singleton = this;
         currentTarget.Push(TargetCommand.RandomMove);
         steering = gameObject.GetComponent<CarDrive>();
-        UNOBSTRUCTED_OFFSET =  2f * (float) Math.Asin(MIN_OBSTACLE_DISTANCE * 2f / Math.Sqrt(4f * MainMenu.Physics.turningRadius * MIN_OBSTACLE_DISTANCE));
+        positionHistory = gameObject.GetComponent<PositionHistory>();
+        UNOBSTRUCTED_OFFSET =  2f * (float) Math.Asin(MIN_OBSTACLE_DISTANCE * UNOBSTRUCTED_OBSTACLE_MULTIPLIER / Math.Sqrt(UNOBSTRUCTED_OBSTACLE_MULTIPLIER * 2f * MainMenu.Physics.turningRadius * MIN_OBSTACLE_DISTANCE));
         StartCoroutine("workerRoutine");
     }
 
@@ -85,93 +89,252 @@ class Planing: MonoBehaviour {
     }
 
     private IEnumerator workerRoutine() {
+        yield return new WaitWhile(() => lastLaserReadings == currentLaserReadings);
+        lastLaserReadings = LaserReadings;
+        GlobalGraph.Feed(lastLaserReadings);
+        defineNewTarget();
+        bool wasUsed = false;
         while (true) {
-            yield return new WaitWhile(() => lastLaserReadings == currentLaserReadings);
+            if(wasUsed) yield return new WaitWhile(() => lastLaserReadings == currentLaserReadings);
             lastLaserReadings = LaserReadings;
-            if (currentTarget.Peek() == TargetCommand.ExplorePosition) obstaclePlaning();
-            else {
-                //TODO!
-            }
-            graphCounter++;
-            graphCounter %= 5;
-            if (graphCounter == 0) GlobalGraph.Feed(lastLaserReadings);
+            wasUsed = false;
+            if (currentTarget.Peek() == TargetCommand.ExplorePosition) {
+                if (obstaclePlaning()) {
+                    wasUsed = true;
+                    graphCounter++;
+                    graphCounter %= 5;
+                    if (graphCounter == 0) GlobalGraph.Feed(lastLaserReadings);
+                }
+            } else if (currentTarget.Peek() == TargetCommand.Turn) {
+                //Wait for the turn to finish:
+                yield return new WaitWhile(() => steering.IsMoving());
+                wasUsed = true;
+                currentTarget.Pop();
+            } else defineNewTarget();
+
         }
     }
 
-    private void obstaclePlaning() {
+    private bool obstaclePlaning() {
+        PositionData pos = positionHistory.GetNewestThreadSafe();
+        lastLaserReadings.LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading / 180f * HALF_CIRCLE);
         var targetRB = Geometry.ToRangeBearing(currentTargetPosition, lastLaserReadings.LastPose);
         if (targetRB.x < TARGET_RADIUS) {
+            //Reached the current target.
             currentTarget.Pop();
-            //TODO!
+            defineNewTarget();
+            return false;
         }
         if (!Geometry.IsWithinFunnel(targetRB)) {
-            //TODO! the target is not in the current reachable funnel. Do something 
+            //TODO! the target is not in the current reachable funnel. Do something
+            throw new NotImplementedException();
         }
-        //TODO: Reaching dead end should let the obstacle detection run different.
-        bool movingBackwards = false;
-        if(Math.Abs(Geometry.ToRangeBearing(lastLaserReadings.FirstPose, lastLaserReadings.LastPose).y) > RIGHT_ANGLE) {
-            movingBackwards = true;
-            lastLaserReadings.LastPose.z += (float) Math.PI;
+        var unobstructedRadius = findBothUnobstructedRadius(lastLaserReadings.LastPose);
+        if(unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
+            //Reached a dead end.
+            steering.Halt();
+            GlobalGraph.ReachedDeadEnd(lastLaserReadings.LastPose);
+            currentTarget.Pop();
+            currentTarget.Push(TargetCommand.Backtrack);
+            return false;
+        }
+        if (backwards) {
+            //TODO!
+            //TODO: Try to turn around!
+            //Try to turn around in a two/three point turn:
+            if(findTurn(unobstructedRadius)) {
+                backwards = false;
+                return true;
+            }
+            //Continue to go backwards:
+            lastLaserReadings.LastPose.z += HALF_CIRCLE;
             lastLaserReadings.LastPose.z %= FULL_CIRCLE;
+            unobstructedRadius = findBothUnobstructedRadius(lastLaserReadings.LastPose);
         }
-        var positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, (float) Math.PI, lastLaserReadings.LastPose);
-        var negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, (float) -Math.PI, lastLaserReadings.LastPose);
+        float steeringSegment = findSteeringSegment(unobstructedRadius, targetRB);
+        steering.Steer(steeringSegment, backwards);
+        return true;
+    }
+
+    private bool findTurn(Vector2 unobstructedRadius) {
+        if (unobstructedRadius.x >= RIGHT_ANGLE) {
+            if (unobstructedRadius.x >= HALF_CIRCLE) {
+                steering.SteerForward(HALF_CIRCLE);
+                return true;
+            }
+            Vector3 movedPose = Geometry.FromRangeBearing(MainMenu.Physics.turningRadiusAngledSquared, EIGHTH_CIRCLE, lastLaserReadings.LastPose);
+            movedPose.z = (lastLaserReadings.LastPose.z - RIGHT_ANGLE) % FULL_CIRCLE;
+            if (findPositiveUnobstructedRadius(movedPose) >= RIGHT_ANGLE) {
+                steering.SteerForward(RIGHT_ANGLE);
+                currentTarget.Push(TargetCommand.Turn);
+                return true;
+            }
+        }
+        if (unobstructedRadius.y <= -RIGHT_ANGLE) {
+            if (unobstructedRadius.y <= -HALF_CIRCLE) {
+                steering.SteerForward(-HALF_CIRCLE);
+                return true;
+            }
+            Vector3 movedPose = Geometry.FromRangeBearing(MainMenu.Physics.turningRadiusAngledSquared, -EIGHTH_CIRCLE, lastLaserReadings.LastPose);
+            if (findNegativeUnobstructedRadius(movedPose) >= RIGHT_ANGLE) {
+                steering.SteerForward(-RIGHT_ANGLE);
+                currentTarget.Push(TargetCommand.Turn);
+                return true;
+            }
+        }
+        //TODO: If the above failed, we may be able to turn around by reversing first. This would mean code changes to the TargetCommand.Turn as well.
+        // Skip that for now for better performance in narrow situations.
+        return false;
+    }
+
+    private Vector2 findBothUnobstructedRadius(Vector3 origin) {
+        var positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, RIGHT_ANGLE, origin);
+        var negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -RIGHT_ANGLE, origin);
         //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
-        var obstacles = new List<Vector2>();
-        double positiveUnobstructedRadius = Math.PI,
-              negativeUnobstructedRadius  = -Math.PI;
+        Vector2 unobstructedRadius = new Vector2(ALPHA, -ALPHA);
         for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
-            Vector2 rangeBearing = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], lastLaserReadings.LastPose);
-            Debug.Log("i " + i + ", r " + rangeBearing.x + ", b " + rangeBearing.y);//TODO: index is bearing in degree!
+            Vector2 rangeBearing = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], origin);
+            Debug.Log("i " + i + ", r " + rangeBearing.x + ", b " + rangeBearing.y);//TODO: index is bearing in degree!?
             if (Math.Abs(rangeBearing.y) > ALPHA) continue;
-            if(Geometry.IsWithinFunnel(rangeBearing)) {
+            if (Geometry.IsWithinFunnel(rangeBearing)) {
                 //The obstacle is in front of our possible movements.
-                obstacles.Add(rangeBearing);
                 if (rangeBearing.x < MIN_OBSTACLE_DISTANCE) {
                     //The obstacle is too close.
-                    steering.Halt();
-                    //TODO: we will not be able to steer around the obstacle. This means we were unable to steer around the feature or the set position is unreachable from our current position.
+                    //We will not be able to steer around the obstacle. This means we were unable to steer around the feature or the set position is unreachable from our current position.
+                    return Vector2.zero;
                 }
-                if(rangeBearing.y > 0f) {
+                if (rangeBearing.y >= 0f) {
                     var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], positiveTurningCenter);
                     if (Math.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = Math.Atan2(lastLaserReadings.Readings[i].x - positiveTurningCenter.x, lastLaserReadings.Readings[i].z - positiveTurningCenter.y);
-                        if (currentAngle < positiveUnobstructedRadius) positiveUnobstructedRadius = currentAngle;
+                        var currentAngle = (float)Math.Atan2(lastLaserReadings.Readings[i].x - positiveTurningCenter.x, lastLaserReadings.Readings[i].z - positiveTurningCenter.y);
+                        if (currentAngle < unobstructedRadius.x) unobstructedRadius.x = currentAngle;
                     }
                 } else {
                     var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], negativeTurningCenter);
                     if (Math.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = Math.Atan2(lastLaserReadings.Readings[i].x - negativeTurningCenter.x, lastLaserReadings.Readings[i].z - negativeTurningCenter.y);
-                        if (currentAngle > negativeUnobstructedRadius) {
-                            negativeUnobstructedRadius = currentAngle;
+                        var currentAngle = (float)Math.Atan2(lastLaserReadings.Readings[i].x - negativeTurningCenter.x, lastLaserReadings.Readings[i].z - negativeTurningCenter.y);
+                        if (currentAngle > unobstructedRadius.y) {
+                            unobstructedRadius.y = currentAngle;
                         }
                     }
                 }
             }
         }
-        positiveUnobstructedRadius -= UNOBSTRUCTED_OFFSET;
-        negativeUnobstructedRadius += UNOBSTRUCTED_OFFSET;
+        unobstructedRadius.x -= UNOBSTRUCTED_OFFSET;
+        unobstructedRadius.y = UNOBSTRUCTED_OFFSET - unobstructedRadius.y;
+        return unobstructedRadius;
+    }
+
+    private float findNegativeUnobstructedRadius(Vector3 origin) {
+        var negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -RIGHT_ANGLE, origin);
+        //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
+        float unobstructedRadius = -HALF_CIRCLE;
+        for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
+            Vector2 rangeBearing = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], origin);
+            Debug.Log("i " + i + ", r " + rangeBearing.x + ", b " + rangeBearing.y);//TODO: index is bearing in degree!?
+            if (Math.Abs(rangeBearing.y) > HALF_CIRCLE) continue;
+            if (Geometry.IsWithinFunnel(rangeBearing)) {
+                //The obstacle is in front of our possible movements.
+                if (rangeBearing.y <= 0f) {
+                    var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], negativeTurningCenter);
+                    if (Math.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        var currentAngle = (float)Math.Atan2(lastLaserReadings.Readings[i].x - negativeTurningCenter.x, lastLaserReadings.Readings[i].z - negativeTurningCenter.y);
+                        if (currentAngle > unobstructedRadius) {
+                            unobstructedRadius = currentAngle;
+                        }
+                    }
+                }
+            }
+        }
+        return UNOBSTRUCTED_OFFSET - unobstructedRadius;
+    }
+
+    private float findPositiveUnobstructedRadius(Vector3 origin) {
+        var positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, RIGHT_ANGLE, origin);
+        //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
+        float unobstructedRadius = -HALF_CIRCLE;
+        for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
+            Vector2 rangeBearing = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], origin);
+            Debug.Log("i " + i + ", r " + rangeBearing.x + ", b " + rangeBearing.y);//TODO: index is bearing in degree!?
+            if (Math.Abs(rangeBearing.y) > HALF_CIRCLE) continue;
+            if (Geometry.IsWithinFunnel(rangeBearing)) {
+                //The obstacle is in front of our possible movements.
+                if (rangeBearing.y >= 0f) {
+                    var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], positiveTurningCenter);
+                    if (Math.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        var currentAngle = (float)Math.Atan2(lastLaserReadings.Readings[i].x - positiveTurningCenter.x, lastLaserReadings.Readings[i].z - positiveTurningCenter.y);
+                        if (currentAngle < unobstructedRadius) unobstructedRadius = currentAngle;
+                    }
+                }
+            }
+        }
+        return unobstructedRadius - UNOBSTRUCTED_OFFSET;
+    }
+
+    private float findSteeringSegment(Vector2 unobstructedRadius, Vector2 targetRB) {
         //Calculate the segment of circle that the robot has to turn at max steering angle: 
         var bearing = RIGHT_ANGLE - Math.Abs(targetRB.y);
-        var c = MainMenu.Physics.turningRadiusSquared + targetRB.x * targetRB.x - 2 * MainMenu.Physics.turningRadius * targetRB.x * Math.Cos(bearing);
-        float steeringSegment = (float) (Math.Asin((targetRB.x * Math.Sin(bearing)) / Math.Sqrt(c)) - Math.Asin(Math.Sqrt(c - MainMenu.Physics.turningRadiusSquared) / Math.Sqrt(c)));
+        var c = MainMenu.Physics.turningRadiusSquared + targetRB.x * targetRB.x - 2f * MainMenu.Physics.turningRadius * targetRB.x * Math.Cos(bearing);
+        float steeringSegment = (float)(Math.Asin((targetRB.x * Math.Sin(bearing)) / Math.Sqrt(c)) - Math.Asin(Math.Sqrt(c - MainMenu.Physics.turningRadiusSquared) / Math.Sqrt(c)));
         if (bearing < 0) steeringSegment = -steeringSegment;
-        //Find the closest steerable way towards the CurrentTargetPosition
-        for (float f = 0.0f; f < MAX_OFFSET_ANGLE; f+= OBSTACLE_PLANING_STEP) {
-            
-            //A steering plan consists of two elements: A line and a turn.
-            var plannedTurn = steeringSegment + f;
-            if(plannedTurn <= positiveUnobstructedRadius) {
-                
+        //Find the closest steerable way towards the currentTargetPosition
+        //A steering plan consists of two elements: A line and a turn.
+        if (steeringSegment > unobstructedRadius.x) steeringSegment = unobstructedRadius.x;
+        else if (steeringSegment < unobstructedRadius.y) steeringSegment = unobstructedRadius.y;
+        else {
+            float f = 0f;
+            for (; f < MAX_OFFSET_ANGLE; f += OBSTACLE_PLANING_STEP) {
+                var currentAngle = steeringSegment + f;
+                if (currentAngle <= unobstructedRadius.x) {
+                    if (currentAngle >= unobstructedRadius.y) break;
+                } else {
+                    f = MAX_OFFSET_ANGLE;
+                    break;
+                }
             }
-            plannedTurn = steeringSegment - f;
-            if(plannedTurn >= negativeUnobstructedRadius) {
+            float g = OBSTACLE_PLANING_STEP;
+            for (; g < f; g += OBSTACLE_PLANING_STEP) {
+                var currentAngle = steeringSegment - g;
+                if (currentAngle >= unobstructedRadius.y) {
+                    if (currentAngle <= unobstructedRadius.x) break;
+                } else {
+                    g = MAX_OFFSET_ANGLE;
+                    break;
+                }
+            }
+            if (f >= MAX_OFFSET_ANGLE && g >= MAX_OFFSET_ANGLE) {
+                //TODO! something went wrong. This would mean that the step was too big so the unobstructed range was missed.
+                throw new NotImplementedException();
+            }
+            steeringSegment += (f < g ? f : g);
+        }
+        return steeringSegment;
+    }
 
+    private void defineNewTarget() {
+        if (currentTarget.Peek() == TargetCommand.RandomMove) {
+            currentTargetPosition = GlobalGraph.GetNewTarget();
+            currentTarget.Push(TargetCommand.ExplorePosition);
+            return;
+        }
+        if (currentTarget.Peek() == TargetCommand.ExplorePosition) {
+            currentTargetPosition = currentPath.Dequeue();
+            if(currentTargetPosition == null) {
+                currentPath = null;
+                currentTarget.Pop();
+                //TODO ?? what now? we reached our target.
             }
+            return;
         }
-        if(movingBackwards) {
-            lastLaserReadings.LastPose.z -= (float)Math.PI;
-            lastLaserReadings.LastPose.z %= FULL_CIRCLE;
-        }
+        //TargetCommand.Backtrack
+        backTrack();
+    }
+
+    private void backTrack() {
+        currentTarget.Pop();
+        currentPath = GlobalGraph.GetUnexploredNodePath();
+        currentTarget.Push(TargetCommand.ExplorePosition);
+        currentTargetPosition = currentPath.Dequeue();
+        backwards = !backwards;
     }
 }

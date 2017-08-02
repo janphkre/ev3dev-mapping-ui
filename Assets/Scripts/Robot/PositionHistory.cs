@@ -91,6 +91,10 @@ public sealed class PositionHistory : MonoBehaviour, ItemCopy<PositionHistory>
 		}
 	}
 
+    public PositionData GetNewestThreadSafe() {
+        lock(syncRoot) return history.PeekNewest();
+    }
+
 	public class PositionSnapshot
 	{
 		private PositionData[] data;

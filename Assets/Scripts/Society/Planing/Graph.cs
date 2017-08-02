@@ -41,4 +41,19 @@ class Graph {
         }
         throw new NotImplementedException();
     }
+
+    //Marks the current pose / node as a dead end.
+    public void ReachedDeadEnd(Vector3 currentPose) {
+        throw new NotImplementedException();
+    }
+
+    //Returns a new target in the "unexplored" territory the robot is atm in.
+    public Vector2 GetNewTarget() {
+        throw new NotImplementedException();
+    }
+
+    //Returns a path through already visited territory to a new unexplored node in the graph.
+    public Queue<Vector2> GetUnexploredNodePath() {
+        throw new NotImplementedException();
+    }
 }
