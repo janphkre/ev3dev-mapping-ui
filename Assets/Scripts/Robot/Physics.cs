@@ -13,9 +13,6 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
 	public int encoderCountsPerRotation=360;
 	public int maxEncoderCountsPerSecond=1000;
 	public bool reverseMotorPolarity=false;
-    
-
-    public double TurningRadius { get; internal set; }
 
     public float MMPerCount()
 	{

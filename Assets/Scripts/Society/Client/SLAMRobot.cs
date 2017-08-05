@@ -26,7 +26,7 @@ public class SLAMInputData {
         LastPose = new Vector3(lastPos.position.x, lastPos.position.z, lastPos.heading / 180f * (float) Math.PI);
         Readings = new Vector3[readings.Length - invalidCount];
         int count = 0;
-        for (int i = 0; i < Readings.Length; i++) {
+        for (int i = 0; i < readings.Length; i++) {
             if(!invalid[i]) Readings[count++] = readings[i];
         }
     }

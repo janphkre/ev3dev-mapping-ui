@@ -299,7 +299,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 		}
 
         SLAMRobot.singelton.PostOdometryAndReadings(new SLAMInputData(lastPackageLastPos, threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount));
-        Planing.singleton.LaserReadings = new PlaningInputData(threadInternal.readings, threadInternal.invalid_data);
+        Planing.singleton.LaserReadings = new PlaningInputData(threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount);
     }
 
 

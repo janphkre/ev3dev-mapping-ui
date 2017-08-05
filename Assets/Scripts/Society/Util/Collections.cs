@@ -56,7 +56,7 @@ public class RobotPose: IFeature {
     public static RobotPose zero = new RobotPose(Vector3.zero, 0f);
 
     public Vector3 pose;
-    public float radius;
+    public float radius;//The radius of the local map.
 
     //Should be used only for the network messaging.
     public RobotPose() { }
@@ -67,6 +67,10 @@ public class RobotPose: IFeature {
     }
     public override bool IsFeature() { return false; }
     public override float Magnitude() { return pose.magnitude; }
+
+    public static Vector2 operator +(RobotPose a, Vector2 b) {
+        return new Vector2(a.pose.x + b.x, a.pose.y + b.y);
+    }
 }
 
 public class FeatureEnumerator : IEnumerator<Feature> {

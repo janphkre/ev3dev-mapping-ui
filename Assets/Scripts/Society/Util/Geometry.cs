@@ -3,6 +3,11 @@ using UnityEngine;
 
 class Geometry {
 
+    public const float HALF_CIRCLE = (float)Math.PI;
+    public const float RIGHT_ANGLE = HALF_CIRCLE / 2f;
+    public const float FULL_CIRCLE = HALF_CIRCLE * 2f;
+    public const float EIGHTH_CIRCLE = RIGHT_ANGLE / 2f;
+
     //Calculates the distance between two points.
     public static float EuclideanDistance(Vector2 a, Vector2 b) {
         return (b - a).magnitude;
@@ -62,7 +67,7 @@ class Geometry {
     }
 
     //Returns the range and bearing form the robot to the feature.
-    //The y coordinate of feat will be ignored
+    //The y coordinate of feat will be ignored.
     public static Vector2 ToRangeBearing(Vector3 feat, Vector3 origin) {
         var f = new Vector2(feat.x - origin.x, feat.z - origin.y);
         var result = new Vector2(Math.Abs(f.magnitude), -origin.z);
@@ -83,7 +88,7 @@ class Geometry {
     //Checks wether the feature, provided as range and bearing, is within currently the drivable funnel of the 
     public static bool IsWithinFunnel(Vector2 featureRB) {
         if (featureRB.y == 0) return true;
-        return Math.Sin(Math.Abs(featureRB.y)) * MainMenu.Physics.innerTurningDiameter + MainMenu.Physics.halfWheelbase < featureRB.x;
+        return Math.Sin(Math.Abs(featureRB.y)) * MainMenu.Physics.innerTurningDiameter - MainMenu.Physics.halfWheelbase < featureRB.x;
         //This is not completly correct. The turning circle should only be moved half wheelbase to the side!
     }
 }
