@@ -11,8 +11,7 @@ enum TargetCommand {
 }
 
 class PlaningInputData {
-
-    public ulong Timestamp;
+    
     public Vector3 LastPose;
     public Vector3[] Readings;
     public Vector2[] ReadingsRB;
@@ -65,7 +64,7 @@ class Planing: MonoBehaviour {
     private PositionHistory positionHistory;
     private Stack<TargetCommand> currentTarget = new Stack<TargetCommand>();
     private Vector2 currentTargetPosition = new Vector2(1f, 0f);
-    private Queue<Vector2> currentPath;
+    private LinkedList<Vector2> currentPath;
     private object laserReadingsLock = new object();
     private PlaningInputData currentLaserReadings = null;
     private PlaningInputData lastLaserReadings = null;
@@ -122,7 +121,6 @@ class Planing: MonoBehaviour {
     private bool obstaclePlaning() {
         PositionData pos = positionHistory.GetNewestThreadSafe();
         lastLaserReadings.LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading / 180f * Geometry.HALF_CIRCLE);
-        lastLaserReadings.Timestamp = pos.timestamp;
         for (int i = 0; i < lastLaserReadings.Readings.Length; i++) lastLaserReadings.ReadingsRB[i] = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], lastLaserReadings.LastPose);
         var targetRB = Geometry.ToRangeBearing(currentTargetPosition, lastLaserReadings.LastPose);
         if (targetRB.x < TARGET_RADIUS) {
@@ -141,7 +139,7 @@ class Planing: MonoBehaviour {
         if (unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
             //Reached a dead end.
             steering.Halt();
-            GlobalGraph.ReachedDeadEnd(lastLaserReadings.LastPose);
+            //GlobalGraph.ReachedDeadEnd(lastLaserReadings.LastPose);
             currentTarget.Pop();
             currentTarget.Push(TargetCommand.Backtrack);
             return false;
@@ -352,24 +350,34 @@ class Planing: MonoBehaviour {
 
     private void defineNewTarget() {
         if (currentTarget.Peek() == TargetCommand.RandomMove) {
-            currentTargetPosition = GlobalGraph.GetNewTarget();
+            if(!GlobalGraph.GetNewTarget(out currentTargetPosition)) {
+                steering.Halt();
+                //Backtrack as we don't have any target left at the moment.
+                currentPath = GlobalGraph.GetUnexploredNodePath(lastLaserReadings.LastPose);
+                currentTargetPosition = currentPath.First.Value;
+                currentPath.RemoveFirst();
+                backwards = !backwards;
+            }
             currentTarget.Push(TargetCommand.ExplorePosition);
             return;
         }
         if (currentTarget.Peek() == TargetCommand.ExplorePosition) {
-            currentTargetPosition = currentPath.Dequeue();
-            if(currentTargetPosition == null) {
+            if (currentPath.Count <= 0) {
                 currentPath = null;
                 currentTarget.Pop();
                 defineNewTarget();
+            } else {
+                currentTargetPosition = currentPath.First.Value;
+                currentPath.RemoveFirst();
             }
             return;
         }
         if (currentTarget.Peek() == TargetCommand.Backtrack) {
             currentTarget.Pop();
-            currentPath = GlobalGraph.GetUnexploredNodePath();
+            currentPath = GlobalGraph.GetUnexploredNodePath(lastLaserReadings.LastPose);
             currentTarget.Push(TargetCommand.ExplorePosition);
-            currentTargetPosition = currentPath.Dequeue();
+            currentTargetPosition = currentPath.First.Value;
+            currentPath.RemoveFirst();
             backwards = !backwards;
             return;
         }
