@@ -27,7 +27,7 @@ enum DriveMode {Manual, Auto, Backtrack};
 public class Drive : ReplayableUDPClient<DrivePacket>
 {
 	public int packetDelayMs=50;
-	public DriveModuleProperties module;
+	public DriveModuleProperties module = null;
 
 	private DrivePacket packet = new DrivePacket();
 	private float timeSinceLastPacketMs;

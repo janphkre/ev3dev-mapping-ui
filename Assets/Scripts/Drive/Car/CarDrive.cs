@@ -1,7 +1,7 @@
 ﻿using System;
 
 [Serializable]
-public class CarDriveModuleProperties : ModuleProperties {
+public class CarDriveModuleProperties: ModuleProperties {
     public int timeoutMs = 500;
 }
 
@@ -12,13 +12,17 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     private static short STEER_BACKWARD = -127;
 
     public ulong keepAliveUs = 100000L; //100ms * 1000
+    public CarDriveModuleProperties module = null;
 
-    private CarDriveModuleProperties module;
     private CarDrivePacket packet = new CarDrivePacket();
     
     protected override void OnDestroy() {
         Halt();
         base.OnDestroy();
+    }
+
+    protected override void Start() {
+        packet.timestamp_us = Timestamp.TimestampUs();
     }
 
     public void Update() {
@@ -46,7 +50,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     public void Steer(float segment, bool backwards) {
         packet.timestamp_us = Timestamp.TimestampUs();
         packet.command = CarDrivePacket.Commands.TURN;
-        packet.param2 = (short) (segment * MainMenu.Physics.DifferentialRadiusMm * MainMenu.Physics.CountsPerMM());
+        packet.param2 = (short) (segment * MainMenu.Physics.differentialRadiusCounts);
         packet.param1 = backwards ? STEER_BACKWARD : STEER_FORWARD;
         Send(packet);
     }
@@ -55,7 +59,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     public void SteerForward(float segment) {
         packet.timestamp_us = Timestamp.TimestampUs();
         packet.command = CarDrivePacket.Commands.TURNSTOP;
-        packet.param2 = (short)(segment * MainMenu.Physics.DifferentialRadiusMm * MainMenu.Physics.CountsPerMM());
+        packet.param2 = (short)(segment * MainMenu.Physics.differentialRadiusCounts);
         packet.param1 = STEER_FORWARD;
         Send(packet);
     }
@@ -64,13 +68,12 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     public void SteerBackwards(float segment) {
         packet.timestamp_us = Timestamp.TimestampUs();
         packet.command = CarDrivePacket.Commands.TURNSTOP;
-        packet.param2 = (short)(segment * MainMenu.Physics.DifferentialRadiusMm * MainMenu.Physics.CountsPerMM());
+        packet.param2 = (short)(segment * MainMenu.Physics.differentialRadiusCounts);
         packet.param1 = STEER_BACKWARD;
         Send(packet);
     }
 
 #region ReplayableUDPClient
-    protected override void Start() { packet.timestamp_us = Timestamp.TimestampUs(); }
 
     public override string ModuleCall() { return "ev3car-drive " + moduleNetwork.port + " " + module.timeoutMs; }
 

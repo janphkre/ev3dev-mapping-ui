@@ -18,7 +18,6 @@ public class SceneManager : MonoBehaviour
 	private Transform dynamicObjects;
 	private GameObject uiCanvas;
 	private GameObject robotsPanel;
-    private GameObject society;
 
 	public static SceneManager Instance { get; private set; }
 

@@ -6,7 +6,7 @@ public class RobotNetworking : NetworkBehaviour {
     public GameObject control;
     public GameObject deadReconning;
     public GameObject drive;
-    public GameObject laserXY;
+    //public GameObject laserXY;
     public GameObject laserXZ;
     public GameObject wifi;
 
@@ -19,8 +19,7 @@ public class RobotNetworking : NetworkBehaviour {
         network.copyFrom(MainMenu.Network);
 
         gameObject.AddComponent<Replay>();
-        Replay replay = gameObject.GetComponent<Replay>();
-        replay.copyFrom(MainMenu.Replay);
+        //Replay replay = gameObject.GetComponent<Replay>();
 
         gameObject.AddComponent<PositionHistory>();
         PositionHistory positionHistory = gameObject.GetComponent<PositionHistory>();
@@ -35,21 +34,14 @@ public class RobotNetworking : NetworkBehaviour {
         limits.copyFrom(MainMenu.Limits);
 
         gameObject.AddComponent<UserInput>();
-        UserInput userInput = gameObject.GetComponent<UserInput>();
-        userInput.copyFrom(MainMenu.Input);
+        //UserInput userInput = gameObject.GetComponent<UserInput>();
 
         gameObject.AddComponent<RobotRequired>();
         RobotRequired robotRequired = gameObject.GetComponent<RobotRequired>();
         robotRequired.copyFrom(MainMenu.Robot);
 
-        /*var obj = Instantiate(control, gameObject.transform);
-        obj = Instantiate(deadReconning, gameObject.transform);
-        obj = Instantiate(drive, gameObject.transform);
-        obj = Instantiate(laserXY, gameObject.transform);
-        obj = Instantiate(laserXZ, gameObject.transform);
-        obj = Instantiate(wifi, gameObject.transform);*/
-
         gameObject.AddComponent<Planing>();
+        gameObject.AddComponent<SLAMRobot>();
     }
 
     public override void OnStartClient() {

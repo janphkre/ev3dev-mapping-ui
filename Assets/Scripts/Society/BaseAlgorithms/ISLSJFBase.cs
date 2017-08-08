@@ -58,18 +58,18 @@ class ISLSJFBase {
 
     private SparseMatrix ComputeJacobianH(RobotPose previousPose, List<Feature> localMapFeatures) {
         //H_k+1 = relative positions of robot and features in respect to previous global robot position and rotation
-        FeatureCollection relativePositionsH = new FeatureCollection(localMapFeatures.Count);
+        Vector2[] relativePositionsH = new Vector2[localMapFeatures.Count];
         RobotPose currentPose = localMapFeatures[0].ParentPose();
         for (int i = 0; i < localMapFeatures.Count; i++) {
             Vector2 vec = (localMapFeatures[i]).feature;
-            relativePositionsH.map[i] = new Vector2(
-                (float)((vec.x - previousPose.pose.x) * Math.Cos(previousPose.pose.z) + (vec.y - previousPose.pose.y) * Math.Sin(previousPose.pose.z)),
-                (float)((vec.y - previousPose.pose.y) * Math.Cos(previousPose.pose.z) - (vec.x - previousPose.pose.x) * Math.Sin(previousPose.pose.z))
+            relativePositionsH[i] = new Vector2(
+                ((vec.x - previousPose.pose.x) * Mathf.Cos(previousPose.pose.z) + (vec.y - previousPose.pose.y) * Mathf.Sin(previousPose.pose.z)),
+                ((vec.y - previousPose.pose.y) * Mathf.Cos(previousPose.pose.z) - (vec.x - previousPose.pose.x) * Mathf.Sin(previousPose.pose.z))
             );
         }
-        relativePositionsH.end = new Vector3(
-            (float)((currentPose.pose.x - previousPose.pose.x) * Math.Cos(previousPose.pose.z) + (currentPose.pose.y - previousPose.pose.y) * Math.Sin(previousPose.pose.z)),
-            (float)((currentPose.pose.y - previousPose.pose.y) * Math.Cos(previousPose.pose.z) - (currentPose.pose.x - previousPose.pose.x) * Math.Sin(previousPose.pose.z)),
+        Vector3 relativePoseH = new Vector3(
+            ((currentPose.pose.x - previousPose.pose.x) * Mathf.Cos(previousPose.pose.z) + (currentPose.pose.y - previousPose.pose.y) * Mathf.Sin(previousPose.pose.z)),
+            ((currentPose.pose.y - previousPose.pose.y) * Mathf.Cos(previousPose.pose.z) - (currentPose.pose.x - previousPose.pose.x) * Mathf.Sin(previousPose.pose.z)),
             currentPose.pose.z - previousPose.pose.z
         );
 
@@ -78,12 +78,12 @@ class ISLSJFBase {
         jacobianH.Enlarge(localMapFeatures.Count + 1);
         //jacobian first three rows:
         Matrix l = new Matrix(3, 3);
-        l[0, 0] = (float)-Math.Cos(previousPose.pose.z);
-        l[0, 1] = (float)-Math.Sin(previousPose.pose.z);
-        l[0, 2] = relativePositionsH.end.y;
+        l[0, 0] = -Mathf.Cos(previousPose.pose.z);
+        l[0, 1] = -Mathf.Sin(previousPose.pose.z);
+        l[0, 2] = relativePoseH.y;
         l[1, 0] = -l[0, 1];
         l[1, 1] = l[0, 0];
-        l[1, 2] = -relativePositionsH.end.x;
+        l[1, 2] = -relativePoseH.x;
         l[2, 2] = -1f;
         jacobianH[0, previousPose.index] = l;//X^G_ke
 
@@ -99,10 +99,10 @@ class ISLSJFBase {
             Matrix n = new Matrix(2, 3);
             n[0, 0] = l[0, 0];
             n[0, 1] = l[0, 1];
-            n[0, 2] = relativePositionsH.map[i].y;
+            n[0, 2] = relativePositionsH[i].y;
             n[1, 0] = m[0, 1];
             n[1, 1] = l[0, 0];
-            n[1, 2] = -relativePositionsH.map[i].x;
+            n[1, 2] = -relativePositionsH[i].x;
             jacobianH[i + 1, previousPose.index] = n;
 
             Matrix o = new Matrix(2, 2);
@@ -181,7 +181,7 @@ class ISLSJFBase {
                     if (choleskyK != null) for (int j = 0; j < choleskyK.sizeY; j++) choleskyC[i, i] -= choleskyK[j, i] * choleskyK[j, i];
                 }
                 for (int j = 0; j < i; j++) choleskyC[i, i] -= choleskyC[j, i] * choleskyC[j, i];
-                choleskyC[i, i] = (float)Math.Sqrt(choleskyC[i, i]);
+                choleskyC[i, i] = Mathf.Sqrt(choleskyC[i, i]);
                 //No need to continue with the other elements of the column as we would be dividing by zero.
                 if (choleskyC[i, i] == 0.0f) continue;
                 //Other elements j of submatrix c in column i

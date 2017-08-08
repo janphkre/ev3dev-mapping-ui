@@ -2004,7 +2004,7 @@ GameObject:
   - component: {fileID: 947177023}
   - component: {fileID: 947177022}
   m_Layer: 5
-  m_Name: InputEncoderRotation
+  m_Name: InputTurningRadius
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2526,7 +2526,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Max encodings per second
+  m_Text: 'Has differential:'
 --- !u!222 &1057782183
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -2542,10 +2542,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1124952281}
   - component: {fileID: 1124952289}
-  - component: {fileID: 1124952288}
   - component: {fileID: 1124952287}
   - component: {fileID: 1124952286}
-  - component: {fileID: 1124952285}
   - component: {fileID: 1124952284}
   - component: {fileID: 1124952283}
   - component: {fileID: 1124952282}
@@ -2604,21 +2602,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   positionsKept: 512
---- !u!114 &1124952285
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 1124952280}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4c2a17d7eb04d9f4d82b30f91de7f093, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  horizontal: Horizontal
-  vertical: Vertical
-  acceleration: Acceleration
-  accelerationPower: 0.5
 --- !u!114 &1124952286
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2643,23 +2626,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 56009f903a9acf64e85dacbbe8996dcc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  turningRadius: 0
+  turningRadiusSquared: 0
+  turningRadiusAngledSquared: 0
+  innerTurningDiameter: 0
+  halfWheelbase: 0
   wheelDiameterMm: 43.2
   wheelbaseMm: 250
   encoderCountsPerRotation: 360
   maxEncoderCountsPerSecond: 1000
   reverseMotorPolarity: 0
---- !u!114 &1124952288
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_GameObject: {fileID: 1124952280}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4ff0d11dd54c26442835bbf9be65c986, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mode: 0
+  hasDifferential: 0
+  differentialRadiusCounts: 1000
 --- !u!114 &1124952289
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4532,7 +4510,7 @@ GameObject:
   - component: {fileID: 1728449994}
   - component: {fileID: 1728449993}
   m_Layer: 5
-  m_Name: InputEncoderMax
+  m_Name: InputDifferential
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -4957,7 +4935,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: 'Encodings per rotation:'
+  m_Text: 'Turning radius (m):'
 --- !u!222 &1885683064
 CanvasRenderer:
   m_ObjectHideFlags: 0

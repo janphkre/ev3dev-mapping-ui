@@ -11,7 +11,6 @@
  */
 
 using UnityEngine;
-using System.Collections;
 using System;
 
 [Serializable]
@@ -23,7 +22,7 @@ public class DeadReconningModuleProperties : ModuleProperties
 [RequireComponent (typeof (DeadReconningUI))]
 public class DeadReconning : ReplayableUDPServer<DeadReconningPacket>
 {	
-	public DeadReconningModuleProperties module;
+	public DeadReconningModuleProperties module = null;
 
 	private PositionData actualPosition;
 	private float averagedPacketTimeMs;

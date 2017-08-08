@@ -11,8 +11,7 @@ class ButtonListener: MonoBehaviour {
     }
 
     public void onClickButtonStartClient() {
-        //MainMenu.CheckInputs
-        discovery.StartAsClient();
+        if(MainMenu.TransferInput()) discovery.StartAsClient();
 
     }
 

@@ -28,7 +28,7 @@ public class OdometryModuleProperties : ModuleProperties
 [RequireComponent (typeof (OdometryUI))]
 public class Odometry : ReplayableUDPServer<OdometryPacket>
 {	
-	public OdometryModuleProperties module;
+	public OdometryModuleProperties module = null;
 
 	private PositionData actualPosition;
 	private float averagedPacketTimeMs;

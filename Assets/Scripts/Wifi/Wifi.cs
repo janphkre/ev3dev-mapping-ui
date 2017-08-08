@@ -61,10 +61,10 @@ public struct WifiReading
 [RequireComponent (typeof (Map3D))]
 public class Wifi : ReplayableUDPServer<WifiPacket>
 {	
-	public WifiModuleProperties module;
-	public WifiSignalProperties signal;
-	public WifiPlotProperties plot;
-	public WifiProperties properties;
+	public WifiModuleProperties module = null;
+	public WifiSignalProperties signal = null;
+	public WifiPlotProperties plot = null;
+	public WifiProperties properties = null;
 
 	private WifiPacket packet=new WifiPacket();
 	private Map3D map3D;

@@ -97,8 +97,8 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 {
 	public const ushort LIDAR_CRC_FAILURE_ERROR_CODE = 0x66;
 
-	public LaserModuleProperties module;
-	public LaserPlotProperties plot;
+	public LaserModuleProperties module = null;
+	public LaserPlotProperties plot = null;
 
 	private PointCloud laserPointCloud;
 	private Map3D map3D;
@@ -109,7 +109,6 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 
 	#region UDP Thread Only Data
 	private LaserThreadInternalData threadInternal = new LaserThreadInternalData ();
-    private PositionData lastPackageFirstPos;
     private PositionData lastPackageLastPos;
 
 	#endregion
@@ -265,7 +264,6 @@ public class Laser : ReplayableUDPServer<LaserPacket>
             //Save first and last position for this package:
             if (timestamps[i] < firstTimestamp) {
                 firstTimestamp = timestamps[i];
-                lastPackageFirstPos = pos;
             }
             if (timestamps[i] > lastTimestamp) {
                 lastTimestamp = timestamps[i];

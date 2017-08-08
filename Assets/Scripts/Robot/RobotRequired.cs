@@ -1,11 +1,11 @@
 ﻿using UnityEngine;
 
 [RequireComponent(typeof(Network))]
-[RequireComponent(typeof(Replay))]
+//[RequireComponent(typeof(Replay))]
 [RequireComponent(typeof(PositionHistory))]
 [RequireComponent(typeof(Physics))]
 [RequireComponent(typeof(Limits))]
-[RequireComponent(typeof(UserInput))]
+//[RequireComponent(typeof(UserInput))]
 public class RobotRequired : MonoBehaviour, ItemCopy<RobotRequired> {
     public string sessionDirectory = "Mapping1";
 

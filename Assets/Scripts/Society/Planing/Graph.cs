@@ -17,7 +17,7 @@ class GraphNode {
 }
 
 /*
- * This class represents a undirected graph with a visited mark on the nodes.
+ * This class represents an undirected graph with a visitation mark on the nodes.
  * A graph is able to return a new univisited target in the current region the robot is in.
  * In addition it can return a path through the visited space to a new univisited target if the robot reached a dead end at the current position.
  * Nodes of the graph are variable in size. Each size is a circle of maximum radius without hitting a obstacle in the lastLaserReadings.
@@ -80,7 +80,7 @@ class Graph {
         }
         int previousReading = lastLaserReadings.Readings.Length - 1; 
         for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
-            if (Math.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[i].x) > EXTREMA_DISTANCE_CUTOFF) {
+            if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[i].x) > EXTREMA_DISTANCE_CUTOFF) {
                 //i is an extremum compared to the previousReading.
                 Vector3 centerOffset = (lastLaserReadings.Readings[i] - lastLaserReadings.Readings[previousReading]) / 2f;
                 Vector2 center;

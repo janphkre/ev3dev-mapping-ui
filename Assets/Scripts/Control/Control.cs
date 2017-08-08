@@ -31,7 +31,7 @@ public class ControlProperties
 [RequireComponent (typeof (ControlUI))]
 public class Control : ReplayableTCPClient<ControlMessage>
 {
-	public ControlProperties module;
+	public ControlProperties module = null;
 
 	private List<RobotModule> modules=new List<RobotModule>();
 	private ControlMessage msg=new ControlMessage();

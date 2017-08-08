@@ -14,7 +14,6 @@ public class ServerMap : NetworkBehaviour {
     private Map3D map;
 
     private List<SparseCovarianceMatrix> clientInversedCovarianceCollection;//(P^L)^-1
-    //private SparseTriangularMatrix choleskyFactorization;//L(k)
     private SparseCovarianceMatrix infoMatrix;//I(k)
     private SparseColumn infoVector;//i(k)
     private List<IFeature> globalStateVector;//X^G(k)
@@ -43,15 +42,16 @@ public class ServerMap : NetworkBehaviour {
 
         clientMaps = new Dictionary<int, ServerClientItem>();
         pairingLocalization = new PairingLocalization();
-        
+        utils = new ISLSJFBase();
+        map = GetComponent<Map3D>();
+
         clientInversedCovarianceCollection = new List<SparseCovarianceMatrix>();
-        //choleskyFactorization = new SparseTriangularMatrix();
         infoMatrix = new SparseCovarianceMatrix();
         infoVector = new SparseColumn();
         globalStateVector = new List<IFeature>();
         globalStateCollection = new List<List<Feature>>();
 
-        map = GetComponent<Map3D>();
+        
     }
 
     /*void OnLocalClientMap(NetworkMessage netMsg) {
@@ -79,12 +79,6 @@ public class ServerMap : NetworkBehaviour {
             }
         }
         StartCoroutine("mergeSubCloud", value);
-    }
-
-    void OnWifiMessage(NetworkMessage netMsg) {
-        Debug.Log("Recieved Wifi Message from " + netMsg.conn.connectionId);
-        /*PointMessage msg = netMsg.ReadMessage<PointMessage>();
-        wifiCloud.AddPoints(netMsg.conn.connectionId, msg.GetPointCloud());*/
     }
 
     void OnQuitMessage(NetworkMessage netMsg) {

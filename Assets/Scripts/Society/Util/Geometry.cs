@@ -1,9 +1,8 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 
 class Geometry {
 
-    public const float HALF_CIRCLE = (float)Math.PI;
+    public const float HALF_CIRCLE = Mathf.PI;
     public const float RIGHT_ANGLE = HALF_CIRCLE / 2f;
     public const float FULL_CIRCLE = HALF_CIRCLE * 2f;
     public const float EIGHTH_CIRCLE = RIGHT_ANGLE / 2f;
@@ -22,7 +21,7 @@ class Geometry {
     public static float EuclideanDistance(Vector3 a, Vector2 b) {
         var x = b.x - a.x;
         var y = b.y - a.z;
-        return (float) Math.Sqrt(x*x+y*y);
+        return Mathf.Sqrt(x*x+y*y);
     }
 
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
@@ -39,7 +38,7 @@ class Geometry {
     //Calculates the mahalanobis distance between two points.
     public static float RealMahalanobisDistance(Vector2 a, Vector2 b, Matrix inversedCovariance) {
         var v = a - b;
-        return (float) Math.Sqrt((v * inversedCovariance * v)[0, 0]);
+        return Mathf.Sqrt((v * inversedCovariance * v)[0, 0]);
     }
 
     //Calculates the maximum distance from a pose to all features:
@@ -61,8 +60,8 @@ class Geometry {
     //Returns the range and bearing form the robot to the feature.
     public static Vector2 ToRangeBearing(Vector2 feat, Vector3 origin) {
         var f = feat - (Vector2) origin;
-        var result = new Vector2(Math.Abs(f.magnitude), -origin.z);
-        result.y += (float)Math.Atan2(f.x, f.y);
+        var result = new Vector2(Mathf.Abs(f.magnitude), -origin.z);
+        result.y += Mathf.Atan2(f.x, f.y);
         return result;
     }
 
@@ -70,25 +69,25 @@ class Geometry {
     //The y coordinate of feat will be ignored.
     public static Vector2 ToRangeBearing(Vector3 feat, Vector3 origin) {
         var f = new Vector2(feat.x - origin.x, feat.z - origin.y);
-        var result = new Vector2(Math.Abs(f.magnitude), -origin.z);
-        result.y += (float)Math.Atan2(f.x, f.y);
+        var result = new Vector2(Mathf.Abs(f.magnitude), -origin.z);
+        result.y += Mathf.Atan2(f.x, f.y);
         return result;
     }
 
     //Returns the position of the feature from the range and bearing. (Converting polar coordinates into carthesic coordinates)
     public static Vector2 FromRangeBearing(float posRange, float posBearing) {
-        return new Vector2((float) (posRange * Math.Cos(posBearing)), (float) (posRange * Math.Sin(posBearing)));
+        return new Vector2((posRange * Mathf.Cos(posBearing)), (posRange * Mathf.Sin(posBearing)));
     }
 
     //Returns the position of the feature from the range and bearing and the origin pose.
     public static Vector2 FromRangeBearing(float posRange, float posBearing, Vector3 origin) {
-        return new Vector2((float)(posRange * Math.Cos(posBearing + origin.z)) + origin.x, (float)(posRange * Math.Sin(posBearing + origin.z)) + origin.y);
+        return new Vector2((posRange * Mathf.Cos(posBearing + origin.z)) + origin.x, (posRange * Mathf.Sin(posBearing + origin.z)) + origin.y);
     }
 
     //Checks wether the feature, provided as range and bearing, is within currently the drivable funnel of the 
     public static bool IsWithinFunnel(Vector2 featureRB) {
         if (featureRB.y == 0) return true;
-        return Math.Sin(Math.Abs(featureRB.y)) * MainMenu.Physics.innerTurningDiameter - MainMenu.Physics.halfWheelbase < featureRB.x;
+        return Mathf.Sin(Mathf.Abs(featureRB.y)) * MainMenu.Physics.innerTurningDiameter - MainMenu.Physics.halfWheelbase < featureRB.x;
         //This is not completly correct. The turning circle should only be moved half wheelbase to the side!
     }
 }

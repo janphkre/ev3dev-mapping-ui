@@ -15,7 +15,6 @@ class PlaningInputData {
     public Vector3 LastPose;
     public Vector3[] Readings;
     public Vector2[] ReadingsRB;
-    public bool[] Invalid;
 
     public PlaningInputData() { }
 
@@ -70,7 +69,7 @@ class Planing: MonoBehaviour {
         currentTarget.Push(TargetCommand.RandomMove);
         steering = gameObject.GetComponent<CarDrive>();
         positionHistory = gameObject.GetComponent<PositionHistory>();
-        UNOBSTRUCTED_OFFSET = (float) Math.Acos(1f - UNOBSTRUCTED_OBSTACLE_MULTIPLIER * MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
+        UNOBSTRUCTED_OFFSET = Mathf.Acos(1f - UNOBSTRUCTED_OBSTACLE_MULTIPLIER * MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
         StartCoroutine("workerRoutine");
     }
 
@@ -111,7 +110,7 @@ class Planing: MonoBehaviour {
 
     private bool obstaclePlaning() {
         PositionData pos = positionHistory.GetNewestThreadSafe();
-        lastLaserReadings.LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading / 180f * Geometry.HALF_CIRCLE);
+        lastLaserReadings.LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading * Mathf.PI / 180f);
         for (int i = 0; i < lastLaserReadings.Readings.Length; i++) lastLaserReadings.ReadingsRB[i] = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], lastLaserReadings.LastPose);
         var targetRB = Geometry.ToRangeBearing(currentTargetPosition, lastLaserReadings.LastPose);
         if (targetRB.x < TARGET_RADIUS) {
@@ -148,7 +147,7 @@ class Planing: MonoBehaviour {
             targetRB.y %= Geometry.FULL_CIRCLE;
             unobstructedRadius = findBothUnobstructedRadius(out obstacles);
         }
-        if (Math.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
+        if (Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
             //The robot is facing towards the target. No turn is needed.
             targetRB.y = 0.0f;
         }
@@ -201,7 +200,7 @@ class Planing: MonoBehaviour {
         //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
         Vector2 unobstructedRadius = new Vector2(ALPHA, -ALPHA);
         for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
-            if (Math.Abs(lastLaserReadings.ReadingsRB[i].y) > ALPHA) continue;
+            if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].y) > ALPHA) continue;
             if (Geometry.IsWithinFunnel(lastLaserReadings.ReadingsRB[i])) {
                 //The obstacle is in front of our possible movements.
                 if (lastLaserReadings.ReadingsRB[i].x < MIN_OBSTACLE_DISTANCE) {
@@ -212,14 +211,14 @@ class Planing: MonoBehaviour {
                 obstacles.Add(lastLaserReadings.Readings[i]);
                 if (lastLaserReadings.ReadingsRB[i].y >= 0f) {
                     var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], positiveTurningCenter);
-                    if (Math.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = (float)Math.Atan2(lastLaserReadings.Readings[i].x - positiveTurningCenter.x, lastLaserReadings.Readings[i].z - positiveTurningCenter.y);
+                    if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        var currentAngle = Mathf.Atan2(lastLaserReadings.Readings[i].x - positiveTurningCenter.x, lastLaserReadings.Readings[i].z - positiveTurningCenter.y);
                         if (currentAngle < unobstructedRadius.x) unobstructedRadius.x = currentAngle;
                     }
                 } else {
                     var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], negativeTurningCenter);
-                    if (Math.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = (float)Math.Atan2(lastLaserReadings.Readings[i].x - negativeTurningCenter.x, lastLaserReadings.Readings[i].z - negativeTurningCenter.y);
+                    if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        var currentAngle = Mathf.Atan2(lastLaserReadings.Readings[i].x - negativeTurningCenter.x, lastLaserReadings.Readings[i].z - negativeTurningCenter.y);
                         if (currentAngle > unobstructedRadius.y) {
                             unobstructedRadius.y = currentAngle;
                         }
@@ -239,13 +238,13 @@ class Planing: MonoBehaviour {
         for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
             Vector2 rangeBearing = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], origin);
             Debug.Log("i " + i + ", r " + rangeBearing.x + ", b " + rangeBearing.y);//TODO: index is bearing in degree!?
-            if (Math.Abs(rangeBearing.y) > Geometry.HALF_CIRCLE) continue;
+            if (Mathf.Abs(rangeBearing.y) > Geometry.HALF_CIRCLE) continue;
             if (Geometry.IsWithinFunnel(rangeBearing)) {
                 //The obstacle is in front of our possible movements.
                 if (rangeBearing.y <= 0f) {
                     var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], negativeTurningCenter);
-                    if (Math.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = (float)Math.Atan2(lastLaserReadings.Readings[i].x - negativeTurningCenter.x, lastLaserReadings.Readings[i].z - negativeTurningCenter.y);
+                    if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        var currentAngle = Mathf.Atan2(lastLaserReadings.Readings[i].x - negativeTurningCenter.x, lastLaserReadings.Readings[i].z - negativeTurningCenter.y);
                         if (currentAngle > unobstructedRadius) {
                             unobstructedRadius = currentAngle;
                         }
@@ -263,13 +262,13 @@ class Planing: MonoBehaviour {
         for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
             Vector2 rangeBearing = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], origin);
             Debug.Log("i " + i + ", r " + rangeBearing.x + ", b " + rangeBearing.y);//TODO: index is bearing in degree!?
-            if (Math.Abs(rangeBearing.y) > Geometry.HALF_CIRCLE) continue;
+            if (Mathf.Abs(rangeBearing.y) > Geometry.HALF_CIRCLE) continue;
             if (Geometry.IsWithinFunnel(rangeBearing)) {
                 //The obstacle is in front of our possible movements.
                 if (rangeBearing.y >= 0f) {
                     var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], positiveTurningCenter);
-                    if (Math.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = (float)Math.Atan2(lastLaserReadings.Readings[i].x - positiveTurningCenter.x, lastLaserReadings.Readings[i].z - positiveTurningCenter.y);
+                    if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        var currentAngle = Mathf.Atan2(lastLaserReadings.Readings[i].x - positiveTurningCenter.x, lastLaserReadings.Readings[i].z - positiveTurningCenter.y);
                         if (currentAngle < unobstructedRadius) unobstructedRadius = currentAngle;
                     }
                 }
@@ -280,9 +279,9 @@ class Planing: MonoBehaviour {
 
     private float findSteeringSegment(Vector2 unobstructedRadius, Vector2 targetRB) {
         //Calculate the segment of circle that the robot has to turn at max steering angle: 
-        var bearing = Geometry.RIGHT_ANGLE - Math.Abs(targetRB.y);
-        var c = MainMenu.Physics.turningRadiusSquared + targetRB.x * targetRB.x - 2f * MainMenu.Physics.turningRadius * targetRB.x * Math.Cos(bearing);
-        float steeringSegment = (float)(Math.Asin((targetRB.x * Math.Sin(bearing)) / Math.Sqrt(c)) - Math.Asin(Math.Sqrt(c - MainMenu.Physics.turningRadiusSquared) / Math.Sqrt(c)));
+        var bearing = Geometry.RIGHT_ANGLE - Mathf.Abs(targetRB.y);
+        var c = MainMenu.Physics.turningRadiusSquared + targetRB.x * targetRB.x - 2f * MainMenu.Physics.turningRadius * targetRB.x * Mathf.Cos(bearing);
+        float steeringSegment = (Mathf.Asin((targetRB.x * Mathf.Sin(bearing)) / Mathf.Sqrt(c)) - Mathf.Asin(Mathf.Sqrt(c - MainMenu.Physics.turningRadiusSquared) / Mathf.Sqrt(c)));
         if (bearing < 0) steeringSegment = -steeringSegment;
         //Find the closest steerable way towards the currentTargetPosition
         //TODO: A steering plan consists of two elements: A line and a turn.
@@ -334,7 +333,7 @@ class Planing: MonoBehaviour {
     private bool checkLine(Vector3 line, float length) {
         foreach(Vector3 obstacle in obstacles) {
             Vector2 obstacleRB = Geometry.ToRangeBearing(obstacle, line);
-            if (Math.Sin(obstacleRB.y) * obstacleRB.x < MIN_OBSTACLE_DISTANCE && Math.Cos(obstacleRB.y) * obstacleRB.x < length) return false;
+            if (Mathf.Sin(obstacleRB.y) * obstacleRB.x < MIN_OBSTACLE_DISTANCE && Mathf.Cos(obstacleRB.y) * obstacleRB.x < length) return false;
         }
         return true;
     }

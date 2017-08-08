@@ -23,7 +23,7 @@ public class SLAMInputData {
     public SLAMInputData() { }
 
     public SLAMInputData(PositionData lastPos, Vector3[] readings, bool[] invalid, int invalidCount) {
-        LastPose = new Vector3(lastPos.position.x, lastPos.position.z, lastPos.heading / 180f * (float) Math.PI);
+        LastPose = new Vector3(lastPos.position.x, lastPos.position.z, lastPos.heading * Mathf.PI / 180f);
         Readings = new Vector3[readings.Length - invalidCount];
         int count = 0;
         for (int i = 0; i < readings.Length; i++) {
@@ -229,8 +229,8 @@ public class SLAMRobot : MonoBehaviour {
                 jacobianXR[0, 2] = delta.x;
 
                 Vector2 rangeBearing = Geometry.ToRangeBearing(landmarks[newFeaturesEnumerator.Current], lastPose);
-                jacobianZ[0, 0] = (float) Math.Cos(match.z+rangeBearing.y);
-                jacobianZ[1, 0] = (float) Math.Sin(match.z+rangeBearing.y);
+                jacobianZ[0, 0] = Mathf.Cos(match.z+rangeBearing.y);
+                jacobianZ[1, 0] = Mathf.Sin(match.z+rangeBearing.y);
                 jacobianZ[0, 1] = -delta.z * jacobianZ[1, 0];//TODO: what is deltaT supposed to be?
                 jacobianZ[1, 1] = delta.z * jacobianZ[0, 0];
                 noiseR[0, 0] = rangeBearing.x * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_RANGE);
