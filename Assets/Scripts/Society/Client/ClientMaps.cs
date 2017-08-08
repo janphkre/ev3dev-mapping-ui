@@ -21,20 +21,22 @@ using UnityEngine.Networking;
  * as the SLAM algorithm will create a new map every time the feature count reaches a cut off. *
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 public class LocalClientMap {
-
-    public FeatureCollection points;
+    //The map is formed out of features. Each feature is a line. x,y form the start of the line, z,w the end of the line. x <= z should be valid.
+    public Vector2[] map;
+    public Vector3 end;
+    public float radius;
     public CovarianceMatrix covariance;
     public Vector3 start;
 
     public LocalClientMap(System.Random random, int size, Vector3 start) {
         covariance = new CovarianceMatrix(random);
-        points = new FeatureCollection(size);
+        map = new Vector2[size];
         this.start = start;
     }
 
     public Vector2 this[int i] {
-        get { return points.map[i]; }
-        set { points.map[i] = value; }
+        get { return map[i]; }
+        set { map[i] = value; }
     }
 }
 
@@ -102,15 +104,15 @@ public class GlobalClientMap: Behaviour {
      * Only completed local maps must be provided. *
      * * * * * * * * * * * * * * * * * * * * * * * */
     public void ConsumeLocalMap(LocalClientMap localMap) {
-        if (localMap.points.map.Length == 0) return;
+        if (localMap.map.Length == 0) return;
         if (lastPose == RobotPose.zero) {
             /* * * * * * * * * * * * * * * * * * * * *
              * 1) Set local map 1 as the global map  *
              * * * * * * * * * * * * * * * * * * * * */
-            RobotPose pose = new RobotPose(localMap.points.end, localMap.points.radius);
+            RobotPose pose = new RobotPose(localMap.end, localMap.radius);
             List<Feature> collection = new List<Feature>();
-            for (int i = 0; i < localMap.points.map.Length; i++) {
-                Feature feat = new Feature(localMap.points.map[i], pose, globalStateVector.Count);
+            for (int i = 0; i < localMap.map.Length; i++) {
+                Feature feat = new Feature(localMap[i], pose, globalStateVector.Count);
                 globalStateVector.Add(feat);
                 collection.Add(feat);
             }
@@ -136,10 +138,10 @@ public class GlobalClientMap: Behaviour {
             foreach (List<Feature> collection in globalStateCollection) {
                 RobotPose collectionPose = collection[0].ParentPose();
                 float estimationError = SLAMRobot.ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * globalStateCollection.Count * (Geometry.EuclideanDistance(collectionPose.pose, lastPose.pose));
-                if ((localMap.points.end - start).magnitude <= estimationError + localMap.points.radius + collectionPose.radius) {
+                if ((localMap.end - start).magnitude <= estimationError + localMap.radius + collectionPose.radius) {
                     //2.1.2) Find the set of potentially matched features:
                     for (int i = 0; i < collection.Count; i++) {
-                        if (Geometry.EuclideanDistance(localMap.points.end, collection[i].feature) <= estimationError + localMap.points.radius) {
+                        if (Geometry.EuclideanDistance(localMap.end, collection[i].feature) <= estimationError + localMap.radius) {
                             prematchedFeatures.Add(collection[i].index);//Like this the matchedFeatures should be sorted at all times.
                             if (estimationError > maxEstimationError) maxEstimationError = estimationError;
                         }
@@ -151,7 +153,7 @@ public class GlobalClientMap: Behaviour {
             if (maxEstimationError >= ESTIMATION_ERROR_CUTOFF) {
                 reorderOverride = true;//Reorder the info matrix, info vector and global state vector after this step!
                                        //2.1.4) Pair Driven Localization to find the match:
-                match = pairingLocalization.Match(lastPose.pose + (localMap.points.end - localMap.start), localMap.points.radius + maxEstimationError, localMap.points.end, localMap.points.map.GetEnumerator(), new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), out unmatchedLocalFeatures, out matchedGlobalFeatures);
+                match = pairingLocalization.Match(lastPose.pose + (localMap.end - localMap.start), localMap.radius + maxEstimationError, localMap.end, localMap.map.GetEnumerator(), new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), out unmatchedLocalFeatures, out matchedGlobalFeatures);
             } else {
                 //2.1.3) Recover the covariance submatrix associated with X^G_(ke) and the potentially matched features:
                 SparseColumn q = new SparseColumn(),
@@ -176,7 +178,7 @@ public class GlobalClientMap: Behaviour {
                 subMatrix.Trim(prematchedFeatures, globalStateVector.Count);
                 //2.1.4) Nearest Neighbor to find the match:
                 //As the actual sensor input is already filter by RANSAC and an reobservation gate, nearest neighbor should be good enough to find the match between global frame and local frame.
-                match = nearestNeighbour.Match(localMap.points.end, localMap.points.map.GetEnumerator(), localMap.start, lastPose.pose, new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), subMatrix, maxEstimationError, out unmatchedLocalFeatures, out matchedGlobalFeatures);
+                match = nearestNeighbour.Match(localMap.end, localMap.map.GetEnumerator(), localMap.start, lastPose.pose, new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), subMatrix, maxEstimationError, out unmatchedLocalFeatures, out matchedGlobalFeatures);
             }
             if (unmatchedLocalFeatures.Count == 0) return;//The local map does not contain any new information so we can quit at this point.
             //TODO:(Is this true?)
@@ -184,8 +186,8 @@ public class GlobalClientMap: Behaviour {
             /* * * * * * * * * * * * * * * * *
              * 2.2) Initialization using EIF *
              * * * * * * * * * * * * * * * * */
-            var pose = new RobotPose(match, localMap.points.radius);
-            var globalCollection = utils.OffsetLocalMap(pose, localMap.points.end, new VectorArray(localMap.points.map), unmatchedLocalFeatures, matchedGlobalFeatures, globalStateVector);
+            var pose = new RobotPose(match, localMap.radius);
+            var globalCollection = utils.OffsetLocalMap(pose, localMap.end, new VectorArray(localMap.map), unmatchedLocalFeatures, matchedGlobalFeatures, globalStateVector);
             globalStateCollection.Add(globalCollection);
             //Enlarge the info vector, info matrix and cholesky factorization by adding zeros:
             //infoVector is a dictionary, so no enlarging is needed.
@@ -212,7 +214,7 @@ public class GlobalClientMap: Behaviour {
             recursiveConverging(lastPose, MAX_SMOOTHING_ITERATIONS);
             lastPose = pose;
             //Feed the map into the graph:
-            Planing.singleton.GlobalGraph.Feed(globalStateCollection, match - localMap.points.end, match);
+            Planing.singleton.GlobalGraph.Feed(globalStateCollection, match - localMap.end, match);
             //Send the map to the server:
             sendCounter++;
             sendCounter %= SEND_FREQUENCY;

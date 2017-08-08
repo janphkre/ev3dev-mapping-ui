@@ -119,7 +119,7 @@ public class SLAMRobot : MonoBehaviour {
         List<int> unmatchedLandmarks;
         List<int> matchedFeatures;
         var inversedCovariance = new DefaultedSparseCovarianceMatrix(!localMap.covariance, new Matrix(2));
-        var match = nearestNeighbour.Match(data.LastPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.points.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), inversedCovariance, ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
+        var match = nearestNeighbour.Match(data.LastPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), inversedCovariance, ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
         //Offset found landmarks by match:
         var matchOffset = match - data.LastPose;
         for(int i = 0; i < landmarks.Count; i++) {
@@ -169,13 +169,13 @@ public class SLAMRobot : MonoBehaviour {
             noiseR[1, 1] = rangeBearing.y * RandomExtensions.NextGaussian(random, 0, NOISE_GAUSSIAN_BEARING);
             Matrix kalmanGainK = localMap.covariance * ~jacobianH * !(jacobianH * (localMap.covariance * ~jacobianH) + noiseV * noiseR * noiseV);//noiseV would have to be translated when used for the second time, but it is an identity matrix.
             //Update robot position and landmark positions:
-            Vector2 landmarkDisplacement = landmarks[i] - localMap.points.map[matchedEnumerator.Current];
+            Vector2 landmarkDisplacement = landmarks[i] - localMap.map[matchedEnumerator.Current];
             //TODO: Test! is this landmark Displacement correct? (Or do the points in the local map need to be moved by the match as well?)
             lastPose.x += kalmanGainK[0, 0] * landmarkDisplacement.x;
             lastPose.y += kalmanGainK[1, 0] * landmarkDisplacement.x;
             lastPose.z += kalmanGainK[2, 0] * landmarkDisplacement.y;
-            localMap.points.map[matchedEnumerator.Current].x += kalmanGainK[(matchedEnumerator.Current * 2) + 3, 0] * landmarkDisplacement.x;
-            localMap.points.map[matchedEnumerator.Current].y += kalmanGainK[(matchedEnumerator.Current * 2) + 4, 0] * landmarkDisplacement.y;
+            localMap.map[matchedEnumerator.Current].x += kalmanGainK[(matchedEnumerator.Current * 2) + 3, 0] * landmarkDisplacement.x;
+            localMap.map[matchedEnumerator.Current].y += kalmanGainK[(matchedEnumerator.Current * 2) + 4, 0] * landmarkDisplacement.y;
             //TODO: update covariance: is this correct?
             Matrix identity = new Matrix(localMap.covariance.count);
             localMap.covariance = (identity - kalmanGainK * jacobianH) * localMap.covariance;
@@ -204,7 +204,7 @@ public class SLAMRobot : MonoBehaviour {
                     if (featureCount >= MAX_MAP_SIZE) {
                         //5 a) If the current local map is full, we will create a new one and send the old to the ISLSJF global map and the server
                         LocalClientMap oldLocalMap = localMap;
-                        oldLocalMap.points.end = lastPose;
+                        oldLocalMap.end = lastPose;
                         StartCoroutine("processLocalMap", oldLocalMap);
                         localMap = new LocalClientMap(random, MAX_MAP_SIZE, lastPose);
                         featureCount = 0;
@@ -212,7 +212,7 @@ public class SLAMRobot : MonoBehaviour {
                         for (int j = 0; j < landmarks.Count; j++) observedFeatures.Add(new ObservedFeature(landmarks[i]));
                         return; //As we have cleared the observedFeatures list and added all valid landmarks to it we are done with the current scan.
                     }
-                    localMap.points.map[featureCount] = observedFeatures[l].feature;
+                    localMap[featureCount] = observedFeatures[l].feature;
                     newFeatures.Add(i);
                     featureCount++;
                 }
@@ -244,11 +244,11 @@ public class SLAMRobot : MonoBehaviour {
                 newFeaturesEnumerator.MoveNext();
             }
         }
-        ISLSJFBase.DisplayPoints(localMap.points.map.GetEnumerator(), map);
+        ISLSJFBase.DisplayPoints(localMap.map.GetEnumerator(), map);
     }
 
     private IEnumerator processLocalMap(LocalClientMap oldLocalMap) {
-        oldLocalMap.points.radius = Geometry.Radius(oldLocalMap.points.end, oldLocalMap.points.map);
+        oldLocalMap.radius = Geometry.Radius(oldLocalMap.end, oldLocalMap.map);
         //NetworkManager.singleton.client.SendUnreliable((short)MessageType.LocalClientMap, oldLocalMap);
         globalMap.ConsumeLocalMap(oldLocalMap);
         yield return null;
