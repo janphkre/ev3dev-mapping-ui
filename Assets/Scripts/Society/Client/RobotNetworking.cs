@@ -49,7 +49,6 @@ public class RobotNetworking : NetworkBehaviour {
         obj = Instantiate(laserXZ, gameObject.transform);
         obj = Instantiate(wifi, gameObject.transform);*/
 
-        //TODO: add CarDrive (DRIVE?) to robot.
         gameObject.AddComponent<Planing>();
     }
 

@@ -44,15 +44,6 @@ class Planing: MonoBehaviour {
     public static float UNOBSTRUCTED_OFFSET;
 
     public static Planing singleton;
-    /***********************************************************************
-    public object LocalMapLock = new object();
-    public object GlobalMapLock = new object();
-    public object ServerMapLock = new object();
-
-    public LocalClientMap LocalMap;
-    public GlobalClientMap GlobalMap;
-    public ServerMapMessage ServerMap;
-    ***********************************************************************/
     
     public PlaningInputData LaserReadings {
         private get { lock (laserReadingsLock) return currentLaserReadings; }
@@ -110,7 +101,7 @@ class Planing: MonoBehaviour {
                 }
             } else if (currentTarget.Peek() == TargetCommand.Turn) {
                 //Wait for the turn to finish:
-                yield return new WaitWhile(() => steering.IsTurning());
+                yield return new WaitWhile(steering.IsTurning);
                 wasUsed = true;
                 currentTarget.Pop();
             } else defineNewTarget();

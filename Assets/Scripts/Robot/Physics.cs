@@ -13,6 +13,8 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
 	public int encoderCountsPerRotation=360;
 	public int maxEncoderCountsPerSecond=1000;
 	public bool reverseMotorPolarity=false;
+    public bool hasDifferential = false;
+    public float DifferentialRadiusMm = 1000.0f; //if (hasDifferential) = turningRadius else =turningRadius + halfWheelbase
 
     public float MMPerCount()
 	{
