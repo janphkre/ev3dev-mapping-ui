@@ -745,3 +745,61 @@ public class SparseTriangularMatrix {
         return result;
     }
 }
+
+public class DefaultedSparseFloatMatrix {
+
+    private List<SparseFloatColumn> val = new List<SparseFloatColumn>();
+    private float def;
+
+    public DefaultedSparseFloatMatrix(float def) {
+        this.def = def;
+    }
+
+    public float this[int i, int j] {
+        get {
+            return val[i][j];
+        }
+        set {
+
+        }
+    }
+
+    public IEnumerator<KeyValuePair<int, float>> GetColumn(int i) {
+        return val[i].val.GetEnumerator();
+    }
+
+    public void Enlarge(int i) {
+        while (i-- != 0) val.Add(new SparseFloatColumn(def));
+    }
+
+    public int ColumnCount() {
+        return val.Count;
+    }
+}
+
+public class SparseFloatColumn {
+
+    public Dictionary<int, float> val = new Dictionary<int, float>();
+    private readonly float def;
+
+    public SparseFloatColumn(float def) {
+        this.def = def;
+    }
+
+    public float this[int j] {
+        get {
+            float result;
+            if (val.TryGetValue(j, out result)) return result;
+            return def;
+        }
+        set { val[j] = value; }
+    }
+
+    public void Remove(int i) {
+        val.Remove(i);
+    }
+
+    public void Clear() {
+        val.Clear();
+    }
+}

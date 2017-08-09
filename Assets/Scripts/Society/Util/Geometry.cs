@@ -24,6 +24,10 @@ class Geometry {
         return Mathf.Sqrt(x*x+y*y);
     }
 
+    public static float EuclideanDistance(GraphNode a, GraphNode b) {
+        return (b.Position - a.Position).magnitude;
+    }
+
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
      * Efficient Approximation of the Mahalanobis Distance for Tracking with the Kalman Filter *
      * See http://hdl.handle.net/10216/348                                                     *
