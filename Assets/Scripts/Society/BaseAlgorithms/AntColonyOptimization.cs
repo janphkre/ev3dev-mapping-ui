@@ -72,7 +72,7 @@ class AntColonyOptimization {
         this.nodes = nodes;
         scores = new DefaultedSparseFloatMatrix(float.NaN);
         for (int i = 0; i < nodes.Count; i++) {
-            var connectedNodes = nodes[i].connectedNodes;
+            var connectedNodes = nodes[i].Connected;
             foreach (int c in connectedNodes) {
                 scores[i, c] = Geometry.EuclideanDistance(nodes[i], nodes[c]);
                 pheromones[i, c] = INITIAL_PHEROMONE;
@@ -95,7 +95,7 @@ class AntColonyOptimization {
         while(i != target) {
             int max = -1;
             float maxP = 0.0f;
-            foreach(int c in nodes[i].connectedNodes) {
+            foreach(int c in nodes[i].Connected) {
                 float p = pheromones[i, c];
                 if (p > maxP) {
                     maxP = p;
@@ -129,7 +129,7 @@ class AntColonyOptimization {
         }
         //Pheromone Evaporation:
         for (int i = 0; i < nodes.Count; i++) {
-            var connectedNodes = nodes[i].connectedNodes;
+            var connectedNodes = nodes[i].Connected;
             foreach (int c in connectedNodes) {
                 pheromones[i, c] = pheromones[i, c] * EVAPORATION;
             }
@@ -157,7 +157,7 @@ class AntColonyOptimization {
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
     private int chooseNextStep(int ant) {
         int i = ants[ant].Current;
-        var connected = nodes[i].connectedNodes;
+        var connected = nodes[i].Connected;
         //Did we reach a dead end:
         int v = 0;
         foreach (int c in connected) {

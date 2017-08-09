@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-class CircleMap2D : MonoBehaviour {
+public class CircleMap2D : MonoBehaviour {
 
     public const float MAP_HEIGHT = 0.0f;
     public const float ITEM_HEIGHT = 0.01f;

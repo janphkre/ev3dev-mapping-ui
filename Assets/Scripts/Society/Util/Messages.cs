@@ -2,10 +2,38 @@
 using UnityEngine.Networking;
 
 public enum MessageType {
-    //LocalClientMap,
+    Color,
+    ColorRequest,
     GlobalClientMap,
+    ClientGraph,
     Quit
 };
+
+public class RequestMessage : MessageBase { }
+
+public class ColorMessage : MessageBase {
+
+    public Color color;
+
+    public ColorMessage() { }
+
+    public ColorMessage(Color color) {
+        this.color = color;
+    }
+}
+
+public class GraphMessage : MessageBase {
+
+    public GraphNodeList nodes;
+    public IntList unvisitedNodes;
+
+    public GraphMessage() { }
+
+    public GraphMessage(GraphNodeList nodes, IntList unvisitedNodes) {
+        this.nodes = nodes;
+        this.unvisitedNodes = unvisitedNodes;
+    }
+}
 
 public class PointMessage : MessageBase {
 

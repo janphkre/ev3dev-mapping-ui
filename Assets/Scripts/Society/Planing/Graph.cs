@@ -1,12 +1,15 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 
-class GraphNode {
+[Serializable]
+public class GraphNode {
 
     public RobotPose pose = null;
     public Vector2 centerOffset;
     public float radius;//Radius is the euclidean distance to the nearest feature.
-    public List<int> connectedNodes = new List<int>();
+    [SerializeField] private IntList connectedNodes = new IntList();
 
     public Vector2 Position {
         get { lock(this) return pose + centerOffset; }
@@ -23,6 +26,10 @@ class GraphNode {
 
     public bool IsConnected(int i) {
         return connectedNodes.Contains(i);
+    }
+
+    public List<int> Connected {
+        get { return connectedNodes; }
     }
 }
 
@@ -43,7 +50,7 @@ class GraphNode {
  * Nodes of the graph are variable in size. Each size is a circle of maximum radius without hitting a obstacle in the lastLaserReadings.
  * Corners are used to create intersections.
  */
-class Graph : MonoBehaviour {
+public class Graph : NetworkBehaviour {
 
     public const int EXTREMA_CHECK_RANGE = 45;
     public const float EXTREMA_DISTANCE_CUTOFF = 2.5f * Planing.MIN_OBSTACLE_DISTANCE;//Take the robot's size into account!
@@ -51,18 +58,27 @@ class Graph : MonoBehaviour {
     public const float ROBOT_NODE_DISTANCE = MIN_NODE_DISTANCE;
     public const float ACO_MIN_DIFF = 0.1f;
     public const float ACO_FORGETTING = 0.5f;
+    public const int SEND_FREQUENCY = 20;
 
     public CircleMap2D Map;
 
     //Synchronized:
-    private List<GraphNode> nodes = new List<GraphNode>();
-    private List<int> unvisitedNodes = new List<int>();
+    private GraphNodeList nodes;
+    private IntList unvisitedNodes;
     private Vector3 lastMatch = Vector3.zero;
     private Vector3 matchPose = Vector3.zero;
     //Not synchronized:
     private int lastMatchedCounter = 0;//Used & maintained in Feed(List<List<Feature>>)
     private int lastNode = -1;//Used in ReachedDeadEnd(Vector3) & GetNewTarget() & GetUnexploredNodePath(); Maintained in Feed(PlaningInputData)
-    
+    private int sendCounter = 0;
+    private GraphMessage message;
+
+    public void Awake() {
+        nodes = new GraphNodeList();
+        unvisitedNodes = new IntList();
+        message = new GraphMessage(nodes, unvisitedNodes);
+    }
+
     //Builds the graph with the provided laser readings.
     public void Feed(PlaningInputData lastLaserReadings) {
         int currentCount = nodes.Count;
@@ -74,7 +90,7 @@ class Graph : MonoBehaviour {
         if (closestDistance > ROBOT_NODE_DISTANCE) {
             if (lastNode >= 0) {
                 int closestJ = -1;
-                foreach (int j in nodes[lastNode].connectedNodes) {
+                foreach (int j in nodes[lastNode].Connected) {
                     float currentDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[j].Position) - nodes[j].radius;
                     if (currentDistance < closestDistance) {
                         closestDistance = currentDistance;
@@ -212,13 +228,17 @@ class Graph : MonoBehaviour {
             }
             lastMatchedCounter++;
         }
+        //Send this graph to the server:
+        sendCounter++;
+        sendCounter %= SEND_FREQUENCY;
+        if (sendCounter == 0) NetworkManager.singleton.client.SendUnreliable((short)MessageType.ClientGraph, message);
         //Display nodes:
         Map.ProcessNodes(nodes, lastMatchedCounter);
     }
 
     //Returns a new target in the "unexplored" territory the robot is atm in.
     public bool GetNewTarget(out Vector2 result) {
-        foreach (int j in nodes[lastNode].connectedNodes) {
+        foreach (int j in nodes[lastNode].Connected) {
             if(unvisitedNodes.Contains(j)) {
                 lock(nodes) result =  nodes[j].Position - (Vector2) lastMatch;
                 return true;

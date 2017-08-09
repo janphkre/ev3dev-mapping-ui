@@ -213,8 +213,6 @@ public class GlobalClientMap: Behaviour {
             //2.3.3) to 2.4) Cholesky, recover global state estimate and least squares smoothing:
             recursiveConverging(lastPose, MAX_SMOOTHING_ITERATIONS);
             lastPose = pose;
-            //Feed the map into the graph:
-            Planing.singleton.GlobalGraph.Feed(globalStateCollection, match - localMap.end, match);
             //Send the map to the server:
             sendCounter++;
             sendCounter %= SEND_FREQUENCY;
@@ -223,6 +221,8 @@ public class GlobalClientMap: Behaviour {
                 message.localMapCount = globalStateCollection.Count;
                 NetworkManager.singleton.client.SendUnreliable((short)MessageType.GlobalClientMap, message);
             }
+            //Feed the map into the graph:
+            Planing.singleton.GlobalGraph.Feed(globalStateCollection, match - localMap.end, match);
         }
         ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map, MAP_HEIGHT);
     }

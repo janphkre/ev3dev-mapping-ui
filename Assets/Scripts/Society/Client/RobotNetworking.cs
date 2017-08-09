@@ -54,6 +54,14 @@ public class RobotNetworking : NetworkBehaviour {
 
     public override void OnStartClient() {
         base.OnStartClient();
-        //TODO: SET COLOR THROUGH COUNTER o.Ä. FROM SERVER
+        NetworkManager.singleton.client.RegisterHandler((short)MessageType.Color, OnColor);
+        NetworkManager.singleton.client.Send((short) MessageType.ColorRequest, new RequestMessage());
+    }
+
+    public void OnColor(NetworkMessage netMsg) {
+        Debug.Log("Recieved color message from the server.");
+        ColorMessage msg = netMsg.ReadMessage<ColorMessage>();
+        Material material = gameObject.GetComponentInChildren<Material>();
+        material.color = msg.color;
     }
 }

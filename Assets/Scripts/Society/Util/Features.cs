@@ -124,7 +124,7 @@ public class FeatureListVectorEnumerator : IEnumerator {
     private IEnumerator<List<Feature>> featureLists;
     private IEnumerator<Feature> features;
 
-    public FeatureListVectorEnumerator(List<List<Feature>> featureLists) {
+    public FeatureListVectorEnumerator(IEnumerable<List<Feature>> featureLists) {
         this.featureLists = featureLists.GetEnumerator();
         this.featureLists.MoveNext();
         features = this.featureLists.Current.GetEnumerator();

@@ -7,6 +7,8 @@ public class ServerMap : NetworkBehaviour {
 
     public const int MINIMUM_MERGE_COUNT = SLAMRobot.MAX_MAP_SIZE * 2;
     public const float MAP_HEIGHT = 0.5f;
+    public const int FIRST_FUSE_RESET_COUNTER = 20;
+    public const int FUSE_RESET_COUNTER = 40;
 
     //Every connection has its own coordinate system. Therefor the different clouds have to be merged through a filter into a complete map.
     private Dictionary<int, ServerClientItem> clientMaps;
@@ -20,6 +22,12 @@ public class ServerMap : NetworkBehaviour {
     private List<IFeature> globalStateVector;//X^G(k)
     private List<List<Feature>> globalStateCollection;//List of all submaps joined into the global map.
 
+    private object colorLock;
+    private int colorCounter = 0;
+
+    private object iterationLock;
+    private int iteration = 0;
+    
     private class ServerClientItem {
         internal GlobalClientMapMessage clientMap;
         internal Vector3 lastClientPose = Vector3.zero;
@@ -37,9 +45,6 @@ public class ServerMap : NetworkBehaviour {
 
     public override void OnStartServer() {
         base.OnStartServer();
-        //NetworkServer.RegisterHandler((short)MessageType.LocalClientMap, OnLocalClientMap);
-        NetworkServer.RegisterHandler((short)MessageType.GlobalClientMap, OnGlobalClientMap);
-        NetworkServer.RegisterHandler((short)MessageType.Quit, OnQuitMessage);
 
         clientMaps = new Dictionary<int, ServerClientItem>();
         pairingLocalization = new PairingLocalization();
@@ -52,23 +57,31 @@ public class ServerMap : NetworkBehaviour {
         globalStateVector = new List<IFeature>();
         globalStateCollection = new List<List<Feature>>();
 
-        
+        colorLock = new object();
+        iterationLock = new object();
+
+        NetworkServer.RegisterHandler((short)MessageType.ColorRequest, OnColor);
+        NetworkServer.RegisterHandler((short)MessageType.GlobalClientMap, OnGlobalClientMap);
+        NetworkServer.RegisterHandler((short)MessageType.ClientGraph, OnClientGraph);
+        NetworkServer.RegisterHandler((short)MessageType.Quit, OnQuitMessage);
     }
 
-    /*void OnLocalClientMap(NetworkMessage netMsg) {
-        Debug.Log("Recieved Local Client Map Message from " + netMsg.conn.connectionId);
-        LocalClientMap msg = netMsg.ReadMessage<LocalClientMap>();
-        ServerClientItem value = null;
-        if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) {
-            cloudCount++;
-            value = new ();
-            clientMaps.Add(netMsg.conn.connectionId, value);
+    void OnColor(NetworkMessage netMsg) {
+        Debug.Log("Recieved color request message from " + netMsg.conn.connectionId);
+        float hue;
+        lock (colorLock) {
+            hue = (1.0f / 3.0f) * (colorCounter % 3);
+            int iteration = colorCounter / 3;
+            int iterationTwo = Mathf.NextPowerOfTwo(iteration);            
+            Debug.Log("Color " + iteration + ", " + iterationTwo);
+            if(iteration != 0) hue += (1 + 2 * (iteration - (iterationTwo / 2))) / (6.0f * iterationTwo);
+            colorCounter++;
         }
-        StartCoroutine(value.ConsumeLocalMap(msg));
-    }*/
+        NetworkServer.SendToClient(netMsg.conn.connectionId, (short) MessageType.Color, new ColorMessage(Color.HSVToRGB(hue, 1.0f, 1.0f)));
+    }
 
     void OnGlobalClientMap(NetworkMessage netMsg) {
-        Debug.Log("Recieved Map Message from " + netMsg.conn.connectionId);
+        Debug.Log("Recieved map message from " + netMsg.conn.connectionId);
         GlobalClientMapMessage msg = netMsg.ReadMessage<GlobalClientMapMessage>();
         ServerClientItem value = null;
         lock (clientMaps) {
@@ -79,12 +92,39 @@ public class ServerMap : NetworkBehaviour {
                 value.clientMap = msg;
             }
         }
-        StartCoroutine("mergeSubCloud", value);
+        lock (iterationLock) {
+            if (iteration == FIRST_FUSE_RESET_COUNTER || (iteration > FIRST_FUSE_RESET_COUNTER && iteration % FUSE_RESET_COUNTER == 0)) {
+                //Reset global map and fuse all maps again.
+                StartCoroutine("mergeAllSubClouds");
+            } else {
+                StartCoroutine("mergeSubCloud", value);
+            }
+            iteration++;
+        }
+    }
+
+    void OnClientGraph(NetworkMessage netMsg) {
+        Debug.Log("Recieved graph message from " + netMsg.conn.connectionId);
+        GraphMessage msg = netMsg.ReadMessage<GraphMessage>();
+        RobotPose lastGlobalPose;
+        Vector3 lastClientPose;
+        lock (clientMaps) {
+            ServerClientItem value;
+            if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) {
+                return;
+            }
+            if (!value.wasMatched) return;
+            lastGlobalPose = value.lastGlobalPose;
+            lastClientPose = value.lastClientPose;
+        }
+        //TODO!
     }
 
     void OnQuitMessage(NetworkMessage netMsg) {
-        Debug.Log("Recieved Quit Message from " + netMsg.conn.connectionId);
-        clientMaps.Remove(netMsg.conn.connectionId);//TODO: does the map from that client really have to be deleted? -> it is some sort of knowledge that can still be used by the other robots.
+        Debug.Log("Recieved quit message from " + netMsg.conn.connectionId);
+        lock (clientMaps) {
+            if (!clientMaps[netMsg.conn.connectionId].wasMatched) clientMaps.Remove(netMsg.conn.connectionId);
+        }
     }
 
     void mergeSubCloud(ServerClientItem clientMap) {
@@ -161,7 +201,15 @@ public class ServerMap : NetworkBehaviour {
             }
             if (clientMap.wasMatched) {
                 ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map, MAP_HEIGHT);
-                //TODO: Display Robots.
+            }
+        }
+    }
+
+    void mergeAllSubClouds() {
+        lock(clientMaps) {
+            foreach (KeyValuePair<int, ServerClientItem> pair in clientMaps) {
+                pair.Value.wasMatched = false;
+                mergeSubCloud(pair.Value);
             }
         }
     }

@@ -4,10 +4,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [Serializable]
-class IntList : List<int> { }
+public class IntList : List<int> { }
 
 [Serializable]
-class MatrixList : List<Matrix> { }
+public class MatrixList : List<Matrix> { }
 
 [Serializable]
 public class SparseColumnList : List<SparseColumn> { }
@@ -74,3 +74,6 @@ public class IntMatrixDictionary : ISerializationCallbackReceiver, IEnumerable<K
 
 [Serializable]
 public class IFeatureList : List<IFeature> { }
+
+[Serializable]
+public class GraphNodeList : List<GraphNode> { }

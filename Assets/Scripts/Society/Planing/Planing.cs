@@ -3,14 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-enum TargetCommand {
+public enum TargetCommand {
     RandomMove,
     ExplorePosition,
     Backtrack,
     Turn
 }
 
-class PlaningInputData {
+public class PlaningInputData {
     
     public Vector3 LastPose;
     public Vector3[] Readings;
@@ -28,7 +28,7 @@ class PlaningInputData {
     }
 }
 
-class Planing: MonoBehaviour {
+public class Planing: MonoBehaviour {
 
     //Parameters:
     public const int GRAPH_FEED_INTERVAL = 5;
