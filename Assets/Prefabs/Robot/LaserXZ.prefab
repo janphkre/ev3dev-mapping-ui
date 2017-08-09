@@ -20,7 +20,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4401572899047296}
   - component: {fileID: 114342394446136986}
-  - component: {fileID: 114406140540518692}
   - component: {fileID: 114572000941538682}
   m_Layer: 0
   m_Name: LaserXZ
@@ -64,21 +63,10 @@ MonoBehaviour:
     laserDutyCycle: 44
     crcTolerancePct: 10
   plot:
-    plotType: 1
+    plotType: 2
     distanceLimit: 10
-    laserPointCloud: {fileID: 11479396, guid: 75d3c019fe7a50e4ea1ae9dd76497287, type: 2}
---- !u!114 &114406140540518692
-MonoBehaviour:
-  m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 100100000}
-  m_GameObject: {fileID: 1846971570147668}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0fab4e6923a60ed49a0a454749c06e88, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mapPointCloud: {fileID: 11486970, guid: e5911229d848865438b855227af02ff5, type: 2}
+    laserPointCloud: {fileID: 114328803140388550, guid: 75d3c019fe7a50e4ea1ae9dd76497287,
+      type: 2}
 --- !u!114 &114572000941538682
 MonoBehaviour:
   m_ObjectHideFlags: 1

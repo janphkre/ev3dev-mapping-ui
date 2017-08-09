@@ -47,6 +47,8 @@ public class SLAMRobot : MonoBehaviour {
     public const float ROBOT_UNCERTAINTY = 1f;
     public const float ESTIMATION_ERROR_RATE = 1f;
 
+    public const float MAP_HEIGHT = 0.5f;
+
     public static SLAMRobot singelton;
 
     private System.Random random;
@@ -94,7 +96,7 @@ public class SLAMRobot : MonoBehaviour {
         noiseV = new Matrix(2); //just a identitiy matrix...
 
         globalMap = GetComponent<GlobalClientMap>();
-        map = GetComponent<Map3D>();
+        map = GetComponents<Map3D>()[MainMenu.MAP_SLAM_ROBOT];
 
         jacobianXR[0, 0] = 1;
         jacobianXR[1, 1] = 1;
@@ -244,7 +246,7 @@ public class SLAMRobot : MonoBehaviour {
                 newFeaturesEnumerator.MoveNext();
             }
         }
-        ISLSJFBase.DisplayPoints(localMap.map.GetEnumerator(), map);
+        ISLSJFBase.DisplayPoints(localMap.map.GetEnumerator(), map, MAP_HEIGHT);
     }
 
     private IEnumerator processLocalMap(LocalClientMap oldLocalMap) {

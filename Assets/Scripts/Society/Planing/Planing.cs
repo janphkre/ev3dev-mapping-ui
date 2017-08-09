@@ -48,7 +48,7 @@ class Planing: MonoBehaviour {
         private get { lock (laserReadingsLock) return currentLaserReadings; }
         set { lock (laserReadingsLock) currentLaserReadings = value; }
     }
-    public Graph GlobalGraph = new Graph();
+    public Graph GlobalGraph;
 
     private CarDrive steering;
     private PositionHistory positionHistory;
@@ -70,6 +70,7 @@ class Planing: MonoBehaviour {
         steering = gameObject.GetComponent<CarDrive>();
         positionHistory = gameObject.GetComponent<PositionHistory>();
         UNOBSTRUCTED_OFFSET = Mathf.Acos(1f - UNOBSTRUCTED_OBSTACLE_MULTIPLIER * MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
+        GlobalGraph = gameObject.GetComponent<Graph>();
         StartCoroutine("workerRoutine");
     }
 

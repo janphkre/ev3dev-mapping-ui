@@ -14,7 +14,7 @@ class ISLSJFBase {
     public ISLSJFBase() { }
 
     //Points enumerates Vector2 or Vector3
-    public static void DisplayPoints(IEnumerator points, Map3D map) {
+    public static void DisplayPoints(IEnumerator points, Map3D map, float height) {
         map.Clear();
         Vector3[] vertices = new Vector3[VERTICES_COUNT];
         bool b = true;
@@ -23,7 +23,9 @@ class ISLSJFBase {
             while (i < VERTICES_COUNT) {
                 b = points.MoveNext();
                 if (!b) break;
-                vertices[i++] = (Vector3)points.Current;
+                vertices[i].x = ((Vector2) points.Current).x;
+                vertices[i].z = ((Vector2) points.Current).y;
+                vertices[i++].y = height;
             }
             map.AssignVertices(vertices, VERTICES_COUNT);
             vertices = new Vector3[VERTICES_COUNT];

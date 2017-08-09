@@ -6,6 +6,7 @@ using UnityEngine.Networking;
 public class ServerMap : NetworkBehaviour {
 
     public const int MINIMUM_MERGE_COUNT = SLAMRobot.MAX_MAP_SIZE * 2;
+    public const float MAP_HEIGHT = 0.5f;
 
     //Every connection has its own coordinate system. Therefor the different clouds have to be merged through a filter into a complete map.
     private Dictionary<int, ServerClientItem> clientMaps;
@@ -159,7 +160,7 @@ public class ServerMap : NetworkBehaviour {
                 clientMap.lastClientPose = clientMap.clientMap.lastPose.pose;
             }
             if (clientMap.wasMatched) {
-                ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map);
+                ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map, MAP_HEIGHT);
                 //TODO: Display Robots.
             }
         }

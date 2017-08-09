@@ -92,7 +92,7 @@ class LaserThreadInternalData
 }
 
 [RequireComponent (typeof (LaserUI))]
-[RequireComponent (typeof (Map3D))]
+//[RequireComponent (typeof (Map3D))]
 public class Laser : ReplayableUDPServer<LaserPacket>
 {
 	public const ushort LIDAR_CRC_FAILURE_ERROR_CODE = 0x66;
@@ -101,7 +101,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 	public LaserPlotProperties plot = null;
 
 	private PointCloud laserPointCloud;
-	private Map3D map3D;
+	private Map3D map3D = null;
 
 	private LaserThreadSharedData data=new LaserThreadSharedData();
 
@@ -131,7 +131,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 
 	protected override void Start ()
 	{
-		map3D = GetComponent<Map3D> ();
+		//map3D = GetComponent<Map3D> (); //No map for you!
 		base.Start();
 	}
 

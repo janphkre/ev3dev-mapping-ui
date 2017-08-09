@@ -24,6 +24,9 @@ public class MainMenu : MonoBehaviour {
     public static Physics Physics;
     public static Limits Limits;
 
+    public const int MAP_SLAM_ROBOT = 0;
+    public const int MAP_GLOBAL_CLIENT = 1;
+
     protected virtual void Start() {
         Robot = gameObject.GetComponent<RobotRequired>();
         Network = gameObject.GetComponent<Network>();

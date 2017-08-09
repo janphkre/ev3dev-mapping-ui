@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 class GraphNode {
@@ -44,7 +43,7 @@ class GraphNode {
  * Nodes of the graph are variable in size. Each size is a circle of maximum radius without hitting a obstacle in the lastLaserReadings.
  * Corners are used to create intersections.
  */
-class Graph {
+class Graph : MonoBehaviour {
 
     public const int EXTREMA_CHECK_RANGE = 45;
     public const float EXTREMA_DISTANCE_CUTOFF = 2.5f * Planing.MIN_OBSTACLE_DISTANCE;//Take the robot's size into account!
@@ -52,6 +51,8 @@ class Graph {
     public const float ROBOT_NODE_DISTANCE = MIN_NODE_DISTANCE;
     public const float ACO_MIN_DIFF = 0.1f;
     public const float ACO_FORGETTING = 0.5f;
+
+    public CircleMap2D Map;
 
     //Synchronized:
     private List<GraphNode> nodes = new List<GraphNode>();
@@ -61,7 +62,7 @@ class Graph {
     //Not synchronized:
     private int lastMatchedCounter = 0;//Used & maintained in Feed(List<List<Feature>>)
     private int lastNode = -1;//Used in ReachedDeadEnd(Vector3) & GetNewTarget() & GetUnexploredNodePath(); Maintained in Feed(PlaningInputData)
-
+    
     //Builds the graph with the provided laser readings.
     public void Feed(PlaningInputData lastLaserReadings) {
         int currentCount = nodes.Count;
@@ -211,6 +212,8 @@ class Graph {
             }
             lastMatchedCounter++;
         }
+        //Display nodes:
+        Map.ProcessNodes(nodes, lastMatchedCounter);
     }
 
     //Returns a new target in the "unexplored" territory the robot is atm in.

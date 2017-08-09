@@ -9,6 +9,7 @@ public class RobotNetworking : NetworkBehaviour {
     //public GameObject laserXY;
     public GameObject laserXZ;
     public GameObject wifi;
+    public GameObject circle;
 
     //The local player will control the local robot:
     public override void OnStartLocalPlayer() {
@@ -39,6 +40,13 @@ public class RobotNetworking : NetworkBehaviour {
         gameObject.AddComponent<RobotRequired>();
         RobotRequired robotRequired = gameObject.GetComponent<RobotRequired>();
         robotRequired.copyFrom(MainMenu.Robot);
+
+        gameObject.AddComponent<Graph>();
+        Graph graph = gameObject.GetComponent<Graph>();
+        graph.Map = new CircleMap2D(circle);
+
+        gameObject.AddComponent<Map3D>();
+        gameObject.AddComponent<Map3D>();
 
         gameObject.AddComponent<Planing>();
         gameObject.AddComponent<SLAMRobot>();

@@ -20,7 +20,7 @@ public class Map3D : MonoBehaviour
 
 	private List<PointCloud> mapPointClouds=new List<PointCloud>();
 	private Transform pointCloudContainer;
-
+    
 	public int AssignVertices(Vector3[] data, int i_from, int len, bool[] is_invalid)
 	{
 		PointCloud pc;

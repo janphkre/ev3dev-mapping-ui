@@ -20,7 +20,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4763462348458492}
   - component: {fileID: 114500560711290128}
-  - component: {fileID: 114041252036647268}
   - component: {fileID: 114953027153520370}
   m_Layer: 0
   m_Name: LaserXY
@@ -42,18 +41,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: -90, y: 180, z: 0}
---- !u!114 &114041252036647268
-MonoBehaviour:
-  m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 100100000}
-  m_GameObject: {fileID: 1585957363104922}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0fab4e6923a60ed49a0a454749c06e88, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mapPointCloud: {fileID: 11486970, guid: e5911229d848865438b855227af02ff5, type: 2}
 --- !u!114 &114500560711290128
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -78,7 +65,7 @@ MonoBehaviour:
   plot:
     plotType: 2
     distanceLimit: 2
-    laserPointCloud: {fileID: 11479396, guid: 75d3c019fe7a50e4ea1ae9dd76497287, type: 2}
+    laserPointCloud: {fileID: 0}
 --- !u!114 &114953027153520370
 MonoBehaviour:
   m_ObjectHideFlags: 1

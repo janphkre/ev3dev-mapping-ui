@@ -10,7 +10,7 @@ GameObject:
   - component: {fileID: 483404}
   - component: {fileID: 3323570}
   - component: {fileID: 2319260}
-  - component: {fileID: 114977297542705718}
+  - component: {fileID: 114328803140388550}
   m_Layer: 0
   m_Name: LaserPointCloud
   m_TagString: Untagged
@@ -80,7 +80,7 @@ Prefab:
   m_ParentPrefab: {fileID: 0}
   m_RootGameObject: {fileID: 160036}
   m_IsPrefabParent: 1
---- !u!114 &114977297542705718
+--- !u!114 &114328803140388550
 MonoBehaviour:
   m_ObjectHideFlags: 1
   m_PrefabParentObject: {fileID: 0}
@@ -88,7 +88,8 @@ MonoBehaviour:
   m_GameObject: {fileID: 160036}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0fab4e6923a60ed49a0a454749c06e88, type: 3}
+  m_Script: {fileID: 11500000, guid: 1be44e8df21d6bb44a84e43f0c99dd47, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mapPointCloud: {fileID: 11486970, guid: e5911229d848865438b855227af02ff5, type: 2}
+  color: {r: 1, g: 1, b: 1, a: 0}
+  numberOfPoints: 360

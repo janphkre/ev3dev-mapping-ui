@@ -67,7 +67,7 @@ public class GlobalClientMap: Behaviour {
     public const int MAX_SMOOTHING_ITERATIONS = 10;
     public const int REORDERING_FREQUENCY = 100; // Reorders every REORDERING_FREQUENCY-th iteration
     public const int SEND_FREQUENCY = 10;
-    
+    public const float MAP_HEIGHT = 0.75f;
     private PairingLocalization pairingLocalization = new PairingLocalization();
     private NearestNeighbour nearestNeighbour = new NearestNeighbour();
     private ISLSJFBase utils = new ISLSJFBase();
@@ -92,7 +92,7 @@ public class GlobalClientMap: Behaviour {
     }
 
     public void Awake() {        
-        map = GetComponent<Map3D>();
+        map = GetComponents<Map3D>()[MainMenu.MAP_GLOBAL_CLIENT];
     }
 
     private int indexSize(int i) {
@@ -224,7 +224,7 @@ public class GlobalClientMap: Behaviour {
                 NetworkManager.singleton.client.SendUnreliable((short)MessageType.GlobalClientMap, message);
             }
         }
-        ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map);
+        ISLSJFBase.DisplayPoints(new FeatureListVectorEnumerator(globalStateCollection), map, MAP_HEIGHT);
     }
 
     private void recursiveConverging(RobotPose lastPose, int maxIterations) {

@@ -127,6 +127,7 @@ MonoBehaviour:
   drive: {fileID: 1674684450780724, guid: 70d48946e62f4874ebd9b94fddb82d46, type: 2}
   laserXZ: {fileID: 1846971570147668, guid: 0db1b0b7bde8c3b42a98e4d154256981, type: 2}
   wifi: {fileID: 1495919493514750, guid: 4f7af260366ecfd4695bd20d196e0ce0, type: 2}
+  circle: {fileID: 1436171459923692, guid: d28ced70374d6cb448639ba812150cf6, type: 2}
 --- !u!114 &114929927732755506
 MonoBehaviour:
   m_ObjectHideFlags: 1
