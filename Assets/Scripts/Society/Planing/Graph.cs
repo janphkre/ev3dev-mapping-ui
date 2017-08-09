@@ -28,6 +28,7 @@ class GraphNode {
 }
 
 /*
+  TODO:
   THE LOCKING BETWEEN THE TWO FEED FUNCTIONS IN THIS GRAPH CAN BE IMPROVED:
   WHEN A FEED OF A MAP COMPLETES WHILE A LASER READING IS BEING PROCESSED,
   ALL NODES ARE UPDATED TO THE NEW COORDINATE SYSTEM BU THE CURRENT POSE IS STILL USING THE OLD MATCH.
@@ -45,6 +46,7 @@ class GraphNode {
  */
 class Graph {
 
+    public const int EXTREMA_CHECK_RANGE = 45;
     public const float EXTREMA_DISTANCE_CUTOFF = 2.5f * Planing.MIN_OBSTACLE_DISTANCE;//Take the robot's size into account!
     public const float MIN_NODE_DISTANCE = EXTREMA_DISTANCE_CUTOFF;
     public const float ROBOT_NODE_DISTANCE = MIN_NODE_DISTANCE;
@@ -111,7 +113,7 @@ class Graph {
         //Find holes in the laserReading:
         float closestReadingDistance = float.MaxValue;
         int previousReading = lastLaserReadings.Readings.Length - 1; 
-        for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
+        for (int i = 0; i < lastLaserReadings.Readings.Length; previousReading = i++) {
             if (closestReadingDistance > lastLaserReadings.ReadingsRB[i].x) closestReadingDistance = lastLaserReadings.ReadingsRB[i].x;
             if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[i].x) > EXTREMA_DISTANCE_CUTOFF) {
                 //i is an extremum compared to the previousReading.
@@ -141,6 +143,21 @@ class Graph {
                 }
                 //Add the node if it is not an already existing node:
                 if (closestDistance > MIN_NODE_DISTANCE) {
+                    int j = 1;
+                    //Make sure that we are not looking at bars or similiar things:
+                    if (lastLaserReadings.ReadingsRB[previousReading].x < lastLaserReadings.ReadingsRB[i].x) {
+                        //previous is closer than i.
+                        for (; j <= EXTREMA_CHECK_RANGE; j++) {
+                            if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[(i + j) % lastLaserReadings.Readings.Length].x) < EXTREMA_DISTANCE_CUTOFF) break;
+                        }
+                    } else {
+                        //i is closer than previous.
+                        for (; j <= EXTREMA_CHECK_RANGE; j++) {
+                            if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].x - lastLaserReadings.ReadingsRB[Geometry.Modulo((i - j), lastLaserReadings.Readings.Length)].x) < EXTREMA_DISTANCE_CUTOFF) break;
+                        }
+                    }
+                    if (j <= EXTREMA_CHECK_RANGE) continue;
+                    //Add node:
                     var node = new GraphNode(new Vector2(lastLaserReadings.Readings[i].x + centerOffset.x, lastLaserReadings.Readings[i].z + centerOffset.z), centerOffset.magnitude);
                     node.Add(lastNode);
                     if (closestRadiusDistance < 0f) {
@@ -158,7 +175,6 @@ class Graph {
                     connectNodes(closestNode, lastNode);
                 }
             }
-            previousReading = i;
         }
         for(int i = 0; i < currentCount; i++) {
             //Connect all nodes that are closer than closestDistance.

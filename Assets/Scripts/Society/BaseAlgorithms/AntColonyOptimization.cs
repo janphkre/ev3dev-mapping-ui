@@ -1,12 +1,12 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
-/* *
- * Discrete Ant Colony Optimization
- * Artificial Intelligence for Humans Volume 2: Nature-Inspired Algorithms
- * by Jeff Heaton.
- * Implementation by Jan Phillip Kretzschmar
- */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ * Discrete Ant Colony Optimization                                        *
+ * Artificial Intelligence for Humans Volume 2: Nature-Inspired Algorithms *
+ * by Jeff Heaton                                                          *
+ * Implementation by Jan Phillip Kretzschmar                               *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 class AntColonyOptimization {
 
     public const int ANT_COUNT = 30;
@@ -91,7 +91,6 @@ class AntColonyOptimization {
     //Creates and returns a path along the highest pheromone trail.
     public LinkedList<int> GetPath() {
         var result = new LinkedList<int>();
-        result.AddFirst(start);
         int i = start;
         while(i != target) {
             int max = -1;
@@ -107,7 +106,6 @@ class AntColonyOptimization {
             result.AddLast(max);
             i = max;
         }
-        result.RemoveFirst();
         return result;
     }
 

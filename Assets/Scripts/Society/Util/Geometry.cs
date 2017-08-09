@@ -94,4 +94,10 @@ class Geometry {
         return Mathf.Sin(Mathf.Abs(featureRB.y)) * MainMenu.Physics.innerTurningDiameter - MainMenu.Physics.halfWheelbase < featureRB.x;
         //This is not completly correct. The turning circle should only be moved half wheelbase to the side!
     }
+
+    //Mathematical Modulo (Non-Symmetrical)
+    public static int Modulo(int x, int y) {
+        int r = x % y;
+        return r < 0 ? r + y : r;
+    }
 }
