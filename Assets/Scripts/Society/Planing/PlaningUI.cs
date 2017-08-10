@@ -1,6 +1,6 @@
 ﻿using UnityEngine.UI;
 
-class PlanningUI : ModuleUI {
+class PlaningUI : ModuleUI {
 
     public static string WAITING = "Waiting";
     public static string DEFAULT_TARGET = "(0.0, 0.0)";
@@ -32,7 +32,7 @@ class PlanningUI : ModuleUI {
     }
 
     protected override void Start() {
-        ModuleText.text = "Planing";
+        moduleName.text = "Planing";
     }
 
     public void OnClickButtonStart() {

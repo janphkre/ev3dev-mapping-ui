@@ -11,13 +11,22 @@ class ButtonListener: MonoBehaviour {
     }
 
     public void onClickButtonStartClient() {
-        if(MainMenu.TransferInput()) discovery.StartAsClient();
-
+        if (MainMenu.TransferInput()) {
+            MainMenu.IsNetworkingEnabled = true;
+            discovery.StartAsClient();
+        }
     }
 
     public void onClickButtonStartServer() {
+        MainMenu.IsNetworkingEnabled = true;
         NetworkManager.singleton.StartServer();
         discovery.StartAsServer();
     }
 
+    public void onClickButtonStartSolo() {
+        if (MainMenu.TransferInput()) {
+            UnityEngine.SceneManagement.SceneManager.LoadSceneAsync("Base");
+            
+        }
+    }
 }

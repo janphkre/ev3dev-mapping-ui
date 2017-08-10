@@ -28,7 +28,8 @@ public class PlaningInputData {
     }
 }
 
-[RequireComponent(typeof(Graph))]
+[RequireComponent (typeof(Graph))]
+[RequireComponent (typeof(PlaningUI))]
 public class Planing : MonoBehaviour {
 
     //Parameters:
@@ -49,8 +50,10 @@ public class Planing : MonoBehaviour {
         private get { lock (laserReadingsLock) return currentLaserReadings; }
         set { lock (laserReadingsLock) currentLaserReadings = value; }
     }
-    public Graph GlobalGraph;
 
+    public Graph GlobalGraph { get { return globalGraph; } }
+
+    private Graph globalGraph;
     private CarDrive steering;
     private PositionHistory positionHistory;
     private Stack<TargetCommand?> currentTarget = new Stack<TargetCommand?>();
@@ -75,7 +78,8 @@ public class Planing : MonoBehaviour {
         steering = gameObject.GetComponent<CarDrive>();
         positionHistory = gameObject.GetComponent<PositionHistory>();
         UNOBSTRUCTED_OFFSET = Mathf.Acos(1f - UNOBSTRUCTED_OBSTACLE_MULTIPLIER * MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
-        GlobalGraph = gameObject.GetComponent<Graph>();
+        globalGraph = gameObject.GetComponent<Graph>();
+        currentTarget.Push(null);
         StartCoroutine("workerRoutine");
     }
 
@@ -96,7 +100,7 @@ public class Planing : MonoBehaviour {
     }
 
     public void Offroad() {
-        throw new NotImplementedException();
+        
     }
 
     private IEnumerator workerRoutine() {
@@ -109,7 +113,7 @@ public class Planing : MonoBehaviour {
                     wasUsed = true;
                     graphCounter++;
                     graphCounter %= 5;
-                    if (graphCounter == 0) GlobalGraph.Feed(lastLaserReadings);
+                    if (graphCounter == 0) globalGraph.Feed(lastLaserReadings);
                 }
             } else if (currentTarget.Peek() == TargetCommand.Turn) {
                 //Wait for the turn to finish:
@@ -124,20 +128,21 @@ public class Planing : MonoBehaviour {
                         steering.Halt();
                         lock (currentTarget) {
                             currentTarget.Clear();
+                            currentTarget.Push(null);
                             currentTarget.Push(TargetCommand.Backtrack);
                         }
-                        currentPath = GlobalGraph.GetStartPath(lastLaserReadings.LastPose);
+                        currentPath = globalGraph.GetStartPath(lastLaserReadings.LastPose);
                         currentTargetPosition = currentPath.First.Value;
                         currentPath.RemoveFirst();
                         backwards = !backwards;
                         returnToStart = false;
                     } else if (currentTarget.Peek() == TargetCommand.RandomMove) {
-                        if (!GlobalGraph.GetNewTarget(out currentTargetPosition)) {
+                        if (!globalGraph.GetNewTarget(out currentTargetPosition)) {
                             steering.Halt();
-                            if (GlobalGraph.HasUnvisitedNodes()) {
+                            if (globalGraph.HasUnvisitedNodes()) {
                                 lock (currentTarget) currentTarget.Push(TargetCommand.Backtrack);
                                 //Backtrack as we don't have any target left at the moment.
-                                currentPath = GlobalGraph.GetUnexploredNodePath(lastLaserReadings.LastPose);
+                                currentPath = globalGraph.GetUnexploredNodePath(lastLaserReadings.LastPose);
                                 currentTargetPosition = currentPath.First.Value;
                                 currentPath.RemoveFirst();
                                 backwards = !backwards;
@@ -168,7 +173,7 @@ public class Planing : MonoBehaviour {
                         }
                     } else if (start) {
                         lock (currentTarget) { currentTarget.Push(TargetCommand.RandomMove); }
-                        GlobalGraph.Feed(lastLaserReadings);
+                        globalGraph.Feed(lastLaserReadings);
                         start = false;
                         calculating = true;
                     } else {

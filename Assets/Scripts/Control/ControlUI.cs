@@ -28,8 +28,8 @@ public class ControlUI : MonoBehaviour
 	private Text moduleName;
 	private Text moduleState;
 	private Toggle moduleStateToggle;
-	private Button replayButton;
-	private Button saveMapsButton;
+	//private Button replayButton;
+	//private Button saveMapsButton;
 
 	private Control control;
 
@@ -39,6 +39,7 @@ public class ControlUI : MonoBehaviour
 	{
 		modulesPanel = Instantiate<Transform>(ModulesPanel);
 		uiTransform = Instantiate<Transform>(UiTransform);
+        uiTransform.name += typeof(ControlUI).FullName;
 
 		moduleName = SafeInstantiateText(ModuleName, uiTransform, "module");
 		moduleStateToggle = SafeInstantiate<Toggle>(ModuleStateToggle, uiTransform);
@@ -47,7 +48,7 @@ public class ControlUI : MonoBehaviour
 		moduleState.text = ModuleState.Offline.ToString().ToLower();
 
 		//to be generalized later
-		if (transform.parent.GetComponentsInChildren<Laser>().Length != 0)
+		/*if (transform.parent.GetComponentsInChildren<Laser>().Length != 0)
 		{
 			saveMapsButton = SafeInstantiate<Button>(ModuleButton, uiTransform);
 			saveMapsButton.onClick.AddListener(OnSaveMapsButtonClicked);
@@ -59,7 +60,7 @@ public class ControlUI : MonoBehaviour
 			replayButton = SafeInstantiate<Button>(ModuleButton, uiTransform);
 			replayButton.onClick.AddListener(OnReplayButtonClicked);
 			replayButton.GetComponentInChildren<Text>().text = "replay";
-		}
+		}*/
 	}
 		
 	protected virtual void Start ()
@@ -114,7 +115,6 @@ public class ControlUI : MonoBehaviour
 			l.SaveMap();
 	}
 
-
 	public void SetEnable(bool enable)
 	{
 		control.EnableDisableSelf(enable);
@@ -150,8 +150,4 @@ public class ControlUI : MonoBehaviour
 		instantiated.transform.SetParent(parent, false);
 		return instantiated;
 	}
-
-
-
-
 }

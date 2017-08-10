@@ -50,7 +50,7 @@ public class GraphNode {
  * Nodes of the graph are variable in size. Each size is a circle of maximum radius without hitting a obstacle in the lastLaserReadings.
  * Corners are used to create intersections.
  */
-public class Graph : NetworkBehaviour {
+public class Graph : MonoBehaviour {
 
     public const int EXTREMA_CHECK_RANGE = 45;
     public const float EXTREMA_DISTANCE_CUTOFF = 2.5f * Planing.MIN_OBSTACLE_DISTANCE;//Take the robot's size into account!
@@ -60,7 +60,7 @@ public class Graph : NetworkBehaviour {
     public const float ACO_FORGETTING = 0.5f;
     public const int SEND_FREQUENCY = 20;
 
-    public CircleMap2D Map;
+    public GameObject CirclePrefab;
 
     //Synchronized:
     private GraphNodeList nodes;
@@ -72,11 +72,13 @@ public class Graph : NetworkBehaviour {
     private int lastNode = -1;//Used in ReachedDeadEnd(Vector3) & GetNewTarget() & GetUnexploredNodePath(); Maintained in Feed(PlaningInputData)
     private int sendCounter = 0;
     private GraphMessage message;
+    private CircleMap2D map;
 
     public void Awake() {
         nodes = new GraphNodeList();
         unvisitedNodes = new IntList();
         message = new GraphMessage(nodes, unvisitedNodes);
+        map = new CircleMap2D(CirclePrefab);
     }
 
     //Builds the graph with the provided laser readings.
@@ -233,7 +235,7 @@ public class Graph : NetworkBehaviour {
         sendCounter %= SEND_FREQUENCY;
         if (sendCounter == 0) NetworkManager.singleton.client.SendUnreliable((short)MessageType.ClientGraph, message);
         //Display nodes:
-        Map.ProcessNodes(nodes, lastMatchedCounter);
+        map.ProcessNodes(nodes, lastMatchedCounter);
     }
 
     //Returns a new target in the "unexplored" territory the robot is atm in.

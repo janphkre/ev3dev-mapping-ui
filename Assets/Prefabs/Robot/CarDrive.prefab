@@ -20,7 +20,6 @@ GameObject:
   m_Component:
   - component: {fileID: 4434395192780688}
   - component: {fileID: 114910846577407678}
-  - component: {fileID: 114382569110360162}
   m_Layer: 0
   m_Name: CarDrive
   m_TagString: Untagged
@@ -41,27 +40,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &114382569110360162
-MonoBehaviour:
-  m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 100100000}
-  m_GameObject: {fileID: 1674684450780724}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7b4c242b1a6083f40860d253e0b1c0de, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  UiTransform: {fileID: 224000014143048226, guid: 65f13ffe83a96c346a20799a371253c3,
-    type: 2}
-  ModuleName: {fileID: 11445212, guid: f4343af0dd1752d4dbeedd72c0ab47cd, type: 2}
-  ModuleText: {fileID: 11476718, guid: b3cd24b3fd3c11f468cca498f15db4ce, type: 2}
-  ModuleStateToggle: {fileID: 114000010470860990, guid: 09fc7c3ce85e48c40bc3e005ce9ea05d,
-    type: 2}
-  statusText: {fileID: 11444408, guid: 38195252655178b4f8b068f30af68dda, type: 2}
-  targetText: {fileID: 11444408, guid: 7d64e96ca5c708043ab5bd03642fe309, type: 2}
-  ModuleButton: {fileID: 114000012705873148, guid: 438157a33dc5438428eb9f35afb47638,
-    type: 2}
 --- !u!114 &114910846577407678
 MonoBehaviour:
   m_ObjectHideFlags: 1

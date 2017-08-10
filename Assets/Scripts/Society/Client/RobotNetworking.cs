@@ -9,47 +9,58 @@ public class RobotNetworking : NetworkBehaviour {
     //public GameObject laserXY;
     public GameObject laserXZ;
     public GameObject wifi;
-    public GameObject circle;
+    public GameObject graph;
 
     //The local player will control the local robot:
     public override void OnStartLocalPlayer() {
         base.OnStartLocalPlayer();
 
-        gameObject.AddComponent<Network>();
-        Network network = gameObject.GetComponent<Network>();
+        gameObject.name = "Robot";
+
+        Network network = gameObject.AddComponent<Network>();
         network.copyFrom(MainMenu.Network);
 
         gameObject.AddComponent<Replay>();
         //Replay replay = gameObject.GetComponent<Replay>();
 
-        gameObject.AddComponent<PositionHistory>();
-        PositionHistory positionHistory = gameObject.GetComponent<PositionHistory>();
+        PositionHistory positionHistory = gameObject.AddComponent<PositionHistory>();
         positionHistory.copyFrom(MainMenu.PositionHistory);
 
-        gameObject.AddComponent<Physics>();
-        Physics physics = gameObject.GetComponent<Physics>();
+        Physics physics = gameObject.AddComponent<Physics>();
         physics.copyFrom(MainMenu.Physics);
 
-        gameObject.AddComponent<Limits>();
-        Limits limits = gameObject.GetComponent<Limits>();
+        Limits limits = gameObject.AddComponent<Limits>();
         limits.copyFrom(MainMenu.Limits);
 
         gameObject.AddComponent<UserInput>();
         //UserInput userInput = gameObject.GetComponent<UserInput>();
 
-        gameObject.AddComponent<RobotRequired>();
-        RobotRequired robotRequired = gameObject.GetComponent<RobotRequired>();
+        RobotRequired robotRequired = gameObject.AddComponent<RobotRequired>();
         robotRequired.copyFrom(MainMenu.Robot);
 
-        gameObject.AddComponent<Graph>();
-        Graph graph = gameObject.GetComponent<Graph>();
-        graph.Map = new CircleMap2D(circle);
-
         gameObject.AddComponent<Map3D>();
         gameObject.AddComponent<Map3D>();
 
-        gameObject.AddComponent<Planing>();
         gameObject.AddComponent<SLAMRobot>();
+
+        var name = graph.name;
+        graph = Instantiate(graph, gameObject.transform);
+        graph.name = name;
+        name = wifi.name;
+        wifi = Instantiate(wifi, gameObject.transform);
+        wifi.name = name;
+        name = laserXZ.name;
+        laserXZ = Instantiate(laserXZ, gameObject.transform);
+        laserXZ.name = name;
+        name = deadReconning.name;
+        deadReconning = Instantiate(deadReconning, gameObject.transform);
+        deadReconning.name = name;
+        name = drive.name;
+        drive = Instantiate(drive, gameObject.transform);
+        drive.name = name;
+        name = control.name;
+        control = Instantiate(control, gameObject.transform);
+        control.name = name;
     }
 
     public override void OnStartClient() {

@@ -79,7 +79,7 @@ public class Map3D : MonoBehaviour
 		
 	void Start ()
 	{		
-		pointCloudContainer = new GameObject(transform.parent.name + name).transform;
+		pointCloudContainer = new GameObject(transform.parent.name + name + "PointCloud").transform;
 		pointCloudContainer.parent = SceneManager.DynamicObjects;
 	}
 

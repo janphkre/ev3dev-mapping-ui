@@ -10,7 +10,6 @@
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 using Superbest_random;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;

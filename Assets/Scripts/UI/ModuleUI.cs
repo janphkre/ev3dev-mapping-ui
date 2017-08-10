@@ -11,7 +11,6 @@
  */
 
 using UnityEngine;
-using System.Collections;
 using UnityEngine.UI;
 using System;
 
@@ -23,7 +22,7 @@ public class ModuleUI : MonoBehaviour, IComparable<ModuleUI>
 	public Toggle ModuleStateToggle;
 
 	protected Transform uiTransform;
-	private Text moduleName;
+    protected Text moduleName;
 	private Text moduleState;
 	private Toggle moduleStateToggle;
 	private Control control;
@@ -33,7 +32,7 @@ public class ModuleUI : MonoBehaviour, IComparable<ModuleUI>
 	protected virtual void Awake()
 	{
 		uiTransform = Instantiate<Transform>(UiTransform);
-		moduleName = SafeInstantiateText(ModuleName, uiTransform, "module");
+        moduleName = SafeInstantiateText(ModuleName, uiTransform, "module");
 		moduleStateToggle = SafeInstantiate<Toggle>(ModuleStateToggle, uiTransform);
 		moduleStateToggle.onValueChanged.AddListener(SetEnable);
 		moduleState = moduleStateToggle.GetComponentInChildren<Text>();
@@ -106,7 +105,7 @@ public class ModuleUI : MonoBehaviour, IComparable<ModuleUI>
 
 	public int CompareTo(ModuleUI other)
 	{
-		return module.CompareTo(other.module);
+		return moduleName.text.CompareTo(other.moduleName.text);
 	}
 
 
