@@ -248,33 +248,44 @@ public class Graph : NetworkBehaviour {
         return false;
     }
 
+    public bool HasUnvisitedNodes() {
+        return unvisitedNodes.Count > 0;
+    }
+
+    //Returns a path to (0, 0) (assuming that nodes[0] is at (0, 0))
+    public LinkedList<Vector2> GetStartPath(Vector3 currentPose) {
+        return GetPath(currentPose, 0);
+    }
+
     //Returns a path through already visited territory to a new unexplored node in the graph.
     public LinkedList<Vector2> GetUnexploredNodePath(Vector3 currentPose) {
-        currentPose += lastMatch;
         //Find the closest target:
-        int target = unvisitedNodes[0];
-        float closestDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[target].Position) - nodes[target].radius;
+        int target = unvisitedNodes[unvisitedNodes.Count - 1];
+        float closestDistance = Geometry.EuclideanDistance((Vector2)currentPose, nodes[target].Position) - nodes[target].radius;
         //TODO:Unfortunately this for-loop is in the lock. Make this smarter.
-        int i = 1;
-        for (; i < unvisitedNodes.Count; i++) {
-            float currentDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[unvisitedNodes[i]].Position) - nodes[unvisitedNodes[i]].radius;
+        for (int i = 1; i < unvisitedNodes.Count; i++) {
+            float currentDistance = Geometry.EuclideanDistance((Vector2)currentPose, nodes[unvisitedNodes[i]].Position) - nodes[unvisitedNodes[i]].radius;
             if (currentDistance < closestDistance) {
                 closestDistance = currentDistance;
                 target = i;
             }
         }
+        return GetPath(currentPose, target);
+    }
+
+    private LinkedList<Vector2> GetPath(Vector3 currentPose, int target) {
+        currentPose += lastMatch;
         var aco = new AntColonyOptimization(nodes, lastNode, target);
         float m = 0.0f,
               cost;
-        i = 0;
         do {
             cost = aco.Iteration();
             m = m * ACO_FORGETTING + cost * (1 - ACO_FORGETTING);
         } while (Mathf.Abs(m - cost) > ACO_MIN_DIFF);
         var result = new LinkedList<Vector2>();
         var path = aco.GetPath();
-        lock(nodes) {
-            foreach(int p in path) result.AddLast(nodes[p].Position);
+        lock (nodes) {
+            foreach (int p in path) result.AddLast(nodes[p].Position);
         }
         return result;
     }

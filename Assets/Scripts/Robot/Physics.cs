@@ -1,14 +1,17 @@
 ﻿using UnityEngine;
 
+public enum TachometerPosition { Differential, Left, Right }
+
 public class Physics : MonoBehaviour, ItemCopy<Physics>
 {
-    public float turningRadius = 0.0f;
-	public float wheelDiameterMm=43.2f;
-	public float wheelbaseMm=250.0f;
+    public float turningRadius = 1.19f;
+	public float wheelDiameterMm=94.8f;
+	public float wheelbaseMm=185.0f;
 	public int encoderCountsPerRotation=360;
 	public int maxEncoderCountsPerSecond=1000;
 	public bool reverseMotorPolarity=false;
-    public bool hasDifferential = false;
+    public TachometerPosition Differential = TachometerPosition.Right;
+
     //Calculated at start:
     public float turningRadiusSquared;
     public float turningRadiusAngledSquared;
@@ -32,7 +35,7 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
          * we multiply the segment angle with either the turningRadius or the outerTurningRadius (if the car does not have a differential).
          * As the robot measures the car movement in tachometer counts we multiply the above with counts per meter.
          */
-        differentialRadiusCounts = (hasDifferential ? turningRadius : turningRadius + halfWheelbase) * 1000.0f * CountsPerMM();
+        differentialRadiusCounts = 1000.0f * CountsPerMM();
         distancePerEncoderCountMm = Mathf.PI * wheelDiameterMm / encoderCountsPerRotation;
     }
 
@@ -49,7 +52,7 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
         encoderCountsPerRotation = other.encoderCountsPerRotation;
         maxEncoderCountsPerSecond = other.maxEncoderCountsPerSecond;
         reverseMotorPolarity = other.reverseMotorPolarity;
-        hasDifferential = other.hasDifferential;
+        Differential = other.Differential;
         Calculate();
     }
 }

@@ -10,6 +10,7 @@ public class MainMenu : MonoBehaviour {
         "InputSessionDirectory",
         "InputPositionsKept",
         "InputWheelDiameter",
+        "InputWheelBase",
         "InputTurningRadius",
         "InputDifferential",
         "InputPolarity",
@@ -39,7 +40,7 @@ public class MainMenu : MonoBehaviour {
             GameObject.Find(INPUT_FIELDS[2]).GetComponent<InputField>().text = "" + Physics.wheelDiameterMm;
             GameObject.Find(INPUT_FIELDS[3]).GetComponent<InputField>().text = "" + Physics.wheelbaseMm;
             GameObject.Find(INPUT_FIELDS[4]).GetComponent<InputField>().text = "" + Physics.turningRadius;
-            GameObject.Find(INPUT_FIELDS[5]).GetComponent<InputField>().text = "" + Physics.hasDifferential;
+            GameObject.Find(INPUT_FIELDS[5]).GetComponent<InputField>().text = "" + Physics.Differential;
             GameObject.Find(INPUT_FIELDS[6]).GetComponent<InputField>().text = "" + Physics.reverseMotorPolarity;
             GameObject.Find(INPUT_FIELDS[7]).GetComponent<InputField>().text = "" + Limits.MaxLinearSpeedMmPerSec;
             GameObject.Find(INPUT_FIELDS[8]).GetComponent<InputField>().text = "" + Limits.MaxAngularSpeedDegPerSec;

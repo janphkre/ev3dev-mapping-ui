@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-using UnityEngine;
-using System.Collections;
 using UnityEngine.UI;
 
 public class LaserUI : ModuleUI

@@ -73,7 +73,7 @@ namespace Consolation
 
 		void OnEnable ()
 		{
-#if UNITY_5
+#if UNITY_2017
 			Application.logMessageReceived += HandleLog;
 #else
 			Application.RegisterLogCallback(HandleLog);
@@ -82,7 +82,7 @@ namespace Consolation
 
 		void OnDisable ()
 		{
-#if UNITY_5
+#if UNITY_2017
 			Application.logMessageReceived -= HandleLog;
 #else
 			Application.RegisterLogCallback(null);

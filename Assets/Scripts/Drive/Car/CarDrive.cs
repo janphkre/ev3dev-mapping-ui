@@ -50,7 +50,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     public void Steer(float segment, bool backwards) {
         packet.timestamp_us = Timestamp.TimestampUs();
         packet.command = CarDrivePacket.Commands.TURN;
-        packet.param2 = (short) (segment * MainMenu.Physics.differentialRadiusCounts);
+        packet.param2 = CalculateSegment(segment);
         packet.param1 = backwards ? STEER_BACKWARD : STEER_FORWARD;
         Send(packet);
     }
@@ -59,7 +59,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     public void SteerForward(float segment) {
         packet.timestamp_us = Timestamp.TimestampUs();
         packet.command = CarDrivePacket.Commands.TURNSTOP;
-        packet.param2 = (short)(segment * MainMenu.Physics.differentialRadiusCounts);
+        packet.param2 = CalculateSegment(segment);
         packet.param1 = STEER_FORWARD;
         Send(packet);
     }
@@ -68,9 +68,20 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     public void SteerBackwards(float segment) {
         packet.timestamp_us = Timestamp.TimestampUs();
         packet.command = CarDrivePacket.Commands.TURNSTOP;
-        packet.param2 = (short)(segment * MainMenu.Physics.differentialRadiusCounts);
+        packet.param2 = CalculateSegment(segment);
         packet.param1 = STEER_BACKWARD;
         Send(packet);
+    }
+
+    private short CalculateSegment(float segment) {
+        if (MainMenu.Physics.Differential == TachometerPosition.Differential) {
+            segment *= MainMenu.Physics.turningRadius;
+        } else if (MainMenu.Physics.Differential == TachometerPosition.Left ^ segment > 0) {
+            segment *= MainMenu.Physics.turningRadius + MainMenu.Physics.halfWheelbase;
+        } else {
+            segment *= MainMenu.Physics.turningRadius - MainMenu.Physics.halfWheelbase;
+        }
+        return (short)(segment * MainMenu.Physics.differentialRadiusCounts);
     }
 
 #region ReplayableUDPClient

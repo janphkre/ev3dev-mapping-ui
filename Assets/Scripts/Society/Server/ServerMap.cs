@@ -29,10 +29,16 @@ public class ServerMap : NetworkBehaviour {
     private int iteration = 0;
     
     private class ServerClientItem {
-        internal GlobalClientMapMessage clientMap;
+        internal GlobalClientMapMessage clientMap = null;
         internal Vector3 lastClientPose = Vector3.zero;
         internal RobotPose lastGlobalPose = RobotPose.zero;
         internal bool wasMatched = false;
+
+        internal Color color;
+
+        internal ServerClientItem(Color color) {
+            this.color = color;
+        }
 
         internal ServerClientItem(GlobalClientMapMessage clientMap) {
             this.clientMap = clientMap;
@@ -77,13 +83,23 @@ public class ServerMap : NetworkBehaviour {
             if(iteration != 0) hue += (1 + 2 * (iteration - (iterationTwo / 2))) / (6.0f * iterationTwo);
             colorCounter++;
         }
-        NetworkServer.SendToClient(netMsg.conn.connectionId, (short) MessageType.Color, new ColorMessage(Color.HSVToRGB(hue, 1.0f, 1.0f)));
+        Color color = Color.HSVToRGB(hue, 1.0f, 1.0f);
+        lock (clientMaps) {
+            ServerClientItem value;
+            if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) {
+                value = new ServerClientItem(color);
+                clientMaps.Add(netMsg.conn.connectionId, value);
+            } else {
+                value.color = color;
+            }
+        }
+        NetworkServer.SendToClient(netMsg.conn.connectionId, (short) MessageType.Color, new ColorMessage(color));
     }
 
     void OnGlobalClientMap(NetworkMessage netMsg) {
         Debug.Log("Recieved map message from " + netMsg.conn.connectionId);
         GlobalClientMapMessage msg = netMsg.ReadMessage<GlobalClientMapMessage>();
-        ServerClientItem value = null;
+        ServerClientItem value;
         lock (clientMaps) {
             if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) {
                 value = new ServerClientItem(msg);
@@ -101,6 +117,7 @@ public class ServerMap : NetworkBehaviour {
             }
             iteration++;
         }
+        //TODO: display robots!
     }
 
     void OnClientGraph(NetworkMessage netMsg) {
@@ -110,9 +127,7 @@ public class ServerMap : NetworkBehaviour {
         Vector3 lastClientPose;
         lock (clientMaps) {
             ServerClientItem value;
-            if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) {
-                return;
-            }
+            if (!clientMaps.TryGetValue(netMsg.conn.connectionId, out value)) return;
             if (!value.wasMatched) return;
             lastGlobalPose = value.lastGlobalPose;
             lastClientPose = value.lastClientPose;
@@ -208,8 +223,10 @@ public class ServerMap : NetworkBehaviour {
     void mergeAllSubClouds() {
         lock(clientMaps) {
             foreach (KeyValuePair<int, ServerClientItem> pair in clientMaps) {
-                pair.Value.wasMatched = false;
-                mergeSubCloud(pair.Value);
+                if (pair.Value.clientMap != null) {
+                    pair.Value.wasMatched = false;
+                    mergeSubCloud(pair.Value);
+                }
             }
         }
     }
