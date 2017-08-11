@@ -19,6 +19,8 @@ using System;
 
 using UnityEngine;
 
+namespace ev3devMapping {
+
 public enum TCPClientState {Disconnected, Connecting, Connected, Idle};
 
 public class TCPClient<MESSAGE> 
@@ -270,4 +272,4 @@ public class TCPClient<MESSAGE>
 		Debug.Log("Replay - finished");
 	}
 }
-
+}

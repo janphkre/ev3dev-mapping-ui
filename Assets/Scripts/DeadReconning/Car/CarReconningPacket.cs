@@ -1,5 +1,7 @@
 ﻿using System.Net;
 
+namespace ev3devMapping {
+
 class CarReconningPacket : IDatagram {
 
     public ulong timestamp_us;
@@ -38,4 +40,5 @@ class CarReconningPacket : IDatagram {
     public ulong GetTimestampUs() {
         return timestamp_us;
     }
+}
 }

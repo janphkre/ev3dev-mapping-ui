@@ -17,6 +17,8 @@ using System.Threading;
 using System.IO;
 using UnityEngine;
 
+namespace ev3devMapping {
+
 public delegate void DatagramHandler<DATAGRAM>(DATAGRAM data); 
 
 public class UDPServer<DATAGRAM> 
@@ -137,4 +139,5 @@ public class UDPServer<DATAGRAM>
 	}
 
 
+}
 }

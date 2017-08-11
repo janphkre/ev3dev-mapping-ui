@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 
+namespace ev3devMapping.Society {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * The local map is created by the SLAM algorithm in SLAMRobot.cs.                             *
@@ -256,4 +257,5 @@ public class GlobalClientMap: Behaviour {
         for (int i = 0; i < globalStateVector.Count; i++) utils.computeInfoAddition(lastPose, globalStateCollection[i], localInversedCovarianceCollection[i], infoMatrix, infoVector, globalStateVector);
         recursiveConverging(lastPose, maxIterations - 1);
     }
+}
 }

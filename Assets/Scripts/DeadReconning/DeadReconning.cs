@@ -13,6 +13,8 @@
 using UnityEngine;
 using System;
 
+namespace ev3devMapping {
+
 [Serializable]
 public class DeadReconningModuleProperties : ModuleProperties
 {
@@ -175,4 +177,5 @@ public class DeadReconning : ReplayableUDPServer<DeadReconningPacket>
 		
 	#endregion
 
+}
 }

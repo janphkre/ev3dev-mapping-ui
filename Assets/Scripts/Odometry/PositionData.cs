@@ -13,6 +13,8 @@
 using UnityEngine;
 using System.Collections;
 
+namespace ev3devMapping {
+
 public struct PositionData : System.IComparable<PositionData>
 {
 	public ulong timestamp;
@@ -28,4 +30,5 @@ public struct PositionData : System.IComparable<PositionData>
 	{
 		return string.Format("ts={0} ps={1} hd={2}", timestamp, position, heading);
 	}
+}
 }

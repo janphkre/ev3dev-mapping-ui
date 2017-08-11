@@ -1,7 +1,7 @@
 ﻿
 
-//namespace LeastSquares
-//{
+namespace ev3dev.Society.LeastSquares
+{
     using System.Collections.Generic;
     using System.Linq;
     using System;
@@ -106,4 +106,4 @@
             return results;
         }
 }
-//}
+}

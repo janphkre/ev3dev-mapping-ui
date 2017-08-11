@@ -18,6 +18,8 @@
 using UnityEngine;
 using System.IO;
 
+namespace ev3devMapping {
+
 [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
 public class PointCloud : MonoBehaviour
 {
@@ -134,4 +136,5 @@ public class PointCloud : MonoBehaviour
 	{
 		PLYPolygonFileFormat.EmitVertices(bw, mesh_vertices, AssignedCount());
 	}
+}
 }

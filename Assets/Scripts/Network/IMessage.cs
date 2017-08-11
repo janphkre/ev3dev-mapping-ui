@@ -13,6 +13,8 @@
 using System;
 using System.Net.Sockets;
 
+namespace ev3devMapping {
+
 public interface IMessage
 {
 	void FromBinary(System.IO.BinaryReader reader);
@@ -23,6 +25,7 @@ public interface IMessage
 	int HeaderSize ();
 	ulong GetTimestampUs();
 
+}
 }
 
 

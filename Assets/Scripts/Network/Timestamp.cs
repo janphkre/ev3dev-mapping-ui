@@ -12,11 +12,14 @@
 
 using System;
 
+namespace ev3devMapping {
+
 public class Timestamp
 {
 	public static ulong TimestampUs()
 	{
 		return (ulong)(DateTime.Now.Ticks / 10);
 	}
+}
 }
 

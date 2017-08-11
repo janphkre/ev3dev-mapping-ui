@@ -12,6 +12,8 @@
 
 using System.Net;
 
+namespace ev3devMapping {
+
 public class WifiPacket : IDatagram
 {
 	public const int BSSID_LENGTH=6;
@@ -101,4 +103,5 @@ public class WifiPacket : IDatagram
 		tx_packets = p.tx_packets;
 
 	}
+}
 }

@@ -12,6 +12,8 @@
 
 using UnityEngine.UI;
 
+namespace ev3devMapping {
+
 public class LaserUI : ModuleUI
 {
 	private Text ppsText;
@@ -45,4 +47,5 @@ public class LaserUI : ModuleUI
 		laserSpeedText.text = string.Format("rpm {0:000}", laser.GetAveragedLaserRPM());
 		laserInvalidCRCText.text = string.Format("inv {0:00} crc {1:00}",laser.GetInvalidPercentage() ,laser.GetCRCFailurePercentage());
 	}
+}
 }

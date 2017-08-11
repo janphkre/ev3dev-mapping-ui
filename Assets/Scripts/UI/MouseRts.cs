@@ -3,6 +3,8 @@
 
 using UnityEngine;
 
+namespace ev3devMapping {
+
 public class MouseRts : MonoBehaviour
 {
 	public int LevelArea = 100;
@@ -101,4 +103,5 @@ public class MouseRts : MonoBehaviour
 		camera.transform.eulerAngles = new Vector3(pan, yrotation, 0);
 		
 	}
+}
 }

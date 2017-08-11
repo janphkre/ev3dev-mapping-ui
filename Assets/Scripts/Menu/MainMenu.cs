@@ -2,6 +2,8 @@
 using UnityEngine.UI;
 using System.IO;
 
+namespace ev3devMapping {
+
 public class MainMenu : MonoBehaviour {
 
     public const string BASE_SCENE = "Base";
@@ -159,4 +161,5 @@ public class MainMenu : MonoBehaviour {
             GameObject.Find("Robot").GetComponent<RobotNetworking>().OnStartLocalPlayer();
         }
     }
+}
 }

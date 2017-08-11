@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
 
+namespace ev3devMapping.Society {
+
 [Serializable]
 public class GraphNode {
 
@@ -301,4 +303,5 @@ public class Graph : MonoBehaviour {
             //}
         }
     }
+}
 }

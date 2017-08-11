@@ -14,6 +14,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 
+namespace ev3devMapping {
+
 public abstract class ReplayableUDPServer<DATAGRAM> : ReplayableServer
 	where DATAGRAM : IDatagram, new()
 {
@@ -126,4 +128,5 @@ public abstract class ReplayableUDPServer<DATAGRAM> : ReplayableServer
 		return server.AveragedPacketTimeMs();
 	}
 
+}
 }

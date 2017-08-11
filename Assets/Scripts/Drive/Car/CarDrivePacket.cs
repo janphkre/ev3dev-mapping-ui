@@ -1,5 +1,7 @@
 ﻿using System.Net;
 
+namespace ev3devMapping {
+
 /* * * * * * * * * * * * * * * * * * * * * *
  * See Assets/Scripts/Drive/DrivePacket.cs *
  * * * * * * * * * * * * * * * * * * * * * */
@@ -37,4 +39,5 @@ class CarDrivePacket : IDatagram {
     public ulong GetTimestampUs() {
         return timestamp_us;
     }
+}
 }

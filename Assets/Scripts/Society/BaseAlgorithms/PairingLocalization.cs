@@ -10,6 +10,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 class PairingLocalization {
 
     //public const float PAIR_DRIVEN_G_RANGE = 10f;
@@ -110,4 +112,5 @@ class PairingLocalization {
     internal void increaseGridUncertanity() {
         gridUncertanity += GRID_GROWTH;
     }
+}
 }

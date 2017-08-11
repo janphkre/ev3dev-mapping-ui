@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.Networking;
 
+namespace ev3devMapping.Society {
+
 public enum MessageType {
     Color,
     ColorRequest,
@@ -70,4 +72,5 @@ public class PointMessage : MessageBase {
             }
         }
     }
+}
 }

@@ -14,6 +14,7 @@ using UnityEngine;
 using System.IO;
 using System;
 
+namespace ev3devMapping {
 
 [Serializable]
 public class DriveModuleProperties : ModuleProperties
@@ -294,4 +295,5 @@ public class Drive : ReplayableUDPClient<DrivePacket>
 
 	#endregion
 
+}
 }

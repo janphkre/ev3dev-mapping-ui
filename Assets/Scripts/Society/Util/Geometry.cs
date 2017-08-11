@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 class Geometry {
 
     public const float HALF_CIRCLE = Mathf.PI;
@@ -100,4 +102,5 @@ class Geometry {
         int r = x % y;
         return r < 0 ? r + y : r;
     }
+}
 }

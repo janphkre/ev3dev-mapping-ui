@@ -15,6 +15,8 @@ using UnityEngine;
 using System.Collections;
 using System.IO;
 
+namespace ev3devMapping {
+
 public abstract class ReplayableTCPClient<MESSAGE> : ReplayableClient
 	where MESSAGE : IMessage, new()
 {
@@ -140,4 +142,5 @@ public abstract class ReplayableTCPClient<MESSAGE> : ReplayableClient
 			return ulong.MaxValue;
 		return client.GetFirstReplayTimestamp();
 	}
+}
 }

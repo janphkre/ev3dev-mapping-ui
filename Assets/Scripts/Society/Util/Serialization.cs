@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 [Serializable]
 public class IntList : List<int> { }
 
@@ -77,3 +79,4 @@ public class IFeatureList : List<IFeature> { }
 
 [Serializable]
 public class GraphNodeList : List<GraphNode> { }
+}

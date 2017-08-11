@@ -14,6 +14,8 @@ using UnityEngine;
 using System;
 using System.IO;
 
+namespace ev3devMapping {
+
 public enum PlotType {Local, Global, Map, GlobalWithMap}
 
 [Serializable]
@@ -374,4 +376,5 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 
 	#endregion
 
+}
 }

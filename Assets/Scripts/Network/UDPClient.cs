@@ -17,6 +17,8 @@ using System.Threading;
 using System.IO;
 using UnityEngine;
 
+namespace ev3devMapping {
+
 public class UDPClient<DATAGRAM> 
 	where DATAGRAM : IDatagram, new()
 {
@@ -197,4 +199,5 @@ public class UDPClient<DATAGRAM>
 			return;
 		dumpWriter.Flush ();
 	}
+}
 }

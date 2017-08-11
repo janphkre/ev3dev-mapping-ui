@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
 
+namespace ev3devMapping {
+
 public enum ReplayMode {None, RecordIn, ReplayIn, RecordOut, ReplayOut, RecordInRecordOut, RecordInReplayOut};
 
 public class Replay : MonoBehaviour, ItemCopy<Replay>
@@ -37,4 +39,5 @@ public class Replay : MonoBehaviour, ItemCopy<Replay>
     public void copyFrom(Replay other) {
         mode = other.mode;
     }
+}
 }

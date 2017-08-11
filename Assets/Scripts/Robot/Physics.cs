@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 
+namespace ev3devMapping {
+
 public enum TachometerPosition { Differential, Left, Right }
 
 public class Physics : MonoBehaviour, ItemCopy<Physics>
@@ -55,4 +57,5 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
         Differential = other.Differential;
         Calculate();
     }
+}
 }

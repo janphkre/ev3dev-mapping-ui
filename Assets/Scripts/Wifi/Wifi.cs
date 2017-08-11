@@ -13,9 +13,10 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using CircularBuffer;
+using ev3devMapping.CircularBuffer;
 using System;
 
+namespace ev3devMapping {
 
 public enum WifiPlotType {None, Map}
 
@@ -229,4 +230,5 @@ public class Wifi : ReplayableUDPServer<WifiPacket>
 
 	#endregion
 
+}
 }

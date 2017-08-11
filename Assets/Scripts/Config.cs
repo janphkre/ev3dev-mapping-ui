@@ -13,6 +13,8 @@
 using UnityEngine;
 using System.Collections;
 
+namespace ev3devMapping {
+
 public class Config
 {
 	public const string MAPS_DIRECTORY="PLY";
@@ -40,4 +42,5 @@ public class Config
 	}
 
 
+}
 }

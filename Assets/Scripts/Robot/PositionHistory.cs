@@ -12,8 +12,10 @@
 
 using UnityEngine;
 using System.Collections;
-using CircularBuffer;
+using ev3devMapping.CircularBuffer;
 using System;
+
+namespace ev3devMapping {
 
 public sealed class PositionHistory : MonoBehaviour, ItemCopy<PositionHistory>
 {
@@ -155,4 +157,5 @@ public sealed class PositionHistory : MonoBehaviour, ItemCopy<PositionHistory>
         syncRoot = other.syncRoot;
         history = other.history;
     }
+}
 }

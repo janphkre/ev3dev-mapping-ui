@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Consolation
+namespace ev3devMapping.Consolation
 {
 	/// <summary>
 	/// A console to display Unity's debug logs in-game.

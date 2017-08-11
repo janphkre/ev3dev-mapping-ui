@@ -14,6 +14,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using System;
 
+namespace ev3devMapping {
+
 public class ModuleUI : MonoBehaviour, IComparable<ModuleUI>
 {
 	public Transform UiTransform;
@@ -110,4 +112,5 @@ public class ModuleUI : MonoBehaviour, IComparable<ModuleUI>
 	}
 
 
+}
 }

@@ -9,6 +9,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 class NearestNeighbour {
 
     public const float MAX_MATCH_DISTANCE = 1.0f;
@@ -55,4 +57,4 @@ class NearestNeighbour {
         return match;
     }
 }
-
+}

@@ -12,6 +12,8 @@
 
 using UnityEngine;
 
+namespace ev3devMapping {
+
 //SceneManager just for testing, rewrite needed
 public class SceneManager : MonoBehaviour
 {
@@ -60,4 +62,4 @@ public class SceneManager : MonoBehaviour
 		uiCanvas.SetActive(!uiCanvas.activeSelf);
 	}
 }
-	
+}	

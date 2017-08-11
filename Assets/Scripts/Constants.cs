@@ -12,6 +12,8 @@
 
 using UnityEngine;
 
+namespace ev3devMapping {
+
 public static class Constants
 {
 	public const float DEG2RAD = Mathf.PI / 180f;
@@ -21,4 +23,5 @@ public static class Constants
 	public const float B=25.0f;
 	public const string MAPS_DIRECTORY="maps";
 	public const float ExponentialSmoothingAlpha=0.02f;
+}
 }

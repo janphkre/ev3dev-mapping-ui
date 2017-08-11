@@ -14,6 +14,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 
+namespace ev3devMapping {
+
 public abstract class ReplayableUDPClient<DATAGRAM> : ReplayableClient
 	where DATAGRAM : IDatagram, new()
 {
@@ -169,4 +171,5 @@ public abstract class ReplayableUDPClient<DATAGRAM> : ReplayableClient
 	{
 		return client.ReceiveOne(datagram);
 	}
+}
 }

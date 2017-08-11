@@ -14,6 +14,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 public class SLAMInputData {
 
     public Vector3 LastPose;
@@ -265,4 +267,5 @@ public class SLAMRobot : MonoBehaviour {
     public void PostOdometryAndReadings(SLAMInputData data) {
         lock(input) input.Enqueue(data);
     }
+}
 }

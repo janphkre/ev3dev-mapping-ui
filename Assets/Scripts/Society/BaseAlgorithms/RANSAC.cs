@@ -1,6 +1,9 @@
-﻿using System;
+﻿using ev3dev.Society.LeastSquares;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
+
+namespace ev3devMapping.Society {
 
 class RANSAC {
 
@@ -16,17 +19,17 @@ class RANSAC {
     private List<Vector3> unmatchedReadings = new List<Vector3>();
     private HashSet<Vector3> matchedReadings = new HashSet<Vector3>();
     private List<Line> lines = new List<Line>();
-    private LeastSquares.Linear leastSquares;
+    private Linear leastSquares;
     private int firstMatchedIndex = -1;
     private int lastMatchedIndex = -1;
     
 
     private class Line {
-        internal LeastSquares.Linear leastSquares;
+        internal Linear leastSquares;
         internal Vector2 firstMeasurement;
         internal Vector2 lastMeasurement;
 
-        internal Line(LeastSquares.Linear leastSquares, Vector3 firstMeasurement, Vector3 lastMeasurement) {
+        internal Line(Linear leastSquares, Vector3 firstMeasurement, Vector3 lastMeasurement) {
             this.leastSquares = leastSquares;
             this.firstMeasurement = new Vector2(firstMeasurement.x, firstMeasurement.z);
             this.lastMeasurement = new Vector2(lastMeasurement.x, lastMeasurement.z);
@@ -54,7 +57,7 @@ class RANSAC {
                 sampleStart -= additionalSide;
             }
             //Please note that this least squares is not robust against y-parallel lines? Is this still true with the changes applied? At least the x-coordinate sorting is useless in this case.
-            leastSquares = new LeastSquares.Linear(unmatchedReadings.GetRange(sampleStart, sampleEnd - sampleStart));
+            leastSquares = new Linear(unmatchedReadings.GetRange(sampleStart, sampleEnd - sampleStart));
             sampleStart -= maxSearchSize;
             int sampleAdditionalEnd = 0;
             if (sampleEnd >= unmatchedReadings.Count + sampleStart) sampleStart = sampleEnd - (unmatchedReadings.Count - 1);
@@ -76,7 +79,7 @@ class RANSAC {
             }
             if (matchedReadings.Count > RANSAC_MIN_FOUND) {
                 //Consensus that points form a line
-                lines.Add(new Line(new LeastSquares.Linear(matchedReadings), unmatchedReadings[firstMatchedIndex], unmatchedReadings[lastMatchedIndex]));
+                lines.Add(new Line(new Linear(matchedReadings), unmatchedReadings[firstMatchedIndex], unmatchedReadings[lastMatchedIndex]));
                 //Remove matched readings from the unmatched readings array:
                 if(firstMatchedIndex > lastMatchedIndex) {
                     unmatchedReadings.RemoveRange(firstMatchedIndex, unmatchedReadings.Count - firstMatchedIndex);
@@ -137,9 +140,10 @@ class RANSAC {
         }
     }
 
-    private Vector2 getIntersection(LeastSquares.Linear first, LeastSquares.Linear second) {
+    private Vector2 getIntersection(Linear first, Linear second) {
         float s = ((first.Average.z - second.Average.z) * second.Slope.z - (first.Average.x - second.Average.x) * second.Slope.z) / (second.Slope.z * first.Slope.x - first.Slope.z * second.Slope.x);
         if (float.IsNaN(s)) throw new ArithmeticException();
         return new Vector2(first.Average.x + s * first.Slope.x, first.Average.z + s * first.Slope.z);
     }
+}
 }

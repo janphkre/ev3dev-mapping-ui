@@ -13,6 +13,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+namespace ev3devMapping {
+
 public class ControlUI : MonoBehaviour
 {
 	public Transform UiTransform;
@@ -150,4 +152,5 @@ public class ControlUI : MonoBehaviour
 		instantiated.transform.SetParent(parent, false);
 		return instantiated;
 	}
+}
 }

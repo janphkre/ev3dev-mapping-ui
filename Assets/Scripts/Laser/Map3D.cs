@@ -14,6 +14,8 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 
+namespace ev3devMapping {
+
 public class Map3D : MonoBehaviour
 {
 	public PointCloud mapPointCloud;
@@ -83,4 +85,5 @@ public class Map3D : MonoBehaviour
 		pointCloudContainer.parent = SceneManager.DynamicObjects;
 	}
 
+}
 }

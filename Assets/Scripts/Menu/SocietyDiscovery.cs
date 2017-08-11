@@ -1,5 +1,7 @@
 ﻿using UnityEngine.Networking;
 
+namespace ev3devMapping {
+
 class SocietyDiscovery : NetworkDiscovery {
 
     public override void OnReceivedBroadcast(string fromAddress, string data) {
@@ -7,4 +9,5 @@ class SocietyDiscovery : NetworkDiscovery {
         NetworkManager.singleton.StartClient();
         StopBroadcast();
     }
+}
 }

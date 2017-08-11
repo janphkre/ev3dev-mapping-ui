@@ -21,6 +21,8 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 
+namespace ev3devMapping {
+
 [Serializable]
 public class ControlProperties
 {
@@ -284,4 +286,5 @@ public class Control : ReplayableTCPClient<ControlMessage>
 	}
 
 	#endregion
+}
 }

@@ -4,6 +4,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 class ISLSJFBase {
 
     public const float OBSERVATION_NOISE_SIGMA = 1f;
@@ -435,4 +437,5 @@ class ISLSJFBase {
         }
         result.Dispose();
     }
+}
 }

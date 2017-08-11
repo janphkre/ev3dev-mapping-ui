@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 
+namespace ev3devMapping {
+
 public class FPSText : MonoBehaviour
 {
 	private float deltaTime = 0.0f;
@@ -31,4 +33,4 @@ public class FPSText : MonoBehaviour
 		text.text = string.Format("{1:0.} fps ({0:0.0} ms)", msec, fps);
 	}
 }
-
+}

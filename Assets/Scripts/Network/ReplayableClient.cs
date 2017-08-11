@@ -13,6 +13,9 @@
 using UnityEngine;
 using System.Collections;
 
+namespace ev3devMapping {
+
 public abstract class ReplayableClient : RobotModule
 {
+}
 }

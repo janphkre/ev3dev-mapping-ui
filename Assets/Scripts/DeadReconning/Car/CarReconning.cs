@@ -1,6 +1,8 @@
 ﻿using System;
 using UnityEngine;
 
+namespace ev3devMapping {
+
 [Serializable]
 public class CarReconningModuleProperties: ModuleProperties {
     public int pollMs = 10;
@@ -73,4 +75,5 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         return module.creationDelayMs;
     }
     #endregion
+}
 }

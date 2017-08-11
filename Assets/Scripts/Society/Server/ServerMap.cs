@@ -2,6 +2,8 @@
 using UnityEngine;
 using UnityEngine.Networking;
 
+namespace ev3devMapping.Society {
+
 [RequireComponent(typeof(Map3D))]
 public class ServerMap : NetworkBehaviour {
 
@@ -265,4 +267,5 @@ public class ServerMap : NetworkBehaviour {
         //TODO: clientInversedCovarianceCollection will use a lot of memory. Maybe use clientMaps instead somehow?
         recursiveConverging(previousPose, maxIterations - 1);
     }
+}
 }

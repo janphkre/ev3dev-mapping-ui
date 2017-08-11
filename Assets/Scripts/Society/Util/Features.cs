@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 public class ObservedFeature {
 
     public Vector2 feature;
@@ -286,4 +288,5 @@ public class FeatureVectorArray: IArray<Vector2> {
     public int Count {
         get { return list.Count; }
     }
+}
 }

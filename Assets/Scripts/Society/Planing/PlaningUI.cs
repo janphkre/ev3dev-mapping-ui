@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 
+namespace ev3devMapping.Society {
+
 class PlaningUI : ModuleUI {
 
     public Text statusText = null;
@@ -55,4 +57,5 @@ class PlaningUI : ModuleUI {
         statusText.text = currentTarget.ToString();
         targetText.text = Planing.singleton.GetCurrentTargetPosition().ToString();
     }
+}
 }

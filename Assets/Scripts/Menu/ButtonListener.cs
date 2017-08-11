@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.Networking;
 
+namespace ev3devMapping {
+
 class ButtonListener: MonoBehaviour {
 
     private NetworkDiscovery discovery;
@@ -29,4 +31,5 @@ class ButtonListener: MonoBehaviour {
             
         }
     }
+}
 }

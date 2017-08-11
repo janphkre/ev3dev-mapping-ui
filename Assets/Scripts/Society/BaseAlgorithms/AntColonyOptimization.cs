@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
  * Discrete Ant Colony Optimization                                        *
  * Artificial Intelligence for Humans Volume 2: Nature-Inspired Algorithms *
@@ -210,4 +212,5 @@ class AntColonyOptimization {
             return i;
         }
     }
+}
 }

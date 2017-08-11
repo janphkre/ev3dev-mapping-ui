@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
 
+namespace ev3devMapping {
+
 public class Limits : MonoBehaviour, ItemCopy<Limits>
 {
 	public float MaxLinearSpeedMmPerSec=200;
@@ -22,4 +24,5 @@ public class Limits : MonoBehaviour, ItemCopy<Limits>
         MaxAngularSpeedDegPerSec = other.MaxAngularSpeedDegPerSec;
     }
 
+}
 }

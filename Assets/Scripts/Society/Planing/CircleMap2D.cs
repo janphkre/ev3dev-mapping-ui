@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 public class CircleMap2D : Object {
 
     public const float MAP_HEIGHT = 0.0f;
@@ -30,4 +32,5 @@ public class CircleMap2D : Object {
             i++;
         }
     }
+}
 }

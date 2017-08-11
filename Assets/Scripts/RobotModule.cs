@@ -14,6 +14,8 @@ using UnityEngine;
 using System;
 using System.Collections;
 
+namespace ev3devMapping {
+
 [Serializable]
 public class ModuleNetwork
 {
@@ -104,4 +106,5 @@ public abstract class RobotModule : MonoBehaviour, IComparable<RobotModule>
 		return component;
 	}
 
+}
 }

@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.Networking;
 
+namespace ev3devMapping.Society {
+
 public class RobotNetworking : NetworkBehaviour {
 
     public GameObject control;
@@ -75,4 +77,5 @@ public class RobotNetworking : NetworkBehaviour {
         Material material = gameObject.GetComponentInChildren<Material>();
         material.color = msg.color;
     }
+}
 }

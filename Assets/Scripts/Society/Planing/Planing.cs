@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
+namespace ev3devMapping.Society {
+
 public enum TargetCommand {
     RandomMove,
     ExplorePosition,
@@ -473,4 +475,5 @@ public class Planing : MonoBehaviour {
         }
         return true;
     }
+}
 }

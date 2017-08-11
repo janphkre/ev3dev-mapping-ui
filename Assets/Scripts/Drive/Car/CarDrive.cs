@@ -1,5 +1,7 @@
 ﻿using System;
 
+namespace ev3devMapping {
+
 [Serializable]
 public class CarDriveModuleProperties: ModuleProperties {
     public int timeoutMs = 500;
@@ -94,4 +96,5 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
 
     public override int CreationDelayMs() { return module.creationDelayMs; }
 #endregion
+}
 }

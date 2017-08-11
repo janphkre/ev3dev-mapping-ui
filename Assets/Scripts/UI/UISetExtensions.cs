@@ -2,6 +2,8 @@
 using UnityEngine.UI;
 using System.Reflection;
 
+namespace ev3devMapping {
+
 public static class UISetExtensions
 {
 	static MethodInfo toggleSetMethod;
@@ -22,4 +24,5 @@ public static class UISetExtensions
 	{
 		toggleSetMethod.Invoke(instance, new object[] {value, sendCallback});
 	}
+}
 }

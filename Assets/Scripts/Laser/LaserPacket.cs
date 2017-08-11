@@ -12,6 +12,8 @@
 
 using System.Net;
 
+namespace ev3devMapping {
+
 public class LaserReading
 {
 	/// distance : 14
@@ -153,4 +155,5 @@ public class LaserPacket : IDatagram
 	{
 		return string.Format("[ts={0} ls={1} la={2}]", timestamp_us, laser_speed, laser_angle) + laser_readings[3].ToString();
 	}
+}
 }

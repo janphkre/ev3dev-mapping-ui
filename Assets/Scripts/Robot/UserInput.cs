@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using System.Collections;
 
+namespace ev3devMapping {
+
 public class UserInput : MonoBehaviour, ItemCopy<UserInput> {
     public string horizontal = "Horizontal";
     public string vertical = "Vertical";
@@ -29,4 +31,5 @@ public class UserInput : MonoBehaviour, ItemCopy<UserInput> {
         acceleration = string.Copy(other.acceleration);
         accelerationPower = other.accelerationPower;
     }
+}
 }

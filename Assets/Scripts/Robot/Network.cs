@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 
+namespace ev3devMapping {
+
 public class Network : MonoBehaviour, ItemCopy<Network> {
 	public string hostIp="192.168.0.103";
 	public string robotIp="192.168.0.101";
@@ -16,4 +18,5 @@ public class Network : MonoBehaviour, ItemCopy<Network> {
         hostIp = string.Copy(other.hostIp);
         robotIp = string.Copy(other.robotIp);
     }
+}
 }

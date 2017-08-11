@@ -1,4 +1,4 @@
-﻿namespace LeastSquares
+﻿namespace ev3dev.Society.LeastSquares
 {
     using UnityEngine;
     using System.Collections.Generic;

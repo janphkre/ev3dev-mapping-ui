@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 
+namespace ev3devMapping {
+
 [RequireComponent(typeof(Network))]
 //[RequireComponent(typeof(Replay))]
 [RequireComponent(typeof(PositionHistory))]
@@ -18,4 +20,5 @@ public class RobotRequired : MonoBehaviour, ItemCopy<RobotRequired> {
     public void copyFrom(RobotRequired other) {
         sessionDirectory = other.sessionDirectory;
     }
+}
 }

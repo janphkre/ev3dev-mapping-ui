@@ -13,6 +13,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+namespace ev3devMapping {
+
 public class DriveUI : ModuleUI
 {
 	private Drive drive;
@@ -71,4 +73,5 @@ public class DriveUI : ModuleUI
 	{
 		base.Update();
 	}
+}
 }
