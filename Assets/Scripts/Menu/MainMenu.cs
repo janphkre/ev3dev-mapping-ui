@@ -6,6 +6,8 @@ public class MainMenu : MonoBehaviour {
 
     public const string BASE_SCENE = "Base";
     public const string MAIN_MENU_SCENE = "MainMenu";
+    public const string TESTING_PLANNING_SCENE = "TestingPlanning";
+
     public const string SETTINGS = "settings.txt";
     public static readonly string[] INPUT_FIELDS = {
         "InputSessionDirectory",
@@ -135,6 +137,26 @@ public class MainMenu : MonoBehaviour {
                     reader.Dispose();
                 }
             }
+        } else if(scene.name.Equals(TESTING_PLANNING_SCENE)) {
+            using (var reader = new StreamReader(File.OpenRead(SETTINGS))) {
+                Robot.sessionDirectory = reader.ReadLine();
+                int.TryParse(reader.ReadLine(), out PositionHistory.positionsKept);
+                float.TryParse(reader.ReadLine(), out Physics.wheelDiameterMm);
+                float.TryParse(reader.ReadLine(), out Physics.wheelbaseMm);
+                float.TryParse(reader.ReadLine(), out Physics.turningRadius);
+                var differential = reader.ReadLine();
+                if (differential.Equals("" + TachometerPosition.Differential)) Physics.Differential = TachometerPosition.Differential;
+                else if (differential.Equals("" + TachometerPosition.Left)) Physics.Differential = TachometerPosition.Left;
+                else Physics.Differential = TachometerPosition.Right;
+                bool.TryParse(reader.ReadLine(), out Physics.reverseMotorPolarity);
+                float.TryParse(reader.ReadLine(), out Limits.MaxLinearSpeedMmPerSec);
+                float.TryParse(reader.ReadLine(), out Limits.MaxAngularSpeedDegPerSec);        
+                Network.hostIp = reader.ReadLine();
+                Network.robotIp = reader.ReadLine();
+                reader.Close();
+                reader.Dispose();
+            }
+            GameObject.Find("Robot").GetComponent<RobotNetworking>().OnStartLocalPlayer();
         }
     }
 }

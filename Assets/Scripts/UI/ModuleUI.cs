@@ -25,7 +25,7 @@ public class ModuleUI : MonoBehaviour, IComparable<ModuleUI>
     protected Text moduleName;
 	private Text moduleState;
 	private Toggle moduleStateToggle;
-	private Control control;
+	protected Control control;
 
 	protected RobotModule module;
 
@@ -37,7 +37,6 @@ public class ModuleUI : MonoBehaviour, IComparable<ModuleUI>
 		moduleStateToggle.onValueChanged.AddListener(SetEnable);
 		moduleState = moduleStateToggle.GetComponentInChildren<Text>();
 		moduleState.text = ModuleState.Offline.ToString().ToLower();
-		control = transform.parent.GetComponentInChildren<Control> ();
 		module = GetComponent<RobotModule> ();
 	}
 
@@ -48,14 +47,16 @@ public class ModuleUI : MonoBehaviour, IComparable<ModuleUI>
 
 	protected virtual void Start ()
 	{
-		if (module == null)
+        control = transform.parent.GetComponentInChildren<Control>();
+
+        if (module == null)
 		{
 			print("Module not set!");
 			enabled = false;
 			return;
 		}
 		moduleName.text = module.name;
-	}
+    }
 
 	protected virtual void Update ()
 	{

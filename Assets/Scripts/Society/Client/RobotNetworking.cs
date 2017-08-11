@@ -46,9 +46,9 @@ public class RobotNetworking : NetworkBehaviour {
         var name = graph.name;
         graph = Instantiate(graph, gameObject.transform);
         graph.name = name;
-        name = wifi.name;
+        /*name = wifi.name;
         wifi = Instantiate(wifi, gameObject.transform);
-        wifi.name = name;
+        wifi.name = name;*/
         name = laserXZ.name;
         laserXZ = Instantiate(laserXZ, gameObject.transform);
         laserXZ.name = name;

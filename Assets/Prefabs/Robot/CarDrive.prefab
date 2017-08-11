@@ -52,7 +52,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moduleNetwork:
-    port: 8000
+    port: 8003
   keepAliveUs: 100000
   module:
     autostart: 1

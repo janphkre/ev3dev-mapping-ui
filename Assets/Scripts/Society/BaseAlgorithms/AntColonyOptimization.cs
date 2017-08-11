@@ -71,6 +71,7 @@ class AntColonyOptimization {
     public AntColonyOptimization(List<GraphNode> nodes, int start, int target) {
         this.nodes = nodes;
         scores = new DefaultedSparseFloatMatrix(float.NaN);
+        pheromones = new DefaultedSparseFloatMatrix(float.NaN);
         for (int i = 0; i < nodes.Count; i++) {
             var connectedNodes = nodes[i].Connected;
             foreach (int c in connectedNodes) {

@@ -35,8 +35,9 @@ public class LaserPlotProperties
 	
 class LaserThreadSharedData
 {
-	public Vector3[] readings=new Vector3[360];
-	public bool[] invalid_data = new bool[360];
+    public const int READINGS_LENGTH = 360;
+	public Vector3[] readings=new Vector3[READINGS_LENGTH];
+	public bool[] invalid_data = new bool[READINGS_LENGTH];
 	public int from = -1;
 	public int length = -1;
 	public bool consumed = true;
@@ -66,9 +67,9 @@ class LaserThreadSharedData
 
 class LaserThreadInternalData
 {
-	public Vector3[] readings = new Vector3[360];
-	public bool[] invalid_data = new bool[360];
-	public ulong[] timestamps = new ulong[360];
+	public Vector3[] readings = new Vector3[LaserThreadSharedData.READINGS_LENGTH];
+	public bool[] invalid_data = new bool[LaserThreadSharedData.READINGS_LENGTH];
+	public ulong[] timestamps = new ulong[LaserThreadSharedData.READINGS_LENGTH];
 
 	public bool pending=false;
 	public int pending_from=0;
@@ -80,6 +81,7 @@ class LaserThreadInternalData
 	public int invalidPercentage = 0;
 	public int crcFailures=0;
 	public int crcFailurePercentage=0;
+    public int packageCounter = 0;
 
 	public void SetPending(int from, int length, ulong time_from, ulong time_to)
 	{
@@ -296,8 +298,17 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 			threadShared.crcFailurePercentage = threadInternal.crcFailurePercentage;
 		}
 
-        SLAMRobot.singelton.PostOdometryAndReadings(new SLAMInputData(lastPackageLastPos, threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount));
-        Planing.singleton.LaserReadings = new PlaningInputData(threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount);
+        threadInternal.packageCounter += length;
+        if (threadInternal.packageCounter >= LaserThreadSharedData.READINGS_LENGTH) {
+            threadInternal.packageCounter = 0;
+            if (threadInternal.invalidCount >= LaserThreadSharedData.READINGS_LENGTH) {
+                Debug.LogError("The whole array is invalid!");
+                return;
+            }
+            //SLAMRobot.singelton.PostOdometryAndReadings(new SLAMInputData(lastPackageLastPos, threadInternal.readings, from, length, threadInternal.invalid_data, threadInternal.invalidPackageCount));
+            Planing.singleton.LaserReadings = new PlaningInputData(threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount);
+            
+        }
     }
 
 

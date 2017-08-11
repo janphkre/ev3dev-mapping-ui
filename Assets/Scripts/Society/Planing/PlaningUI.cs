@@ -1,9 +1,8 @@
-﻿using UnityEngine.UI;
+﻿using UnityEngine;
+using UnityEngine.UI;
 
 class PlaningUI : ModuleUI {
 
-    public static string WAITING = "Waiting";
-    public static string DEFAULT_TARGET = "(0.0, 0.0)";
     public Text statusText = null;
     public Text targetText = null;
     public Button ModuleButton = null;
@@ -13,10 +12,14 @@ class PlaningUI : ModuleUI {
     private Button offroadButton;
 
     protected override void Awake() {
-        base.Awake();
 
-        SafeInstantiateText(statusText, uiTransform, WAITING);
-        SafeInstantiateText(targetText, uiTransform, DEFAULT_TARGET);
+        uiTransform = Instantiate<Transform>(UiTransform);
+        moduleName = SafeInstantiateText(ModuleName, uiTransform, "module");
+        control = transform.parent.GetComponentInChildren<Control>();
+        module = GetComponent<RobotModule>();
+
+        SafeInstantiateText(statusText, uiTransform, "Waiting");
+        SafeInstantiateText(targetText, uiTransform, "(0.0, 0.0)");
 
         startButton = SafeInstantiate<Button>(ModuleButton, uiTransform);
         startButton.GetComponentInChildren<Text>().text = "Start";
@@ -36,7 +39,7 @@ class PlaningUI : ModuleUI {
     }
 
     public void OnClickButtonStart() {
-        Planing.singleton.Start();
+        Planing.singleton.StartPlaning();
     }
 
     public void OnClickButtonReturn() {
@@ -48,13 +51,8 @@ class PlaningUI : ModuleUI {
     }
 
     protected override void Update() {
-        TargetCommand? currentTarget = Planing.singleton.GetCurrentTarget();
-        if (currentTarget == null) {
-            statusText.text = WAITING;
-            targetText.text = DEFAULT_TARGET;
-        } else {
-            statusText.text = currentTarget.ToString();
-            targetText.text = Planing.singleton.GetCurrentTargetPosition().ToString();
-        }
+        TargetCommand currentTarget = Planing.singleton.GetCurrentTarget();
+        statusText.text = currentTarget.ToString();
+        targetText.text = Planing.singleton.GetCurrentTargetPosition().ToString();
     }
 }

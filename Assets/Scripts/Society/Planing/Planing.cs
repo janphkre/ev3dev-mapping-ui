@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 public enum TargetCommand {
     RandomMove,
     ExplorePosition,
     Backtrack,
-    Turn
+    Turn,
+    Waiting
 }
 
 public class PlaningInputData {
@@ -26,6 +28,54 @@ public class PlaningInputData {
             if (!invalid[i]) Readings[count++] = readings[i];
         }
     }
+
+    #region Testing
+
+    private const string PLANING_FILE = "Planing_Test.txt";
+
+    public void Write() {
+        if (File.Exists(PLANING_FILE)) File.Delete(PLANING_FILE);
+        File.Create(PLANING_FILE).Dispose();
+        using (var writer = new StreamWriter(File.OpenWrite(PLANING_FILE))) {
+            writer.WriteLine(LastPose.ToString());
+            writer.WriteLine(Readings.Length);
+            for (int i = 0; i < Readings.Length; i++) {
+                writer.WriteLine(Readings[i].ToString() + "; " + ReadingsRB[i].ToString());
+            }
+            writer.Flush();
+            writer.Close();
+            writer.Dispose();
+        }
+    }
+
+    public void Read() {
+        if (!File.Exists(PLANING_FILE)) Debug.Log(PLANING_FILE + " does not exist!");
+        using (var reader = new StreamReader(File.OpenRead(PLANING_FILE))) {
+            LastPose = V3Parse(reader.ReadLine());
+            int i = 0;
+            int count = int.Parse(reader.ReadLine());
+            Readings = new Vector3[count];
+            ReadingsRB = new Vector2[count];
+            while (!reader.EndOfStream && i < count) {
+                V2Parse(reader.ReadLine(), out Readings[i], out ReadingsRB[i]);
+                i++;
+            }
+            reader.Close();
+            reader.Dispose();
+        }
+    }
+
+    private Vector3 V3Parse(string s) {
+        string[] r = s.Split(new char[] { '(', ',', ' ', ')' });
+        return new Vector3(float.Parse(r[1]), float.Parse(r[3]), float.Parse(r[5]));
+    }
+
+    private void V2Parse(string s, out Vector3 v, out Vector2 w) {
+        string[] r = s.Split(new char[] { '(', ',', ' ', ')' });
+        v = new Vector3(float.Parse(r[1]), float.Parse(r[3]), float.Parse(r[5]));
+        w = new Vector2(float.Parse(r[8]), float.Parse(r[10]));
+    }
+    #endregion
 }
 
 [RequireComponent (typeof(Graph))]
@@ -36,7 +86,7 @@ public class Planing : MonoBehaviour {
     public const int GRAPH_FEED_INTERVAL = 5;
     public const float ALPHA = Geometry.HALF_CIRCLE + Geometry.HALF_CIRCLE / 4f;
     public const float OBSTACLE_PLANING_STEP = Geometry.HALF_CIRCLE / 36f;
-    public const float MIN_OBSTACLE_DISTANCE = 0.3f;
+    public const float MIN_OBSTACLE_DISTANCE = 0.1f;
     public const float UNOBSTRUCTED_OBSTACLE_MULTIPLIER = 1.5f;
     public const float TARGET_RADIUS = 0.1f;
     public const float MAX_OFFSET_ANGLE = Geometry.HALF_CIRCLE;
@@ -56,17 +106,15 @@ public class Planing : MonoBehaviour {
     private Graph globalGraph;
     private CarDrive steering;
     private PositionHistory positionHistory;
-    private Stack<TargetCommand?> currentTarget = new Stack<TargetCommand?>();
+    private Stack<TargetCommand> currentTarget = new Stack<TargetCommand>();
     private Vector2 currentTargetPosition = new Vector2(1f, 0f);
-    private bool returnToStart = false;
-    private bool start = false;
+    private volatile bool returnToStart = false;
+    private volatile bool start = false;
     private LinkedList<Vector2> currentPath;
 
     private object laserReadingsLock = new object();
-    private PlaningInputData currentLaserReadings = null;
+    private volatile PlaningInputData currentLaserReadings = null;
     private PlaningInputData lastLaserReadings = null;
-    private bool wasUsed = false;
-    private int graphCounter = 0;
 
     private bool backwards = false;
     private Vector2 positiveTurningCenter;
@@ -75,15 +123,18 @@ public class Planing : MonoBehaviour {
 
     public void Awake() {
         singleton = this;
-        steering = gameObject.GetComponent<CarDrive>();
-        positionHistory = gameObject.GetComponent<PositionHistory>();
         UNOBSTRUCTED_OFFSET = Mathf.Acos(1f - UNOBSTRUCTED_OBSTACLE_MULTIPLIER * MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
         globalGraph = gameObject.GetComponent<Graph>();
-        currentTarget.Push(null);
+        currentTarget.Push(TargetCommand.Waiting);
+    }
+
+    public void Start() {
+        steering = transform.parent.gameObject.GetComponentInChildren<CarDrive>();
+        positionHistory = transform.parent.gameObject.GetComponent<PositionHistory>();
         StartCoroutine("workerRoutine");
     }
 
-    public TargetCommand? GetCurrentTarget() {
+    public TargetCommand GetCurrentTarget() {
         lock (currentTarget) return currentTarget.Peek();
     }
 
@@ -91,7 +142,7 @@ public class Planing : MonoBehaviour {
         return currentTargetPosition;
     }
 
-    public void Start() {
+    public void StartPlaning() {
         start = true;
     }
 
@@ -104,55 +155,62 @@ public class Planing : MonoBehaviour {
     }
 
     private IEnumerator workerRoutine() {
+        bool wasUsed = true;
         while (true) {
             if (wasUsed) yield return new WaitWhile(() => lastLaserReadings == currentLaserReadings);
             lastLaserReadings = LaserReadings;
             wasUsed = false;
             if (currentTarget.Peek() == TargetCommand.ExplorePosition) {
+                calculateRB();
                 if (obstaclePlaning()) {
                     wasUsed = true;
-                    graphCounter++;
-                    graphCounter %= 5;
-                    if (graphCounter == 0) globalGraph.Feed(lastLaserReadings);
+                    globalGraph.Feed(lastLaserReadings);
                 }
             } else if (currentTarget.Peek() == TargetCommand.Turn) {
                 //Wait for the turn to finish:
                 yield return new WaitWhile(steering.IsTurning);
                 wasUsed = true;
                 lock (currentTarget) currentTarget.Pop();
+            } else if (currentTarget.Peek() == TargetCommand.Waiting) {
+                if (returnToStart) {
+                    steering.Halt();
+                    lock (currentTarget) {
+                        currentTarget.Clear();
+                        currentTarget.Push(TargetCommand.Waiting);
+                        currentTarget.Push(TargetCommand.Backtrack);
+                    }
+                    currentPath = globalGraph.GetStartPath(lastLaserReadings.LastPose);
+                    currentTargetPosition = currentPath.First.Value;
+                    currentPath.RemoveFirst();
+                    backwards = !backwards;
+                    returnToStart = false;
+                } else if (start) {
+                    lock (currentTarget) { currentTarget.Push(TargetCommand.RandomMove); }
+                    start = false;
+                    calculateRB();
+                    lastLaserReadings.Write();
+                } else {
+                    calculateRB();
+                    globalGraph.Feed(lastLaserReadings);
+                    wasUsed = true;
+                }
             } else {
                 bool calculating;
                 do {
                     calculating = false;
-                    if (returnToStart) {
-                        steering.Halt();
-                        lock (currentTarget) {
-                            currentTarget.Clear();
-                            currentTarget.Push(null);
-                            currentTarget.Push(TargetCommand.Backtrack);
-                        }
-                        currentPath = globalGraph.GetStartPath(lastLaserReadings.LastPose);
-                        currentTargetPosition = currentPath.First.Value;
-                        currentPath.RemoveFirst();
-                        backwards = !backwards;
-                        returnToStart = false;
-                    } else if (currentTarget.Peek() == TargetCommand.RandomMove) {
+                    if (currentTarget.Peek() == TargetCommand.RandomMove) {
                         if (!globalGraph.GetNewTarget(out currentTargetPosition)) {
                             steering.Halt();
                             if (globalGraph.HasUnvisitedNodes()) {
                                 lock (currentTarget) currentTarget.Push(TargetCommand.Backtrack);
                                 //Backtrack as we don't have any target left at the moment.
-                                currentPath = globalGraph.GetUnexploredNodePath(lastLaserReadings.LastPose);
-                                currentTargetPosition = currentPath.First.Value;
-                                currentPath.RemoveFirst();
-                                backwards = !backwards;
+                                calculating = true;
                             } else {
                                 //The graph does not provide any more unvisited nodes: stop and wait.
-                                lock(currentTarget) currentTarget.Pop();
+                                lock (currentTarget) currentTarget.Pop();
                                 calculating = true;
                             }
-                        }
-                        lock (currentTarget) currentTarget.Push(TargetCommand.ExplorePosition);
+                        } else lock (currentTarget) currentTarget.Push(TargetCommand.ExplorePosition);
                     } else if (currentTarget.Peek() == TargetCommand.ExplorePosition) {
                         if (currentPath.Count <= 0) {
                             currentPath = null;
@@ -163,7 +221,13 @@ public class Planing : MonoBehaviour {
                             currentPath.RemoveFirst();
                         }
                     } else if (currentTarget.Peek() == TargetCommand.Backtrack) {
-                        if (currentPath.Count == 0) {
+                        if (currentPath == null) {
+                            currentPath = globalGraph.GetUnexploredNodePath(lastLaserReadings.LastPose);
+                            currentTargetPosition = currentPath.First.Value;
+                            currentPath.RemoveFirst();
+                            backwards = !backwards;
+                            lock (currentTarget) currentTarget.Push(TargetCommand.ExplorePosition);
+                        } else if (currentPath.Count == 0) {
                             lock (currentTarget) currentTarget.Pop();
                             calculating = true;
                         } else {
@@ -171,24 +235,19 @@ public class Planing : MonoBehaviour {
                             currentTargetPosition = currentPath.First.Value;
                             currentPath.RemoveFirst();
                         }
-                    } else if (start) {
-                        lock (currentTarget) { currentTarget.Push(TargetCommand.RandomMove); }
-                        globalGraph.Feed(lastLaserReadings);
-                        start = false;
-                        calculating = true;
-                    } else {
-                        yield return new WaitWhile(() => !(start || returnToStart));
-                        wasUsed = true;
                     }
                 } while (calculating);
             }
         }
     }
 
-    private bool obstaclePlaning() {
+    private void calculateRB() {
         PositionData pos = positionHistory.GetNewestThreadSafe();
         lastLaserReadings.LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading * Mathf.PI / 180f);
         for (int i = 0; i < lastLaserReadings.Readings.Length; i++) lastLaserReadings.ReadingsRB[i] = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], lastLaserReadings.LastPose);
+    }
+
+    private bool obstaclePlaning() {
         var targetRB = Geometry.ToRangeBearing(currentTargetPosition, lastLaserReadings.LastPose);
         if (targetRB.x < TARGET_RADIUS) {
             //Reached the current target.
@@ -205,7 +264,6 @@ public class Planing : MonoBehaviour {
         if (unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
             //Reached a dead end.
             steering.Halt();
-            //GlobalGraph.ReachedDeadEnd(lastLaserReadings.LastPose);
             lock (currentTarget) {
                 currentTarget.Pop();
                 currentTarget.Push(TargetCommand.Backtrack);

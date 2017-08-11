@@ -53,6 +53,7 @@ public class RobotPose: IFeature {
     public override float Magnitude() { return pose.magnitude; }
 
     public static Vector2 operator +(RobotPose a, Vector2 b) {
+        if (a == null) return b;
         return new Vector2(a.pose.x + b.x, a.pose.y + b.y);
     }
 }

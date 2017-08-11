@@ -18,14 +18,17 @@ public class SLAMInputData {
 
     public Vector3 LastPose;
     public Vector3[] Readings;
+    private int invalidCount;
+    private bool[] invalid_data;
+    private PositionData lastPackageLastPos;
 
     public SLAMInputData() { }
 
-    public SLAMInputData(PositionData lastPos, Vector3[] readings, bool[] invalid, int invalidCount) {
+    public SLAMInputData(PositionData lastPos, Vector3[] readings, int from, int length, bool[] invalid, int invalidCount) {
         LastPose = new Vector3(lastPos.position.x, lastPos.position.z, lastPos.heading * Mathf.PI / 180f);
-        Readings = new Vector3[readings.Length - invalidCount];
+        Readings = new Vector3[length - invalidCount];
         int count = 0;
-        for (int i = 0; i < readings.Length; i++) {
+        for (int i = from; i < length; i++) {
             if(!invalid[i]) Readings[count++] = readings[i];
         }
     }

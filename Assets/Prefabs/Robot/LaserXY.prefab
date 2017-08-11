@@ -58,7 +58,7 @@ MonoBehaviour:
     autostart: 1
     priority: 9
     creationDelayMs: 0
-    laserDevice: /dev/tty_in2
+    laserDevice: /dev/tty_in1
     motorPort: outB
     laserDutyCycle: 45
     crcTolerancePct: 10
