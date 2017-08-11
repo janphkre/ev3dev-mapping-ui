@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.IO;
+using ev3devMapping.Society;
 
 namespace ev3devMapping {
 

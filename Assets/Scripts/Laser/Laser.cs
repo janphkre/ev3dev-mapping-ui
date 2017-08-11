@@ -13,6 +13,7 @@
 using UnityEngine;
 using System;
 using System.IO;
+using ev3devMapping.Society;
 
 namespace ev3devMapping {
 
