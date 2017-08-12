@@ -167,7 +167,7 @@ class ISLSJFBase {
             if (col[c] == null) continue;
             foreach (KeyValuePair<int, Matrix> pair in col.val) {
                 if (pair.Key < c) continue;
-                choleskyEnum.Current[pair.Key] = pair.Value.Clone();
+                choleskyEnum.Current[pair.Key] = pair.Value.Duplicate();
             }
 
             c++;

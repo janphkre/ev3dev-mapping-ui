@@ -38,12 +38,12 @@ public class SceneManager : MonoBehaviour
 		get{ return Instance.uiCanvas.transform; }
 	}
 
-    private void Destroy()
+    protected void Destroy()
 	{
 		Instance = null;
 	}
 
-	private void Awake()
+	protected void Awake()
 	{
 		if (Instance != null)
 		{

@@ -1,13 +1,15 @@
-﻿using UnityEngine;
+﻿
+using UnityEngine;
 
 namespace ev3devMapping.Society {
 
-class Geometry {
+public class Geometry {
 
     public const float HALF_CIRCLE = Mathf.PI;
     public const float RIGHT_ANGLE = HALF_CIRCLE / 2f;
     public const float FULL_CIRCLE = HALF_CIRCLE * 2f;
     public const float EIGHTH_CIRCLE = RIGHT_ANGLE / 2f;
+    public const float FLOAT_PRECISION  = 0.0001f;
 
     //Calculates the distance between two points.
     public static float EuclideanDistance(Vector2 a, Vector2 b) {
@@ -43,7 +45,7 @@ class Geometry {
 
     //Calculates the mahalanobis distance between two points.
     public static float RealMahalanobisDistance(Vector2 a, Vector2 b, Matrix inversedCovariance) {
-        var v = a - b;
+        Vector2 v = a - b;
         return Mathf.Sqrt((v * inversedCovariance * v)[0, 0]);
     }
 
@@ -101,6 +103,10 @@ class Geometry {
     public static int Modulo(int x, int y) {
         int r = x % y;
         return r < 0 ? r + y : r;
+    }
+
+    public static bool CompareFloats(float a, float b) {
+        return Mathf.Abs(a-b) < FLOAT_PRECISION;
     }
 }
 }

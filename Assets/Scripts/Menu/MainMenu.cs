@@ -1,7 +1,8 @@
-﻿using UnityEngine;
+﻿using ev3devMapping.Society;
+using NUnit.Framework;
+using UnityEngine;
 using UnityEngine.UI;
 using System.IO;
-using ev3devMapping.Society;
 
 namespace ev3devMapping {
 
@@ -159,7 +160,8 @@ public class MainMenu : MonoBehaviour {
                 reader.Close();
                 reader.Dispose();
             }
-            GameObject.Find("Robot").GetComponent<RobotNetworking>().OnStartLocalPlayer();
+            //GameObject.Find("Robot").GetComponent<RobotNetworking>().OnStartLocalPlayer();
+
         }
     }
 }

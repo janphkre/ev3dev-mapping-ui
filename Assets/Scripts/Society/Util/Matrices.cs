@@ -46,6 +46,8 @@ public class Matrix {
     }
 
     public static Matrix operator +(Matrix a, DiagonalMatrix b) {
+        if(a == null) return b.ToMatrix();
+        if(b == null) return a;
         if (a.sizeX != b.Size() || a.sizeY != b.Size()) throw new MatrixSizeException(a.sizeX, b.Size(), a.sizeY, b.Size(), "+");
         Matrix result = new Matrix(a.sizeX, a.sizeY);
         for (int i = 0; i < result.sizeX; i++) {
@@ -58,13 +60,12 @@ public class Matrix {
     }
 
     public static Matrix operator *(Matrix a, DiagonalMatrix b) {
-        if (a == null) return b.ToMatrix();
-        if (b == null) return a;
+        if (a == null || b == null) return null;
         if (a.sizeX != b.Size()) throw new MatrixSizeException(a.sizeX, b.Size(), "*");
         Matrix result = new Matrix(a.sizeX, a.sizeY);
         for (int i = 0; i < result.sizeX; i++) {
             for (int j = 0; j < result.sizeY; j++) {
-                result[i, j] = a[i, j] * b[j];
+                result[i, j] = a[i, j] * b[i];
             }
         }
         return result;
@@ -111,11 +112,10 @@ public class Matrix {
         if (a == null || b == null) return null;
         if (a.sizeX != b.sizeY) throw new MatrixSizeException(a.sizeX, b.sizeY, "*");
         Matrix result = new Matrix(b.sizeX, a.sizeY);
-        for (int i = 0; i < result.sizeX; i++) {
-            for (int j = 0; j < result.sizeY; j++) {
-                result[i, j] = 0.0f;
+        for (int i = 0; i < result.sizeY; i++) {
+            for (int j = 0; j < result.sizeX; j++) {
                 for (int k = 0; k < a.sizeX; k++) {
-                    result[i, j] += a[k, i] * b[j, k];
+                    result[j, i] += a[k, i] * b[j, k];
                 }
             }
         }
@@ -127,7 +127,7 @@ public class Matrix {
         if (a.sizeX != 3) throw new MatrixSizeException(a.sizeX, 3, "*");
         Matrix result = new Matrix(1, a.sizeY);
         for (int j = 0; j < result.sizeY; j++) {
-            result[0, j]  = a[j, 0] * b.x + a[j, 1] * b.y + a[j, 2] * b.z;
+            result[0, j]  = a[0, j] * b.x + a[1, j] * b.y + a[2, j] * b.z;
         }
         return result;
     }
@@ -136,8 +136,8 @@ public class Matrix {
         if (b == null) return null;
         if (b.sizeY != 2) throw new MatrixSizeException(2, b.sizeX, "*");
         Matrix result = new Matrix(b.sizeX, 1);
-        for (int j = 0; j < result.sizeY; j++) {
-            result[0, j] = a.x * b[0, j] + a.y * b[1, j];
+        for (int j = 0; j < result.sizeX; j++) {
+            result[j, 0] = a.x * b[j, 0] + a.y * b[j, 1];
         }
         return result;
     }
@@ -147,13 +147,14 @@ public class Matrix {
         if (a.sizeX != 2) throw new MatrixSizeException(a.sizeX, 2, "*");
         Matrix result = new Matrix(1, a.sizeY);
         for (int j = 0; j < result.sizeY; j++) {
-            result[0, j] = a[j, 0] * b.x + a[j, 1] * b.y;
+            result[0, j] = a[0, j] * b.x + a[1, j] * b.y;
         }
         return result;
     }
 
     //translate
     public static Matrix operator ~(Matrix a) {
+        if(a == null) return null;
         Matrix result = new Matrix(a.sizeY, a.sizeX);
         for (int i = 0; i < result.sizeX; i++) {
             for (int j = 0; j < result.sizeY; j++) {
@@ -166,7 +167,9 @@ public class Matrix {
     //inverse
     //https://gist.github.com/occar421/feb03a0183e69ecc0189
     public static Matrix operator !(Matrix a) {
+        if(a == null) return null;
         if (a.sizeX != a.sizeY) throw new MatrixSizeException(a.sizeX, a.sizeY, "!");
+        if(a.IsEmpty()) return null;
         Matrix result = new Matrix(a.sizeX);
         for (int i = 0; i < result.sizeX - 1; i++) {
             for (int j = i + 1; j < result.sizeX - 1; j++) {
@@ -193,11 +196,36 @@ public class Matrix {
         return result;
     }
 
-    public Matrix Clone() {
+    public Matrix Duplicate() {
         Matrix result = new Matrix(sizeX, sizeY);
         for (int i = 0; i < result.sizeX; i++)
-            for (int j = i + 1; j < result.sizeY; j++) result[i, j] = val[i, j];
+            for (int j = 0; j < result.sizeY; j++) result[i, j] = val[i, j];
         return result;
+    }
+
+    public override bool Equals(object other) {
+        if(other == null) return false;
+        if(other.GetType() != typeof(Matrix)) return false;
+        Matrix o = (Matrix) other;
+        if (sizeX != o.sizeX || sizeY != o.sizeY) return false;
+        for (int i = 0; i < o.sizeX; i++)
+            for (int j = 0; j < o.sizeY; j++) if (!Geometry.CompareFloats(this[i, j], o[i, j])) return false;
+        return true;
+
+    }
+
+    public override string ToString() {
+        string s = "";
+        for(int i = 0; i < sizeY; i++) {
+            if(i != 0) s += ", ";
+            s += "[";
+            for (int j = 0; j < sizeX; j++) {
+                if(j != 0) s += ", ";
+                s+= this[j, i];
+            }
+            s += "]";
+        }
+        return s;
     }
 }
 
@@ -207,7 +235,7 @@ public class DiagonalMatrix {
     public DiagonalMatrix() { }
 
     public void Enlarge(int i) {
-        for (int j = 0; j <= i; j++) val.Add(1.0f);
+        for (int j = 0; j < i; j++) val.Add(1.0f);
     }
 
     public float this[int i] {
@@ -391,32 +419,10 @@ public class CovarianceMatrix {
     }
 
     //inverse
-    //https://gist.github.com/occar421/feb03a0183e69ecc0189
     public static SparseCovarianceMatrix operator !(CovarianceMatrix a) {
         SparseCovarianceMatrix result = new SparseCovarianceMatrix();
-        result.Enlarge(a.count+1);
-        for (int i = 0; i < a.count - 1; i++) {
-            for (int j = i + 1; j < a.count - 1; j++) {
-                Matrix s = a[j, i] * !a[i, i];//Does this work or do we have to consider the matrix as a whole and dont invert submatrices / use s as a float?(TODO)
-                for (int k = i; k < a.count; k++) {
-                    a[j, k] -= a[i, k] * s;
-                }
-                for (int k = 0; k <a.count; k++) {
-                    result[j, k] -= result[i, k] * s;
-                }
-            }
-        }
-        for (int i = a.count - 1; i >= 0; i--) {
-            result[i, i] *= !a[i, i];
-            a[i, i] *= !a[i, i];
-            for (int j = i - 1; j >= 0; j--) {
-                Matrix s = a[j, i] * !a[i, i];
-                a[j, i] -= s;
-                for (int k = 0; k < a.count; k++) {
-                    result[j, k] -= result[i, k] * s;
-                }
-            }
-        }
+        result.Enlarge(a.count);
+        
         return result;
     }
 }
