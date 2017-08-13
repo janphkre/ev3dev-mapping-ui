@@ -143,7 +143,7 @@ public class SLAMRobot : MonoBehaviour {
         previousInputPose = data.LastPose;
         //Updating the first covariance row(transposed):
         localMap.covariance[0, 0] = jacobianA * localMap.covariance[0, 0] * ~jacobianA + noiseQ;
-        for (int i = 1; i < localMap.covariance.count; i++) {
+        for (int i = 1; i < localMap.covariance.val.Count; i++) {
             localMap.covariance[0, i] = ~(jacobianA * ~localMap.covariance[0, i]);
         }
         //4) Re-observation
@@ -230,7 +230,7 @@ public class SLAMRobot : MonoBehaviour {
             localMap.covariance.Enlarge(k);
             var newFeaturesEnumerator = newFeatures.GetEnumerator();
             newFeaturesEnumerator.MoveNext();
-            for (int i = localMap.covariance.count - k; i < localMap.covariance.count; i++) {
+            for (int i = localMap.covariance.val.Count - k; i < localMap.covariance.val.Count; i++) {
                 jacobianXR[0, 2] = -delta.y;
                 jacobianXR[0, 2] = delta.x;
 

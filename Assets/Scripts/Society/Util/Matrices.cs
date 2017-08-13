@@ -355,10 +355,11 @@ public class Row {
     public List<Matrix> val = new List<Matrix>();
     public int sizeY;
     
-    //Default operator is only called once for the first row (which contains 3 column matrices).
-    public Row() {
-        sizeY = 3;
+    //This constructor is only called once for the first row (which contains 3 column matrices).
+    public Row(int count, int sizeY) {
+        this.sizeY = 3;
         val.Add(new Matrix(3, 3));
+        for (int i = 1; i < count; i++) val.Add(new Matrix(2, 3));
     }
 
     public Row(int count) {
@@ -368,7 +369,7 @@ public class Row {
     }
 
     public void Enlarge(int count) {
-        for (int i = 0; i < count; i++) val.Add(new Matrix(sizeY, 2));
+        for (int i = 0; i < count; i++) val.Add(new Matrix(2, sizeY));
     }
 
 }
@@ -380,47 +381,45 @@ public class CovarianceMatrix {
     private const float INITIAL_ERROR = 0.1f;
 
     public List<Row> val = new List<Row>();
-    public int count;
+    public int count = 3;
 
     public CovarianceMatrix(int i) {
-        val.Add(new Row());
-        for (count = 2; count <= i; count++) val.Add(new Row(count));
-        count--;
+        count += 2 * (i - 1);
+        i += val.Count;
+        val.Add(new Row(i, 3));
+        while(val.Count < i) val.Add(new Row(i));
     }
 
     public CovarianceMatrix(System.Random random) {
         //First matrix should include initial error for the robot pose.
-        count = 1;
-        val.Add(new Row());
+        val.Add(new Row(1, 3));
         val[0].val[0][0, 0] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
         val[0].val[0][1, 1] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
         val[0].val[0][2, 2] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
     }
 
     public CovarianceMatrix(System.Random random, int i) {
-        val.Add(new Row());
+        count += 2 * (i - 1);
+        i += val.Count;
+        val.Add(new Row(i, 3));
         val[0].val[0][0, 0] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
         val[0].val[0][1, 1] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
         val[0].val[0][2, 2] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
-        for (count = 2; count <= i; count++) val.Add(new Row(count));
-        count--;
+        while(val.Count < i) val.Add(new Row(i));
     }
 
     public void Enlarge(int i) {
-        /*foreach (Row row in val) {
+        foreach (Row row in val) {
             row.Enlarge(i);
-        }*/
-        for (int j = 0; j <= i; j++) val.Add(new Row(++count));
-    }
-
-    public void AddRow(Row row) {
-        val.Add(row);
-        ++count;
+        }
+        count += 2 * i;
+        i += val.Count;
+        while(val.Count < i) val.Add(new Row(i));
     }
 
     public Matrix this[int i, int j] {
-        get { return val[i].val[j]; }
-        set { val[i].val[j] = value; }
+        get { return val[j].val[i]; }
+        set { val[j].val[i] = value; }
     }
 
     /*public Row this[int i] {
@@ -430,25 +429,29 @@ public class CovarianceMatrix {
 
     //TODO fix multiplication!
     public static Matrix operator *(CovarianceMatrix a, Matrix b) {
+        if (a == null || b == null) return null;
         if (a.count != b.sizeY) throw new MatrixSizeException(a.count, b.sizeY, "*");
         Matrix result = new Matrix(b.sizeX, a.count);
         for (int i = 0; i < result.sizeX; i++) {
             for (int j = 0; j < result.sizeY; j++) {
                 result[i, j] = 0.0f;
                 for (int k = 0; k < b.sizeY; k++) {
-                    if (i < 3) {
-                        if (k < 3) {
-                            result[i, j] += a[0, 0][k, i] * b[j, k];
-                        } else {
-                            result[i, j] += a[(k - 3) / 2, 0][i, (k - 3) % 2] * b[k, j];
-                        }
+                    int kM, kD, jM, jD;
+                    if(k < 3) {
+                        kM = k;
+                        kD = 0;
                     } else {
-                        if (k < 3) {
-                            result[i, j] += a[(i - 3) / 2, 0][(i - 3) % 2, k] * b[k, j];
-                        } else {
-                            result[i, j] += a[(i - 3) / 2, (k - 3) / 2][(i - 3) % 2, (k - 3) % 2] * b[k, j];
-                        }
+                        kM = (k - 3) % 2;
+                        kD = (k - 3 - kM) / 2 + 1;
                     }
+                    if(j < 3) {
+                        jM = j;
+                        jD = 0;
+                    } else {
+                        jM = (j - 3) % 2;
+                        jD = (j - 3 - jM) / 2 + 1;
+                    }
+                    result[i, j] += a[kD,jD][kM,jM] * b[i, k];
                 }
             }
         }
@@ -456,10 +459,11 @@ public class CovarianceMatrix {
     }
 
     public static CovarianceMatrix operator *(Matrix a, CovarianceMatrix b) {
-        if (a.sizeY != b.count) throw new MatrixSizeException(a.sizeY, b.count, "*");
-        var result = new CovarianceMatrix(b.count);
-        for (int i = 0; i < result.count; i++) {
-            for (int j = 0; j <= i; j++) {
+        if(a == null || b == null) return null;
+        if (a.sizeX != b.count && a.sizeY != b.count) throw new MatrixSizeException(a.sizeX, b.count, "*");
+        var result = new CovarianceMatrix(b.val.Count);
+        for (int i = 0; i < result.val.Count; i++) {
+            for (int j = 0; j < result.val.Count; j++) {
                 result[i, j] = getMutlipliedCell(a, b, i, j);
             }
         }
@@ -471,10 +475,10 @@ public class CovarianceMatrix {
         j = j == 0 ? 0 : (j - 1) * 2 + 3;
         for (int k = 0; k < result.sizeX; k++) {
             for (int l = 0; l < result.sizeY; l++) {
-                for (int m = 0; m < b.count; m++) {
+                for (int m = 0; m < b.val.Count; m++) {
                     var aM = m == 0 ? 0 : (m - 1) * 2 + 3;
                     for (int n = 0; n < b[m, 0].sizeX; n++) {
-                        result[k, l] = a[n + aM, l+j] * b[i, m][k, n];
+                        result[k, l] += a[n + aM, l+j] * b[i, m][k, n];
                     }
                 }
             }
@@ -485,8 +489,50 @@ public class CovarianceMatrix {
     //inverse
     public static SparseCovarianceMatrix operator !(CovarianceMatrix a) {
         SparseCovarianceMatrix result = new SparseCovarianceMatrix();
-        result.Enlarge(a.count);
+        result.Enlarge(a.val.Count);
         
+        return result;
+    }
+    
+    public Matrix ToMatrix() {
+        Matrix result = new Matrix(count, count);
+        int i = 0,
+            j = 0,
+            k = 0,
+            l = 0;
+        while(true) {
+            int m = i == 0 ? 0 : (i - 1) * 2 + 3;
+            int n = j == 0 ? 0 : (j - 1) * 2 + 3;
+            result[m+k, n+l] = this[i, j][k, l];
+            k++;
+            if(i > 0) {
+                if(k > 1) {
+                    k = 0;
+                    i++;
+                    if(i >= val.Count) {
+                        i = 0;
+                        l++;
+                        if(j > 0) {
+                            if(l > 1) {
+                                l = 0;
+                                j++;
+                                if(j >= val.Count) break;
+                            }
+                        } else {
+                            if(l > 2) {
+                                l = 0;
+                                j++;
+                            }
+                        }
+                    }
+                }
+            } else {
+                if(k > 2) {
+                    k = 0;
+                    i++;
+                }
+            }
+        }
         return result;
     }
 }

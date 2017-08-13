@@ -668,9 +668,9 @@ namespace ev3devMapping.Testing {
         #endregion
     #region Row
         [Test]
-        [TestOf(typeof(Matrix))]
+        [TestOf(typeof(Row))]
         public void RowTestValues() {
-            Row r = new Row();
+            Row r = new Row(1, 3);
             Assert.IsTrue(r.sizeY == 3);
             Assert.IsTrue(r.val.Count == 1);
             Assert.IsTrue(r.val[0].sizeX == r.val[0].sizeX && r.val[0].sizeX == 3);
@@ -679,7 +679,7 @@ namespace ev3devMapping.Testing {
             Assert.IsTrue(r.sizeY == 3);
             Assert.IsTrue(r.val.Count == 11);
             Assert.IsTrue(r.val[0].sizeX == r.val[0].sizeX && r.val[0].sizeX == 3);
-            for(int i = 1; i < 11; i++) Assert.IsTrue(r.val[i].sizeX == 3 && r.val[i].sizeY == 2);
+            for(int i = 1; i < 11; i++) Assert.IsTrue(r.val[i].sizeX == 2 && r.val[i].sizeY == 3);
 
             r = new Row(11);
             Assert.IsTrue(r.sizeY == 2);
@@ -695,9 +695,135 @@ namespace ev3devMapping.Testing {
     #endregion
     #region CovarianceMatrix
         [Test]
-        [TestOf(typeof(Matrix))]
+        [TestOf(typeof(CovarianceMatrix))]
         public void CovarianceMatrixTestValues() {
+            CovarianceMatrix m = new CovarianceMatrix(10);
+            Assert.IsTrue(m.count == 21);
+            Assert.IsTrue(m.val.Count == 10);
+            Assert.IsTrue(m.val[0].sizeY == 3);
+            for(int i = 1; i < 10; i++) Assert.IsTrue(m.val[i].sizeY == 2 && m.val[i].val.Count == 10);
+            m.Enlarge(10);
+            Assert.IsTrue(m.count == 41);
+            Assert.IsTrue(m.val.Count == 20);
+            Assert.IsTrue(m.val[0].sizeY == 3);
+            for(int i = 1; i < 20; i++) Assert.IsTrue(m.val[i].sizeY == 2 && m.val[i].val.Count == 20);
+            Matrix n = new Matrix(3, 3);
+            Assert.AreEqual(n,m[0, 0]);
+            n = new Matrix(2, 3);
+            for(int i = 1; i < 20; i++) Assert.AreEqual(n, m[i, 0]);
+            n = new Matrix(3, 2);
+            for(int i = 1; i < 20; i++) Assert.AreEqual(n, m[0, i]);
+            n = new Matrix(2, 2);
+            for(int i = 1; i < 20; i++) {
+                for(int j = 1; j < 20; j++) Assert.AreEqual(n, m[i, j]);
+            }
+            m = new CovarianceMatrix(new System.Random());
+            Assert.IsTrue(m.count == 3);
+            Assert.IsTrue(m.val.Count == 1);
+            Assert.IsTrue(m.val[0].sizeY == 3);
+            m.Enlarge(10);
+            Assert.IsTrue(m.count == 23);
+            Assert.IsTrue(m.val.Count == 11);
+            Assert.IsTrue(m.val[0].sizeY == 3);
+            for(int i = 1; i < 11; i++) Assert.IsTrue(m.val[i].sizeY == 2 && m.val[i].val.Count == 11);
 
+            m = new CovarianceMatrix(new System.Random(), 10);
+            Assert.IsTrue(m.count == 21);
+            Assert.IsTrue(m.val.Count == 10);
+            Assert.IsTrue(m.val[0].sizeY == 3);
+            m.Enlarge(10);
+            Assert.IsTrue(m.count == 41);
+            Assert.IsTrue(m.val.Count == 20);
+            Assert.IsTrue(m.val[0].sizeY == 3);
+            for(int i = 10; i < 20; i++) Assert.IsTrue(m.val[i].sizeY == 2 && m.val[i].val.Count == 20);
+        }
+
+        [Test]
+        [TestOf(typeof(CovarianceMatrix))]
+        public void CovarianceMatrixTestMultiplication() {
+            CovarianceMatrix m = new CovarianceMatrix(10);
+            Matrix n = new Matrix(21, 21);
+            Assert.AreEqual(n, (n * m).ToMatrix());
+            Assert.AreEqual(null, ((Matrix) null) * m);
+            Assert.AreEqual(null, n * ((CovarianceMatrix) null));
+            Assert.AreEqual(null, ((Matrix) null) * ((CovarianceMatrix) null));
+            n = new Matrix(3, 21);
+            Assert.AreEqual(n, m * n);
+            Assert.AreEqual(null, m * ((Matrix) null));
+            Assert.AreEqual(null, ((CovarianceMatrix) null) * n);
+            Assert.AreEqual(null, ((CovarianceMatrix) null) * ((Matrix) null));
+            m[0, 0] = new Matrix(3);
+            int i;
+            for(i = 1; i < 10; i++) m[i, i] = new Matrix(2);
+            Assert.AreEqual(n, m * n);
+            for(i = 0; i < 21; i++) {
+                n[0, i] = i+1;
+                n[1, i] = i+21;
+                n[2, i] = i+42;
+            }
+            Assert.AreEqual(n, m * n);
+            m = new CovarianceMatrix(2);
+            i = 0;
+            int j = 0,
+                k = 0,
+                l = 0;
+            while(true) {
+                m[i, j][k, l] = 11 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                k++;
+                if(i > 0) {
+                    if(k > 1) {
+                        k = 0;
+                        i++;
+                        if(i > 1) {
+                            i = 0;
+                            l++;
+                            if(j > 0) {
+                                if(l > 1) {
+                                    l = 0;
+                                    j++;
+                                    if(j > 1) break;
+                                }
+                            } else {
+                                if(l > 2) {
+                                    l = 0;
+                                    j++;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if(k > 2) {
+                        k = 0;
+                        i++;
+                    }
+                }
+            }
+            n = new Matrix(2, 5);
+            for(i = 0; i < 5; i++) {
+                n[0, i] = i*2+1;
+                n[1, i] = i*2+2;
+            }
+            Matrix o = new Matrix(2, 5);
+            o[0, 0] = 345;
+            o[1, 0] = 410;
+            o[0, 1] = 470;
+            o[1, 1] = 560;
+            o[0, 2] = 595;
+            o[1, 2] = 710;
+            o[0, 3] = 720;
+            o[1, 3] = 860;
+            o[0, 4] = 845;
+            o[1, 4] = 1010;
+            Assert.AreEqual(o, m * n);
+            n = new Matrix(5, 2);
+            Assert.Throws<MatrixSizeException>(() => { var tmp = m * n; });
+            n = new Matrix(3, 2);
+            Assert.Throws<MatrixSizeException>(() => { var tmp = n * m; });
+        }
+
+        [Test]
+        [TestOf(typeof(CovarianceMatrix))]
+        public void CovarianceMatrixTestInverse() {
         }
     #endregion
     }
