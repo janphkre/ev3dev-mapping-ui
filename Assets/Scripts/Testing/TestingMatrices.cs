@@ -12,6 +12,7 @@ using UnityEngine;
 namespace ev3devMapping.Testing {
     public class TestingMatrices: ITesting {
 
+    #region Matrix
         [Test]
         [TestOf(typeof(Matrix))]
         public void MatrixTestValues() {
@@ -173,15 +174,18 @@ namespace ev3devMapping.Testing {
         [Test]
         [TestOf(typeof(Matrix))]
         public void MatrixTestMatrixInverse() {
-            Matrix m = new Matrix(2),
+            Matrix m = new Matrix(2, 2),
                    n = new Matrix(2, 2),
-                   o = new Matrix(2);
-            Assert.AreEqual(m, !m);
-
-            //Inverse of an empty Matrix is undefined. Returning Pseudoinverse:
+                   o = new Matrix(2, 2);
+            //Inverse of an empty Matrix:
             Assert.AreEqual(null, !((Matrix) null));
             Assert.AreEqual(null, !n);
-            
+            //Inverse:
+            m[0, 0] = 3.0f;
+            m[0, 1] = 5.0f;
+            m[1, 0] = 10.0f;
+            m[1, 1] = 7.0f;
+
             n[0, 0] = 3.0f;
             n[0, 1] = 5.0f;
             n[1, 0] = 10.0f;
@@ -192,10 +196,17 @@ namespace ev3devMapping.Testing {
             o[1, 0] = 10.0f / 29.0f;
             o[1, 1] = -3.0f / 29.0f;
 
-            Assert.AreEqual(o, !n);
-            Assert.AreEqual(n, !o);
-            Assert.AreEqual(m, o * !o);
-            Assert.AreEqual(m, n * !n);
+            Matrix p = !n;
+            Assert.AreEqual(o, p);
+            p = !o;
+            Assert.AreEqual(m, p);
+            m = new Matrix(2);
+            Assert.AreEqual(m, n);
+            Assert.AreEqual(m, o);
+            //Inverse of identity:
+            p = !m;
+            m = new Matrix(2);
+            Assert.AreEqual(m, p);
 
             n = new Matrix(2, 3);
             Assert.Throws<MatrixSizeException>(() => { var tmp = !n; });
@@ -481,6 +492,214 @@ namespace ev3devMapping.Testing {
             m = new Matrix(2, 2);
             Assert.Throws<MatrixSizeException>(() => { var tmp = m * d; });
         }
+
+    #endregion 
+    #region DiagonalMatrix
+
+        [Test]
+        [TestOf(typeof(DiagonalMatrix))]
+        public void DiagonalMatrixTestValues() {
+            DiagonalMatrix m = new DiagonalMatrix();
+            Matrix o = new Matrix(0, 0);
+            Assert.AreEqual(o, m.ToMatrix());
+            Assert.IsTrue(m.Size() == 0);
+            m.Enlarge(RANDOM_ITERATIONS);
+            Assert.IsTrue(m.Size() == RANDOM_ITERATIONS);
+            for(int i = 0; i < RANDOM_ITERATIONS; i++) Assert.AreEqual(1.0d, m[i], DELTA);
+            Matrix n = m.ToMatrix();
+            o = new Matrix(RANDOM_ITERATIONS);
+            Assert.AreEqual(o, n);
+            m[0] = 12345678.0f;
+            m[1] = 98765432.0f;
+            m[2] = -12345678.0f;
+            m[55] = -98765432.0f;
+            Assert.AreNotSame(m, n);
+            Assert.AreNotEqual(12345678.0d, n[0, 0]);
+            Assert.AreNotEqual(98765432.0d, n[1, 1]);
+            Assert.AreNotEqual(-12345678.0d, n[2, 2]);
+            Assert.AreNotEqual(-98765432.0d, n[55, 55]);
+            n = m.ToMatrix();
+            Assert.AreEqual(12345678.0d, n[0, 0], DELTA);
+            Assert.AreEqual(98765432.0d, n[1, 1], DELTA);
+            Assert.AreEqual(-12345678.0d, n[2, 2], DELTA);
+            Assert.AreEqual(-98765432.0d, n[55, 55], DELTA);
+            n.Empty();
+            Assert.AreEqual(12345678.0d, m[0], DELTA);
+            Assert.AreEqual(98765432.0d, m[1], DELTA);
+            Assert.AreEqual(-12345678.0d, m[2], DELTA);
+            Assert.AreEqual(-98765432.0d, m[55], DELTA);
+        }
+
+        [Test]
+        [TestOf(typeof(DiagonalMatrix))]
+        public void DiagonalMatrixTestAddition() {
+            DiagonalMatrix m = new DiagonalMatrix(),
+                           n = new DiagonalMatrix();
+            Matrix o = new Matrix(0, 0);
+            Assert.AreEqual(o, (m + n).ToMatrix());
+            Assert.AreEqual(o, (m + null).ToMatrix());
+            Assert.AreEqual(o, (null + n).ToMatrix());
+            m.Enlarge(10);
+            n.Enlarge(10);
+            o = new Matrix(10);
+            Assert.AreEqual(o, (m + null).ToMatrix());
+            Assert.AreEqual(o, (null + n).ToMatrix());
+            for(int i = 0; i < 10; i++) o[i, i] = 2.0f;
+            Assert.AreEqual(o, (m + n).ToMatrix());
+            m[0] = 100.0f;
+            m[1] = 200.0f;
+            m[2] = 0.0f;
+            m[3] = -50.0f;
+            /*m[4] = 1.0f*/
+            m[5] = -243.0f;
+            m[6] = -666.0f;
+            m[7] = 567.0f;
+            m[8] = 888.0f;
+            m[9] = 10.0f;
+
+            n[0] = 100.0f;
+            n[1] = 401.0f;
+            n[2] = 33.0f;
+            n[3] = 0.0f;
+            n[4] = -23.0f;
+            /*m[5] = 1.0f*/
+            n[6] = 22.0f;
+            n[7] = 5678.0f;
+            n[8] = -788.0f;
+            n[9] = 50.0f;
+
+            o[0, 0] = 200.0f;
+            o[1, 1] = 601.0f;
+            o[2, 2] = 33.0f;
+            o[3, 3] = -50.0f;
+            o[4, 4] = -22.0f;
+            o[5, 5] = -242.0f;
+            o[6, 6] = -644.0f;
+            o[7, 7] = 6245.0f;
+            o[8, 8] = 100.0f;
+            o[9, 9] = 60.0f;
+            Assert.AreEqual(o, (m + n).ToMatrix());
+
+            n.Enlarge(5);
+            Assert.Throws<MatrixSizeException>(() => { var tmp = n + m; });
+            Assert.Throws<MatrixSizeException>(() => { var tmp = m+ n; });
+        }
+
+        [Test]
+        [TestOf(typeof(DiagonalMatrix))]
+        public void DiagonalMatrixTestMultiplication() {
+            DiagonalMatrix m = new DiagonalMatrix(),
+                           n = new DiagonalMatrix();
+            Matrix o = new Matrix(0, 0);
+            Assert.AreEqual(o, (m * n).ToMatrix());
+            Assert.AreEqual(null, m * (DiagonalMatrix) null);
+            Assert.AreEqual(null, (DiagonalMatrix) null * n);
+            m.Enlarge(10);
+            n.Enlarge(10);
+            o = new Matrix(10);
+            Assert.AreEqual(o, (m * n).ToMatrix());
+            Assert.AreEqual(null, m * (DiagonalMatrix) null);
+            Assert.AreEqual(null, (DiagonalMatrix) null * n);
+            Assert.AreEqual(null, ((DiagonalMatrix) null) * ((DiagonalMatrix) null));
+
+            m[0] = 10.0f;
+            m[1] = 20.0f;
+            m[2] = 0.0f;
+            m[3] = -50.0f;
+            /*m[4]*/
+            m[5] = -24.0f;
+            m[6] = -66.0f;
+            m[7] = 56.0f;
+            m[8] = 88.0f;
+            m[9] = 10.0f;
+
+            n[0] = 10.0f;
+            n[1] = 41.0f;
+            n[2] = 32.0f;
+            n[3] = 0.0f;
+            n[4] = -23.0f;
+            /*m[5]*/
+            n[6] = 22.0f;
+            n[7] = 56.0f;
+            n[8] = -78.0f;
+            n[9] = 50.0f;
+
+            o[0, 0] = 100.0f;
+            o[1, 1] = 820.0f;
+            o[2, 2] = 0.0f;
+            o[3, 3] = 0.0f;
+            o[4, 4] = -23.0f;
+            o[5, 5] = -24.0f;
+            o[6, 6] = -1452.0f;
+            o[7, 7] = 3136.0f;
+            o[8, 8] = -6864.0f;
+            o[9, 9] = 500.0f;
+
+            Assert.AreEqual(o, (m * n).ToMatrix());
+            Assert.AreEqual(o, (n * m).ToMatrix());
+
+            n.Enlarge(5);
+            Assert.Throws<MatrixSizeException>(() => { var tmp = n * m; });
+            Assert.Throws<MatrixSizeException>(() => { var tmp = m * n; });
+        }
+
+        [Test]
+        [TestOf(typeof(DiagonalMatrix))]
+        public void DiagonalMatrixTestTranslate() {
+            DiagonalMatrix m = new DiagonalMatrix();
+            Matrix o = new Matrix(0, 0);
+            Assert.AreEqual(o, (~m).ToMatrix());
+            Assert.AreEqual(m, ~m);
+            Assert.AreEqual(null, ~((DiagonalMatrix) null));
+            m.Enlarge(10);
+            Assert.AreEqual(m, ~m);
+            m[0] = 10.0f;
+            m[1] = 20.0f;
+            m[2] = 0.0f;
+            m[3] = -50.0f;
+            /*m[4]*/
+            m[5] = -24.0f;
+            m[6] = -66.0f;
+            m[7] = 56.0f;
+            m[8] = 88.0f;
+            m[9] = 10.0f;
+            Assert.AreEqual(m, ~m);
+        }
+        #endregion
+    #region Row
+        [Test]
+        [TestOf(typeof(Matrix))]
+        public void RowTestValues() {
+            Row r = new Row();
+            Assert.IsTrue(r.sizeY == 3);
+            Assert.IsTrue(r.val.Count == 1);
+            Assert.IsTrue(r.val[0].sizeX == r.val[0].sizeX && r.val[0].sizeX == 3);
+
+            r.Enlarge(10);
+            Assert.IsTrue(r.sizeY == 3);
+            Assert.IsTrue(r.val.Count == 11);
+            Assert.IsTrue(r.val[0].sizeX == r.val[0].sizeX && r.val[0].sizeX == 3);
+            for(int i = 1; i < 11; i++) Assert.IsTrue(r.val[i].sizeX == 3 && r.val[i].sizeY == 2);
+
+            r = new Row(11);
+            Assert.IsTrue(r.sizeY == 2);
+            Assert.IsTrue(r.val.Count == 11);
+            Assert.IsTrue(r.val[0].sizeX == 3 && r.val[0].sizeY == 2);
+            for(int i = 1; i < 11; i++) Assert.IsTrue(r.val[i].sizeX == 2 && r.val[i].sizeY == 2);
+
+            r.Enlarge(10);
+            Assert.IsTrue(r.val.Count == 21);
+            Assert.IsTrue(r.val[0].sizeX == 3 && r.val[0].sizeY == 2);
+            for(int i = 1; i < 21; i++) Assert.IsTrue(r.val[i].sizeX == 2 && r.val[i].sizeY == 2);
+        }
+    #endregion
+    #region CovarianceMatrix
+        [Test]
+        [TestOf(typeof(Matrix))]
+        public void CovarianceMatrixTestValues() {
+
+        }
+    #endregion
     }
 }
 

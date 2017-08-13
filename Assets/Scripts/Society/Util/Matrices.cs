@@ -165,35 +165,95 @@ public class Matrix {
     }
 
     //inverse
-    //https://gist.github.com/occar421/feb03a0183e69ecc0189
+    // See: https://github.com/DownMoney/Matrices_Inverse
+    //TODO: REMOVE NECESSITY TO CLONE BEFORE THIS METHOD!
     public static Matrix operator !(Matrix a) {
         if(a == null) return null;
         if (a.sizeX != a.sizeY) throw new MatrixSizeException(a.sizeX, a.sizeY, "!");
         if(a.IsEmpty()) return null;
         Matrix result = new Matrix(a.sizeX);
-        for (int i = 0; i < result.sizeX - 1; i++) {
-            for (int j = i + 1; j < result.sizeX - 1; j++) {
-                float s = a[j, i] / a[i, i];
-                for (int k = i; k < result.sizeX; k++) {
-                    a[j, k] -= a[i, k] * s;
-                }
-                for (int k = 0; k < result.sizeX; k++) {
-                    result[j, k] -= result[i, k] * s;
-                }
+        int r;
+        float scale;
+        
+        //Process the matrix one column at a time
+        for (int c = 0; c < a.sizeX; ++c) {
+            //Scale the current row to start with 1
+
+            //Swap rows if the current value is too close to 0.0
+            if (Mathf.Abs(a[c, c]) <= 2.0f * float.Epsilon) {
+                for (r = c + 1; r < a.sizeX; ++r) if (Mathf.Abs(a[r, c]) <= 2.0f * float.Epsilon) {
+                        RowSwap(a, c, r);
+                        RowSwap(result, c, r);
+                        break;
+                    }
+                if (r >= a.sizeX) throw new Exception("Matrix is not invertible:\n" + a.ToString());
             }
-        }
-        for (int i = result.sizeX - 1; i >= 0; i--) {
-            result[i, i] /= a[i, i];
-            a[i, i] /= a[i, i];
-            for (int j = i - 1; j >= 0; j--) {
-                float s = a[j, i] / a[i, i];
-                a[j, i] -= s;
-                for (int k = 0; k < result.sizeX; k++) {
-                    result[j, k] -= result[i, k] * s;
+            scale = 1.0f / a[c, c];
+            RowScale(a, scale, c);
+            RowScale(result, scale, c);
+            
+            //Zero out the rest of the column
+            for (r = 0; r < a.sizeX; ++r) {
+                if (r != c) {
+                    scale = -a[r, c];
+                    RowScaleAdd(a, scale, c, r);
+                    RowScaleAdd(result, scale, c, r);
                 }
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// Swap 2 rows in a matrix.
+    /// </summary>
+    /// <param name="data">The matrix to operate on.</param>
+    /// <param name="cols">
+    /// The number of columns in <paramref name="data"/>.
+    /// </param>
+    /// <param name="r0">One of the 2 rows to swap.</param>
+    /// <param name="r1">One of the 2 rows to swap.</param>
+    private static void RowSwap(Matrix data, int r0, int r1) {
+        float tmp;
+        for (int i = 0; i < data.sizeY; ++i) {
+            tmp = data[r0, i];
+            data[r0, i] = data[r1, i];
+            data[r1, i] = tmp;
+        }
+    }
+
+
+
+    /// <summary>
+    /// Perform scale and add a row in a matrix to another
+    /// row:  data[r1,] = a*data[r0,] + data[r1,].
+    /// </summary>
+    /// <param name="data">The matrix to operate on.</param>
+    /// <param name="cols">
+    /// The number of columns in <paramref name="data"/>.
+    /// </param>
+    /// <param name="a">
+    /// The scale factor to apply to row <paramref name="r0"/>.
+    /// </param>
+    /// <param name="r0">The row to scale.</param>
+    /// <param name="r1">The row to add and store to.</param>
+    private static void RowScaleAdd(Matrix data, float a, int r0, int r1) {
+        for (int i = 0; i < data.sizeY; ++i) data[r1, i] += a * data[r0, i];
+    }
+
+
+
+    /// <summary>
+    /// Scale a row in a matrix by a constant factor.
+    /// </summary>
+    /// <param name="data">The matrix to operate on.</param>
+    /// <param name="cols">The number of columns in the matrix.</param>
+    /// <param name="a">
+    /// The factor to scale row <paramref name="r"/> by.
+    /// </param>
+    /// <param name="r">The row to scale.</param>
+    private static void RowScale(Matrix data, float a, int r) {
+        for (int i = 0; i < data.sizeY; ++i) data[r, i] *= a;
     }
 
     public Matrix Duplicate() {
@@ -248,6 +308,8 @@ public class DiagonalMatrix {
     }
 
     public static DiagonalMatrix operator +(DiagonalMatrix a, DiagonalMatrix b) {
+        if(a == null) return b;
+        if(b == null) return a;
         if (a.val.Count != b.val.Count) throw new MatrixSizeException(a.val.Count, b.val.Count, "+");
         DiagonalMatrix result = new DiagonalMatrix();
         for (int i = 0; i < a.val.Count; i++) {
@@ -257,6 +319,7 @@ public class DiagonalMatrix {
     }
 
     public static DiagonalMatrix operator *(DiagonalMatrix a, DiagonalMatrix b) {
+        if(a == null || b == null) return null;
         if (a.val.Count != b.val.Count) throw new MatrixSizeException(a.val.Count, b.val.Count, "*");
         DiagonalMatrix result = new DiagonalMatrix();
         for (int i = 0; i < a.val.Count; i++) {
@@ -270,14 +333,14 @@ public class DiagonalMatrix {
         return a;
     }
 
-    //inverse
-    public static DiagonalMatrix operator !(DiagonalMatrix a) {
+    //inverse -- Untested! (each value must not be empty for this inverse)
+    /*public static DiagonalMatrix operator !(DiagonalMatrix a) {
         DiagonalMatrix result = new DiagonalMatrix();
         foreach (float f in a.val) {
             result.val.Add(1f / f);
         }
         return result;
-    }
+    }*/
 
     public Matrix ToMatrix() {
         Matrix result = new Matrix(val.Count);
@@ -291,7 +354,8 @@ public class DiagonalMatrix {
 public class Row {
     public List<Matrix> val = new List<Matrix>();
     public int sizeY;
-
+    
+    //Default operator is only called once for the first row (which contains 3 column matrices).
     public Row() {
         sizeY = 3;
         val.Add(new Matrix(3, 3));
@@ -732,7 +796,7 @@ public class SparseTriangularMatrix {
                 for (int j = 0; j < i; j++) {//Columns
                     m -= this[j, i] * result[j];
                 }
-                if (m != null) result[i] = m * !this[i, i];
+                if (m != null) result[i] = m * !(this[i, i].Duplicate());
             }
         }
         return result;
@@ -747,7 +811,7 @@ public class SparseTriangularMatrix {
                     //TODO:If we just switch rows and cols in the matrix here we do not have to translate it.(right?)Could this be made faster by accessing the dictionary-key-enumerator directly with skipping the zeros over the column?
                     m -= this[i, j] * result[j];
                 }
-                if (m != null) result[i] = m * !this[i, i];
+                if (m != null) result[i] = m * !(this[i, i].Duplicate());
             }
         }
         return result;
