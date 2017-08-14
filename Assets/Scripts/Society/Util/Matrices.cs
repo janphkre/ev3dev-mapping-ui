@@ -5,20 +5,145 @@ using UnityEngine;
 
 namespace ev3devMapping.Society {
 
-public class MatrixSizeException : Exception {
-    public MatrixSizeException(int sizeAX, int sizeBX, int sizeAY, int sizeBY, String op) : base("A size of a matrix is wrong:" + sizeAX + ", " + sizeAY + op + sizeBX + ", " + sizeBY) { }
-    public MatrixSizeException(int sizeAX, int sizeBY, String op) : base("A size of a matrix is wrong:" + sizeAX + op + sizeBY) { }
+public class MatrixException : Exception {
+        public MatrixException(string s) : base(s) { }
 }
 
-public class Matrix {
+public class MatrixSizeException : MatrixException {
+    public MatrixSizeException(int sizeAX, int sizeBX, int sizeAY, int sizeBY, string op) : base("A size of a matrix is wrong:" + sizeAX + ", " + sizeAY + op + sizeBX + ", " + sizeBY) { }
+    public MatrixSizeException(int sizeAX, int sizeBY, string op) : base("A size of a matrix is wrong:" + sizeAX + op + sizeBY) { }
+}
+
+public abstract class AMatrix {
+    
+    protected abstract float getFloat(int i, int j);
+    protected abstract void setFloat(int i, int j, float f);
+    
+    protected abstract int getSizeX();
+    protected abstract int getSizeY();
+    
+    //inverse
+    // See: https://github.com/DownMoney/Matrices_Inverse
+    //TODO: REMOVE NECESSITY TO CLONE BEFORE THIS METHOD!
+    protected void inverseTo(AMatrix result) {
+        int r;
+        float scale;
+        //Process the matrix one column at a time
+        for (int c = 0; c < getSizeX(); ++c) {
+            //Swap rows if the current value is too close to 0.0
+            if (Mathf.Abs(getFloat(c, c)) <= 2.0f * float.Epsilon) {
+                for (r = c + 1; r < getSizeX(); ++r) if (Mathf.Abs(getFloat(r, c)) <= 2.0f * float.Epsilon) {
+                        RowSwap(c, r);
+                        result.RowSwap(c, r);
+                        break;
+                    }
+                if (r >= getSizeX()) throw new MatrixException("Matrix is not invertible:\n" + ToString());
+            }
+            //Scale the current row to start with 1
+            scale = 1.0f / getFloat(c, c);
+            RowScale(scale, c);
+            result.RowScale(scale, c);
+            
+            //Zero out the rest of the column
+            for (r = 0; r < getSizeX(); ++r) {
+                if (r != c) {
+                    scale = -getFloat(r, c);
+                    RowScaleAdd(scale, c, r);
+                    result.RowScaleAdd(scale, c, r);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Swap 2 rows in a matrix.
+    /// </summary>
+    /// <param name="data">The matrix to operate on.</param>
+    /// <param name="cols">
+    /// The number of columns in <paramref name="data"/>.
+    /// </param>
+    /// <param name="r0">One of the 2 rows to swap.</param>
+    /// <param name="r1">One of the 2 rows to swap.</param>
+    private void RowSwap(int r0, int r1) {
+        float tmp;
+        for (int i = 0; i < getSizeX(); ++i) {
+            tmp = getFloat(r0, i);
+            setFloat(r0, i, getFloat(r1, i));
+            setFloat(r1, i, tmp);
+        }
+    }
+
+    /// <summary>
+    /// Perform scale and add a row in a matrix to another
+    /// row:  data[r1,] = a*data[r0,] + data[r1,].
+    /// </summary>
+    /// <param name="data">The matrix to operate on.</param>
+    /// <param name="cols">
+    /// The number of columns in <paramref name="data"/>.
+    /// </param>
+    /// <param name="a">
+    /// The scale factor to apply to row <paramref name="r0"/>.
+    /// </param>
+    /// <param name="r0">The row to scale.</param>
+    /// <param name="r1">The row to add and store to.</param>
+    private void RowScaleAdd(float a, int r0, int r1) {
+        for (int i = 0; i < getSizeX(); ++i) setFloat(r1, i, getFloat(r1, i) + a * getFloat(r0, i));
+    }
+
+    /// <summary>
+    /// Scale a row in a matrix by a constant factor.
+    /// </summary>
+    /// <param name="data">The matrix to operate on.</param>
+    /// <param name="cols">The number of columns in the matrix.</param>
+    /// <param name="a">
+    /// The factor to scale row <paramref name="r"/> by.
+    /// </param>
+    /// <param name="r">The row to scale.</param>
+    private void RowScale(float a, int r) {
+        for (int i = 0; i < getSizeX(); ++i) setFloat(r, i, getFloat(r, i) * a);
+    }
+
+    public override bool Equals(object other) {
+        if(other == null) return false;
+        Type t = other.GetType();
+        while(!t.IsAbstract) {
+            t = t.BaseType;
+            if(t == null) return false;
+        }
+        if(other.GetType().BaseType == typeof(AMatrix)) {
+            AMatrix o = (AMatrix) other;
+            if(getSizeX() != o.getSizeX() || getSizeY() != o.getSizeY()) return false;
+            for (int i = 0; i < o.getSizeX(); i++)
+                for (int j = 0; j < o.getSizeY(); j++) if (!Geometry.CompareFloats(getFloat(i, j), o.getFloat(i, j))) return false;
+            return true;
+        }
+        return false;
+    }
+
+    public override string ToString() {
+        string s = "";
+        for(int i = 0; i < getSizeY(); i++) {
+            if(i != 0) s += ", ";
+            s += "[";
+            for (int j = 0; j < getSizeX(); j++) {
+                if(j != 0) s += ", ";
+                s+= getFloat(j, i);
+            }
+            s += "]";
+        }
+        return s;
+    }
+}
+
+public class Matrix : AMatrix {
 
     private float[,] val;
     public int sizeX;
     public int sizeY;
 
     public Matrix(int size) {
-        this.sizeX = size;
-        this.sizeY = size;
+        sizeX = size;
+        sizeY = size;
         val = new float[sizeX, sizeY];
         for (int i = 0; i < sizeX; i++) {
             val[i, i] = 1.0f;
@@ -45,6 +170,17 @@ public class Matrix {
         set { val[i, j] = value; }
     }
 
+    protected override float getFloat(int i, int j) {
+        return this[i, j];
+    }
+
+    protected override void setFloat(int i, int j, float f) {
+        this[i, j] = f;
+    }
+    
+    protected override int getSizeX() { return sizeX; }
+    protected override int getSizeY() { return sizeY; }
+    
     public static Matrix operator +(Matrix a, DiagonalMatrix b) {
         if(a == null) return b.ToMatrix();
         if(b == null) return a;
@@ -165,95 +301,13 @@ public class Matrix {
     }
 
     //inverse
-    // See: https://github.com/DownMoney/Matrices_Inverse
-    //TODO: REMOVE NECESSITY TO CLONE BEFORE THIS METHOD!
     public static Matrix operator !(Matrix a) {
         if(a == null) return null;
         if (a.sizeX != a.sizeY) throw new MatrixSizeException(a.sizeX, a.sizeY, "!");
         if(a.IsEmpty()) return null;
         Matrix result = new Matrix(a.sizeX);
-        int r;
-        float scale;
-        
-        //Process the matrix one column at a time
-        for (int c = 0; c < a.sizeX; ++c) {
-            //Scale the current row to start with 1
-
-            //Swap rows if the current value is too close to 0.0
-            if (Mathf.Abs(a[c, c]) <= 2.0f * float.Epsilon) {
-                for (r = c + 1; r < a.sizeX; ++r) if (Mathf.Abs(a[r, c]) <= 2.0f * float.Epsilon) {
-                        RowSwap(a, c, r);
-                        RowSwap(result, c, r);
-                        break;
-                    }
-                if (r >= a.sizeX) throw new Exception("Matrix is not invertible:\n" + a.ToString());
-            }
-            scale = 1.0f / a[c, c];
-            RowScale(a, scale, c);
-            RowScale(result, scale, c);
-            
-            //Zero out the rest of the column
-            for (r = 0; r < a.sizeX; ++r) {
-                if (r != c) {
-                    scale = -a[r, c];
-                    RowScaleAdd(a, scale, c, r);
-                    RowScaleAdd(result, scale, c, r);
-                }
-            }
-        }
+        a.inverseTo(result);
         return result;
-    }
-
-    /// <summary>
-    /// Swap 2 rows in a matrix.
-    /// </summary>
-    /// <param name="data">The matrix to operate on.</param>
-    /// <param name="cols">
-    /// The number of columns in <paramref name="data"/>.
-    /// </param>
-    /// <param name="r0">One of the 2 rows to swap.</param>
-    /// <param name="r1">One of the 2 rows to swap.</param>
-    private static void RowSwap(Matrix data, int r0, int r1) {
-        float tmp;
-        for (int i = 0; i < data.sizeY; ++i) {
-            tmp = data[r0, i];
-            data[r0, i] = data[r1, i];
-            data[r1, i] = tmp;
-        }
-    }
-
-
-
-    /// <summary>
-    /// Perform scale and add a row in a matrix to another
-    /// row:  data[r1,] = a*data[r0,] + data[r1,].
-    /// </summary>
-    /// <param name="data">The matrix to operate on.</param>
-    /// <param name="cols">
-    /// The number of columns in <paramref name="data"/>.
-    /// </param>
-    /// <param name="a">
-    /// The scale factor to apply to row <paramref name="r0"/>.
-    /// </param>
-    /// <param name="r0">The row to scale.</param>
-    /// <param name="r1">The row to add and store to.</param>
-    private static void RowScaleAdd(Matrix data, float a, int r0, int r1) {
-        for (int i = 0; i < data.sizeY; ++i) data[r1, i] += a * data[r0, i];
-    }
-
-
-
-    /// <summary>
-    /// Scale a row in a matrix by a constant factor.
-    /// </summary>
-    /// <param name="data">The matrix to operate on.</param>
-    /// <param name="cols">The number of columns in the matrix.</param>
-    /// <param name="a">
-    /// The factor to scale row <paramref name="r"/> by.
-    /// </param>
-    /// <param name="r">The row to scale.</param>
-    private static void RowScale(Matrix data, float a, int r) {
-        for (int i = 0; i < data.sizeY; ++i) data[r, i] *= a;
     }
 
     public Matrix Duplicate() {
@@ -261,31 +315,6 @@ public class Matrix {
         for (int i = 0; i < result.sizeX; i++)
             for (int j = 0; j < result.sizeY; j++) result[i, j] = val[i, j];
         return result;
-    }
-
-    public override bool Equals(object other) {
-        if(other == null) return false;
-        if(other.GetType() != typeof(Matrix)) return false;
-        Matrix o = (Matrix) other;
-        if (sizeX != o.sizeX || sizeY != o.sizeY) return false;
-        for (int i = 0; i < o.sizeX; i++)
-            for (int j = 0; j < o.sizeY; j++) if (!Geometry.CompareFloats(this[i, j], o[i, j])) return false;
-        return true;
-
-    }
-
-    public override string ToString() {
-        string s = "";
-        for(int i = 0; i < sizeY; i++) {
-            if(i != 0) s += ", ";
-            s += "[";
-            for (int j = 0; j < sizeX; j++) {
-                if(j != 0) s += ", ";
-                s+= this[j, i];
-            }
-            s += "]";
-        }
-        return s;
     }
 }
 
@@ -374,20 +403,34 @@ public class Row {
 
 }
 
-//It is very likely that an Exception will occur. This is because the foreach is commented out in Enlarge.
-//The access onto the covariance matrix has to be edited because it is only the lower left triangle at the moment.
-public class CovarianceMatrix {
+public interface ICovarianceMatrix {
+    Matrix this[int i, int j] { get; }
+}
+
+public class CovarianceMatrix : AMatrix, ICovarianceMatrix {
 
     private const float INITIAL_ERROR = 0.1f;
 
     public List<Row> val = new List<Row>();
     public int count = 3;
-
-    public CovarianceMatrix(int i) {
+    
+    private void initialize(int i) {
         count += 2 * (i - 1);
         i += val.Count;
         val.Add(new Row(i, 3));
         while(val.Count < i) val.Add(new Row(i));
+    }
+
+    public CovarianceMatrix(int i, float identity) {
+        initialize(i);
+        for(int j = 0; j < val.Count; j++) {
+            Matrix m = this[j, j];
+            for(int k = 0; k < m.sizeX; k++) m[k, k] = identity;
+        }
+    }
+
+    public CovarianceMatrix(int i) {
+        initialize(i);
     }
 
     public CovarianceMatrix(System.Random random) {
@@ -399,13 +442,10 @@ public class CovarianceMatrix {
     }
 
     public CovarianceMatrix(System.Random random, int i) {
-        count += 2 * (i - 1);
-        i += val.Count;
-        val.Add(new Row(i, 3));
+        initialize(i);
         val[0].val[0][0, 0] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
         val[0].val[0][1, 1] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
         val[0].val[0][2, 2] = RandomExtensions.NextGaussian(random, 1, INITIAL_ERROR);
-        while(val.Count < i) val.Add(new Row(i));
     }
 
     public void Enlarge(int i) {
@@ -422,6 +462,47 @@ public class CovarianceMatrix {
         set { val[j].val[i] = value; }
     }
 
+    protected override float getFloat(int i, int j) {
+        int iM, iD, jM, jD;
+        if(i < 3) {
+            iM = i;
+            iD = 0;
+        } else {
+            iM = (i - 3) % 2;
+            iD = (i - 3 - iM) / 2 + 1;
+        }
+        if(j < 3) {
+            jM = j;
+            jD = 0;
+        } else {
+            jM = (j - 3) % 2;
+            jD = (j - 3 - jM) / 2 + 1;
+        }
+        return this[iD,jD][iM,jM];
+    }
+
+    protected override void setFloat(int i, int j, float f) {
+        int iM, iD, jM, jD;
+        if(i < 3) {
+            iM = i;
+            iD = 0;
+        } else {
+            iM = (i - 3) % 2;
+            iD = (i - 3 - iM) / 2 + 1;
+        }
+        if(j < 3) {
+            jM = j;
+            jD = 0;
+        } else {
+            jM = (j - 3) % 2;
+            jD = (j - 3 - jM) / 2 + 1;
+        }
+        this[iD,jD][iM,jM] = f;
+    }
+    
+    protected override int getSizeX() { return count; }
+    protected override int getSizeY() { return count; }
+    
     /*public Row this[int i] {
         get { return val[i]; }
         set { val[i] = value; }
@@ -487,13 +568,15 @@ public class CovarianceMatrix {
     }
 
     //inverse
-    public static SparseCovarianceMatrix operator !(CovarianceMatrix a) {
-        SparseCovarianceMatrix result = new SparseCovarianceMatrix();
-        result.Enlarge(a.val.Count);
-        
+    // See: https://github.com/DownMoney/Matrices_Inverse
+    //TODO: REMOVE NECESSITY TO CLONE BEFORE THIS METHOD!
+    public static CovarianceMatrix operator !(CovarianceMatrix a) {
+        if(a == null) return null;
+        CovarianceMatrix result = new CovarianceMatrix(a.val.Count, 1.0f);
+        a.Duplicate().inverseTo(result);
         return result;
     }
-    
+
     public Matrix ToMatrix() {
         Matrix result = new Matrix(count, count);
         int i = 0,
@@ -535,7 +618,17 @@ public class CovarianceMatrix {
         }
         return result;
     }
-}
+
+    public CovarianceMatrix Duplicate() {
+        CovarianceMatrix result = new CovarianceMatrix(val.Count);
+        for(int i = 0; i < val.Count; i++) {
+            for(int j = 0; j < val.Count; j++) {
+                result[i, j] = this[i, j].Duplicate();
+            }
+        }
+        return result;
+    }
+    }
 
 [Serializable]
 public class SparseColumn {
@@ -691,14 +784,10 @@ public class SparseTranslatedMatrix {
     }
 }
 
-public interface ISparseCovarianceMatrix {
-    Matrix this[int i, int j] { get; }
-}
-
 [Serializable]
-public class SparseCovarianceMatrix : ISparseCovarianceMatrix {
+public class SparseCovarianceMatrix : AMatrix, ICovarianceMatrix {
     public SparseColumnList val = new SparseColumnList();
-
+    
     public SparseCovarianceMatrix() { }
 
     public void Enlarge(int i) {
@@ -709,6 +798,49 @@ public class SparseCovarianceMatrix : ISparseCovarianceMatrix {
         get { return val[i][j]; }
         set { val[i][j] = value; }
     }
+    
+    //These protected methods should only be used in the inverse operator of CovarianceMatrix!
+    //(They assume that the first column contains a robot pose and all other poses contain features)
+    protected override float getFloat(int i, int j) {
+        int iM, iD, jM, jD;
+        if(i < 3) {
+            iM = i;
+            iD = 0;
+        } else {
+            iM = (i - 3) % 2;
+            iD = (i - 3 - iM) / 2 + 1;
+        }
+        if(j < 3) {
+            jM = j;
+            jD = 0;
+        } else {
+            jM = (j - 3) % 2;
+            jD = (j - 3 - jM) / 2 + 1;
+        }
+        return this[iD,jD][iM,jM];
+    }
+
+    protected override void setFloat(int i, int j, float f) {
+        int iM, iD, jM, jD;
+        if(i < 3) {
+            iM = i;
+            iD = 0;
+        } else {
+            iM = (i - 3) % 2;
+            iD = (i - 3 - iM) / 2 + 1;
+        }
+        if(j < 3) {
+            jM = j;
+            jD = 0;
+        } else {
+            jM = (j - 3) % 2;
+            jD = (j - 3 - jM) / 2 + 1;
+        }
+        this[iD,jD][iM,jM] = f;
+    }
+    
+    protected override int getSizeX() { return val.Count * 2 + 1; }
+    protected override int getSizeY() { return val.Count * 2 + 1; }
 
     public SparseColumn GetColumn(int i) {
         return val[i];
@@ -770,31 +902,31 @@ public class SparseCovarianceMatrix : ISparseCovarianceMatrix {
     }
 
     public static SparseMatrix operator *(SparseTranslatedMatrix a, SparseCovarianceMatrix b) {
-        if (a == null || b == null) return null;
-        if (a.ColumnCount() != b.ColumnCount()) throw new MatrixSizeException(a.ColumnCount(), b.ColumnCount(), "*");
-        int count = a.RowCount();
-        SparseMatrix result = new SparseMatrix();
-        for (int i = 0; i < b.ColumnCount(); i++) result.AddColumn(new SparseColumn());
-        result.SetRowCount(a.RowCount());
-        for (int i = 0; i < count; i++) {
-            SparseColumn row = a.GetRow(i);
-            for (int j = 0; j < count; j++) {
-                SparseColumn col = b.val[j];
-                Matrix resultField = null;
-                foreach (KeyValuePair<int, Matrix> pair in row.val) {
-                    Matrix m;
-                    if (col.val.TryGetValue(pair.Key, out m)) {
-                        resultField += pair.Value * m;
-                    }
+    if (a == null || b == null) return null;
+    if (a.ColumnCount() != b.ColumnCount()) throw new MatrixSizeException(a.ColumnCount(), b.ColumnCount(), "*");
+    int count = a.RowCount();
+    SparseMatrix result = new SparseMatrix();
+    for (int i = 0; i < b.ColumnCount(); i++) result.AddColumn(new SparseColumn());
+    result.SetRowCount(a.RowCount());
+    for (int i = 0; i < count; i++) {
+        SparseColumn row = a.GetRow(i);
+        for (int j = 0; j < count; j++) {
+            SparseColumn col = b.val[j];
+            Matrix resultField = null;
+            foreach (KeyValuePair<int, Matrix> pair in row.val) {
+                Matrix m;
+                if (col.val.TryGetValue(pair.Key, out m)) {
+                    resultField += pair.Value * m;
                 }
-                if (resultField != null) result[j, i] = resultField;
             }
+            if (resultField != null) result[j, i] = resultField;
         }
-        return result;
+    }
+    return result;
     }
 }
 
-public class DefaultedSparseCovarianceMatrix : ISparseCovarianceMatrix {
+public class DefaultedSparseCovarianceMatrix : ICovarianceMatrix {
 
     private SparseCovarianceMatrix m;
     private Matrix def;

@@ -124,7 +124,7 @@ public class SLAMRobot : MonoBehaviour {
         //Find the nearest neighbour in the localMap to the extracted landmarks:
         List<int> unmatchedLandmarks;
         List<int> matchedFeatures;
-        var inversedCovariance = new DefaultedSparseCovarianceMatrix(!localMap.covariance, new Matrix(2));
+        var inversedCovariance = !localMap.covariance;
         var match = nearestNeighbour.Match(data.LastPose, landmarks.GetEnumerator(), previousInputPose, lastPose, new CombinedFeatureEnumerator(localMap.map.GetEnumerator(), featureCount, observedFeatures.GetEnumerator()), inversedCovariance, ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * featureCount, out unmatchedLandmarks, out matchedFeatures);
         //Offset found landmarks by match:
         var matchOffset = match - data.LastPose;

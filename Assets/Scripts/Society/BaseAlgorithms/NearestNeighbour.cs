@@ -15,7 +15,7 @@ class NearestNeighbour {
 
     public const float MAX_MATCH_DISTANCE = 1.0f;
 
-    public Vector3 Match(Vector3 measurementsPose, IEnumerator measurements, Vector3 measurementsStart, Vector3 lastMatch, IEnumerator<Feature> features, ISparseCovarianceMatrix featureInversedCovariance, float estimationError, out List<int> unmatchedMeasurements, out List<int> matchedFeatures) {
+    public Vector3 Match(Vector3 measurementsPose, IEnumerator measurements, Vector3 measurementsStart, Vector3 lastMatch, IEnumerator<Feature> features, ICovarianceMatrix featureInversedCovariance, float estimationError, out List<int> unmatchedMeasurements, out List<int> matchedFeatures) {
         Vector3 match = lastMatch + (measurementsPose - measurementsStart);
         unmatchedMeasurements = new List<int>();
         matchedFeatures = new List<int>();

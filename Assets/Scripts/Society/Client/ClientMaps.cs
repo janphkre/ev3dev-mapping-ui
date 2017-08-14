@@ -78,7 +78,7 @@ public class GlobalClientMap: Behaviour {
     private int sendCounter = 1;
 
     private RobotPose lastPose = RobotPose.zero;
-    private List<SparseCovarianceMatrix> localInversedCovarianceCollection = new List<SparseCovarianceMatrix>();//(P^L)^-1
+    private List<CovarianceMatrix> localInversedCovarianceCollection = new List<CovarianceMatrix>();//(P^L)^-1
     private SparseTriangularMatrix choleskyFactorization = new SparseTriangularMatrix();//L(k)
     private SparseCovarianceMatrix infoMatrix = new SparseCovarianceMatrix();//I(k)
     private SparseColumn infoVector = new SparseColumn();//i(k)
@@ -197,7 +197,7 @@ public class GlobalClientMap: Behaviour {
              * 2.3) Update using EIF *
              * * * * * * * * * * * * */
             //2.3.1) Compute the information matrix and vector using EIF
-            SparseCovarianceMatrix localMapInversedCovariance = !localMap.covariance;
+            var localMapInversedCovariance = !localMap.covariance;
             localInversedCovarianceCollection.Add(localMapInversedCovariance);
             utils.computeInfoAddition(lastPose, globalCollection, localMapInversedCovariance, infoMatrix, infoVector, globalStateVector);
             //2.3.2) Reorder the global map state vector every 100 steps or after closing large loops

@@ -726,7 +726,6 @@ namespace ev3devMapping.Testing {
             Assert.IsTrue(m.val.Count == 11);
             Assert.IsTrue(m.val[0].sizeY == 3);
             for(int i = 1; i < 11; i++) Assert.IsTrue(m.val[i].sizeY == 2 && m.val[i].val.Count == 11);
-
             m = new CovarianceMatrix(new System.Random(), 10);
             Assert.IsTrue(m.count == 21);
             Assert.IsTrue(m.val.Count == 10);
@@ -736,6 +735,9 @@ namespace ev3devMapping.Testing {
             Assert.IsTrue(m.val.Count == 20);
             Assert.IsTrue(m.val[0].sizeY == 3);
             for(int i = 10; i < 20; i++) Assert.IsTrue(m.val[i].sizeY == 2 && m.val[i].val.Count == 20);
+            Assert.AreEqual(m, m.Duplicate());
+            m = new CovarianceMatrix(5, 1.0f);
+            Assert.AreEqual(new Matrix(11), m);
         }
 
         [Test]
@@ -824,6 +826,77 @@ namespace ev3devMapping.Testing {
         [Test]
         [TestOf(typeof(CovarianceMatrix))]
         public void CovarianceMatrixTestInverse() {
+            CovarianceMatrix m = new CovarianceMatrix(2),
+                   o = new CovarianceMatrix(2);
+            //Inverse of an empty Matrix:
+            Assert.AreEqual(null, !((CovarianceMatrix) null));
+            //Inverse:
+            m[0, 0][0, 0] = 3.0f;
+            m[0, 0][1, 0] = 5.0f;
+            m[0, 0][2, 0] = 2.0f;
+            m[1, 0][0, 0] = 1.0f;
+            m[1, 0][1, 0] = 11.0f;
+            m[0, 0][0, 1] = 10.0f;
+            m[0, 0][1, 1] = 7.0f;
+            m[0, 0][2, 1] = 6.0f;
+            m[1, 0][0, 1] = 7.0f;
+            m[1, 0][1, 1] = 12.0f;
+            m[0, 0][0, 2] = 2.0f;
+            m[0, 0][1, 2] = 2.0f;
+            m[0, 0][2, 2] = 2.0f;
+            m[1, 0][0, 2] = 2.0f;
+            m[1, 0][1, 2] = 2.0f;
+            m[0, 1][0, 0] = 3.0f;
+            m[0, 1][1, 0] = 4.0f;
+            m[0, 1][2, 0] = 5.0f;
+            m[1, 1][0, 0] = 6.0f;
+            m[1, 1][1, 0] = 7.0f;
+            m[0, 1][0, 1] = 9.0f;
+            m[0, 1][1, 1] = 4.0f;
+            m[0, 1][2, 1] = 2.0f;
+            m[1, 1][0, 1] = 7.0f;
+            m[1, 1][1, 1] = 8.0f;
+
+            o[0, 0][0, 0] = -9f / 77f;
+            o[0, 0][1, 0] = 85f / 308f;
+            o[0, 0][2, 0] = -155f / 616f;
+            o[1, 0][0, 0] = -51f / 308f;
+            o[1, 0][1, 0] = -1f / 22f;
+            o[0, 0][0, 1] = 23f / 77f;
+            o[0, 0][1, 1] = -183f / 308f;
+            o[0, 0][2, 1] = 1149f / 616f;
+            o[1, 0][0, 1] = -75f / 308f;
+            o[1, 0][1, 1] = 5f / 22f;
+            o[0, 0][0, 2] = -17f / 77f;
+            o[0, 0][1, 2] = 38f / 77f;
+            o[0, 0][2, 2] = -101f / 154f;
+            o[1, 0][0, 2] = 8f / 77f;
+            o[1, 0][1, 2] = -4f / 11f;
+            o[0, 1][0, 0] = 1f / 77f;
+            o[0, 1][1, 0] = -95f / 308f;
+            o[0, 1][2, 0] = 137f / 616f;
+            o[1, 1][0, 0] = 57f / 308f;
+            o[1, 1][1, 0] = 5f / 22f;
+            o[0, 1][0, 1] = 2f / 77f;
+            o[0, 1][1, 1] = 41f / 308f;
+            o[0, 1][2, 1] = -419f / 616f;
+            o[1, 1][0, 1] = 37f / 308f;
+            o[1, 1][1, 1] = -1f / 22f;
+
+            var p = !m;
+            Assert.AreEqual(o, p);
+            p = !o;
+            Assert.AreEqual(m, p);
+            //Inverse of identity:
+            m = new CovarianceMatrix(5, 1.0f);
+            p = !m;
+            Assert.AreEqual(m, p);
+        }
+    #endregion
+    #region SparseColumn
+        [Test]
+        [TestOf(typeof(SparseColumn))]
+        public void SparseColumnTestValues() {
         }
     #endregion
     }
