@@ -106,18 +106,15 @@ public abstract class AMatrix {
     public override bool Equals(object other) {
         if(other == null) return false;
         Type t = other.GetType();
-        while(!t.IsAbstract) {
+        while(t != typeof(AMatrix)) {
             t = t.BaseType;
             if(t == null) return false;
         }
-        if(other.GetType().BaseType == typeof(AMatrix)) {
-            AMatrix o = (AMatrix) other;
-            if(getSizeX() != o.getSizeX() || getSizeY() != o.getSizeY()) return false;
-            for (int i = 0; i < o.getSizeX(); i++)
-                for (int j = 0; j < o.getSizeY(); j++) if (!Geometry.CompareFloats(getFloat(i, j), o.getFloat(i, j))) return false;
-            return true;
-        }
-        return false;
+        AMatrix o = (AMatrix) other;
+        if(getSizeX() != o.getSizeX() || getSizeY() != o.getSizeY()) return false;
+        for (int i = 0; i < o.getSizeX(); i++)
+            for (int j = 0; j < o.getSizeY(); j++) if (!Geometry.CompareFloats(getFloat(i, j), o.getFloat(i, j))) return false;
+        return true;
     }
 
     public override string ToString() {
@@ -656,24 +653,36 @@ public class SparseColumn {
     }
 
     public void Addition(SparseColumn addition) {
+        if(addition == null) return;
         foreach(KeyValuePair<int, Matrix> pair in addition.val) {
-            val[pair.Key] += pair.Value;
+            this[pair.Key] += pair.Value;
         }
     }
 
     public static SparseColumn operator +(SparseColumn a, SparseColumn b) {
-        //if (a.size != b.size) throw new MatrixSizeException(a.size, b.size, "+");
+        if(a == null) return b;
+        if(b == null) return a;
         SparseColumn result = new SparseColumn();
         foreach(KeyValuePair<int,Matrix> pair in a.val) {
-            result.val.Add(pair.Key, pair.Value + b.val[pair.Key]);
+            result.val.Add(pair.Key, pair.Value + b[pair.Key]);
         }
         foreach (KeyValuePair<int, Matrix> pair in b.val) {
-            if(result.val[pair.Key] == null) result.val.Add(pair.Key, pair.Value);
+            if(result[pair.Key] == null) result.val.Add(pair.Key, pair.Value);
         }
         return result;
     }
 
-    
+    public override bool Equals(object other) {
+        if(other == null) return false;
+        if(other.GetType() == typeof(SparseColumn)) {
+            SparseColumn o = (SparseColumn) other;
+            if(val.Keys.Count != o.val.Keys.Count) return false;
+            foreach (int key in val.Keys) if(!val[key].Equals(o.val[key])) return false;
+            foreach (int key in o.val.Keys) if(!o.val[key].Equals(val[key])) return false;
+            return true;
+        }
+        return false;
+    }
 }
 
 public class SparseMatrix {
@@ -712,14 +721,20 @@ public class SparseMatrix {
 
     public static SparseColumn operator *(SparseMatrix a, List<IFeature> b) {
         if (a == null || b == null) return null;
-        SparseColumn result = new SparseColumn();//TODO:ignore size of SparseColumn
+        if(a.ColumnCount() != b.Count) throw new MatrixSizeException(a.ColumnCount(), b.Count, "*");
+        SparseColumn result = new SparseColumn();
+        int i = 0;
         foreach(SparseColumn col in a.val) {
-            foreach (KeyValuePair<int, Matrix> pair in col.val) {
-                IFeature f = b[pair.Key];
-                if (f.IsFeature()) {
-                    result[pair.Key] += pair.Value * ((Feature) f).feature;
-                } else {
-                    result[pair.Key] += pair.Value * ((RobotPose) f).pose;
+            IFeature f = b[i++];
+            if(f.IsFeature()) {
+                Feature fF = (Feature) f;
+                foreach (KeyValuePair<int, Matrix> pair in col.val) {
+                    result[pair.Key] += pair.Value * fF.feature;
+                }
+            } else {
+                RobotPose fR = (RobotPose) f;
+                foreach (KeyValuePair<int, Matrix> pair in col.val) {
+                    result[pair.Key] += pair.Value * fR.pose;
                 }
             }
         }
@@ -729,10 +744,13 @@ public class SparseMatrix {
     public static SparseColumn operator *(SparseMatrix a, SparseColumn b) {
         if (a == null || b == null) return null;
         SparseColumn result = new SparseColumn();//TODO:ignore size of SparseColumn
+        int i = 0;
         foreach (SparseColumn col in a.val) {
+            Matrix bVal = b[i];
             foreach (KeyValuePair<int, Matrix> pair in col.val) {
-                result[pair.Key] += pair.Value * b.val[pair.Key];
+                result[pair.Key] += pair.Value * bVal;
             }
+            i++;
         }
         return result;
     }
@@ -762,6 +780,17 @@ public class SparseMatrix {
     public static SparseTranslatedMatrix operator ~(SparseMatrix a) {
         return new SparseTranslatedMatrix(a);
     }
+
+    public override bool Equals(object other) {
+        if(other == null) return false;
+        if(other.GetType() == typeof(SparseMatrix)) {
+            SparseMatrix o = (SparseMatrix) other;
+            if(val.Count != o.val.Count) return false;
+            for (int i = 0; i < val.Count; i++) if(!val[i].Equals(o.val[i])) return false;
+            return true;
+        }
+        return false;
+    }
 }
 
 public class SparseTranslatedMatrix {
@@ -781,6 +810,11 @@ public class SparseTranslatedMatrix {
 
     public int ColumnCount() {
         return matrix.RowCount();
+    }
+
+    //translate
+    public static SparseMatrix operator ~(SparseTranslatedMatrix a) {
+        return a.matrix;
     }
 }
 

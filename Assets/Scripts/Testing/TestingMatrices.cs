@@ -1,5 +1,6 @@
 ﻿using ev3devMapping.Society;
 using NUnit.Framework;
+using System.Collections.Generic;
 using UnityEngine;
 
 /*
@@ -897,6 +898,324 @@ namespace ev3devMapping.Testing {
         [Test]
         [TestOf(typeof(SparseColumn))]
         public void SparseColumnTestValues() {
+            SparseColumn c = new SparseColumn();
+            Assert.IsTrue(c.val.Keys.Count == 0);
+            c[10] = new Matrix(5);
+            Assert.IsTrue(c.val.Keys.Count == 1);
+            Assert.AreEqual(new Matrix(5), c[10]);
+            Assert.AreEqual(null, c[9]);
+            Assert.AreEqual(null, c[0]);
+            c.Remove(0);
+            Assert.IsTrue(c.val.Keys.Count == 1);
+            Assert.AreEqual(null, c[0]);
+            Assert.AreEqual(new Matrix(5), c[10]);
+            c.Remove(10);
+            Assert.IsTrue(c.val.Keys.Count == 0);
+            Assert.AreEqual(null, c[10]);
+            c[9] = new Matrix(5);
+            Assert.IsTrue(c.val.Keys.Count == 1);
+            Assert.AreEqual(new Matrix(5), c[9]);
+            c.Clear();
+            Assert.IsTrue(c.val.Keys.Count == 0);
+            Assert.AreEqual(null, c[9]);
+        }
+
+        [Test]
+        [TestOf(typeof(SparseColumn))]
+        public void SparseColumnTestAddition() {
+            SparseColumn c = new SparseColumn(),
+                         d = new SparseColumn();
+            Assert.AreEqual(c, c + ((SparseColumn) null));
+            Assert.AreEqual(c, ((SparseColumn) null) + c);
+            Assert.AreEqual(null, ((SparseColumn) null) + ((SparseColumn) null));
+            Assert.AreEqual(c, c + ((SparseColumn) null));
+            Assert.AreEqual(c, c + d);
+            c[10] = new Matrix(5);
+            c[14] = new Matrix(4);
+            Assert.AreEqual(c, c + d);
+            d[0] = new Matrix(3, 3);
+            d[2] = new Matrix(3, 3);
+            d[5] = new Matrix(3, 3);
+            Assert.AreNotEqual(c, c + d);
+            c[0] = new Matrix(3);
+            c[2] = new Matrix(3);
+            c[5] = new Matrix(3);
+            d[10] = new Matrix(5, 5);
+            d[14] = new Matrix(4, 4);
+            Assert.AreEqual(c, c + d);
+            c.Clear();
+            d.Clear();
+            c.Addition(null);
+            Assert.AreEqual(d, c);
+            c.Addition(d);
+            Assert.AreEqual(d, c);
+            c[10] = new Matrix(5);
+            c[14] = new Matrix(4);
+            d[0] = new Matrix(3, 3);
+            d[2] = new Matrix(3, 3);
+            d[5] = new Matrix(3, 3);
+            SparseColumn e = new SparseColumn();
+            e[10] = new Matrix(5);
+            e[14] = new Matrix(4);
+            e[0] = new Matrix(3, 3);
+            e[2] = new Matrix(3, 3);
+            e[5] = new Matrix(3, 3);
+            c.Addition(d);
+            Assert.AreEqual(e, c);
+        }
+    #endregion
+    #region SparseMatrix
+        [Test]
+        [TestOf(typeof(SparseMatrix))]
+        public void SparseMatrixTestValues() {
+            SparseMatrix c = new SparseMatrix();
+            Assert.IsTrue(c.RowCount() == 0);
+            Assert.IsTrue(c.ColumnCount() == 0);
+            c.Enlarge(10);
+            Assert.IsTrue(c.RowCount() == 0);
+            Assert.IsTrue(c.ColumnCount() == 10);
+            c.AddColumn(new SparseColumn());
+            Assert.IsTrue(c.RowCount() == 0);
+            Assert.IsTrue(c.ColumnCount() == 11);
+            c.SetRowCount(1234);
+            Assert.IsTrue(c.RowCount() == 1234);
+            Assert.AreEqual(null, c[4, 8]);
+            c[4, 8] = new Matrix(23, 12);
+            Matrix m = new Matrix(23, 12);
+            Assert.AreEqual(m, c[4, 8]);
+            SparseColumn d = c.GetColumn(4);
+            Assert.AreEqual(m, d[8]);
+        }
+
+        [Test]
+        [TestOf(typeof(SparseMatrix))]
+        public void SparseMatrixTestIFeatureMultiplication() {
+            SparseMatrix m = new SparseMatrix();
+            List<IFeature> n = new List<IFeature>();
+            SparseColumn o = new SparseColumn();
+            Assert.AreEqual(o, m * n);
+            Assert.AreEqual(null, ((SparseMatrix) null) * n);
+            Assert.AreEqual(null, m * ((List<IFeature>) null));
+            Assert.AreEqual(null, ((SparseMatrix) null) * ((List<IFeature>) null));
+            m.Enlarge(RANDOM_ITERATIONS);
+            m[0, 0] = new Matrix(3);
+            int i;
+            n.Add(new RobotPose(new Vector3(1.0f,2.0f,3.0f),-10f));
+            o[0] = new Matrix(1,3);
+            o[0][0, 0] = 1.0f;
+            o[0][0, 1] = 2.0f;
+            o[0][0, 2] = 3.0f;
+            for(i = 1; i < RANDOM_ITERATIONS; i++) {
+                m[i, i] = new Matrix(2);
+                n.Add(new Feature(new Vector2(2f+2f*i,3f+2f*i),null, i));
+                o[i] = new Matrix(1,2);
+                o[i][0, 0] = 2f+2f*i;
+                o[i][0, 1] = 3f+2f*i;
+            }
+            Assert.AreEqual(o, m * n);
+            m = new SparseMatrix();
+            m.Enlarge(2);
+            m[0, 0] = new Matrix(3);
+            m[0, 1] = new Matrix(3, 2);
+            m[1, 0] = new Matrix(2, 3);
+            m[1, 1] = new Matrix(2);
+            i = 0;
+            int j = 0,
+                k = 0,
+                l = 0;
+            while(true) {
+                m[i, j][k, l] = 6 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                k++;
+                if(i > 0) {
+                    if(k > 1) {
+                        k = 0;
+                        i++;
+                        if(i > 1) {
+                            i = 0;
+                            l++;
+                            if(j > 0) {
+                                if(l > 1) {
+                                    l = 0;
+                                    j++;
+                                    if(j > 1) break;
+                                }
+                            } else {
+                                if(l > 2) {
+                                    l = 0;
+                                    j++;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if(k > 2) {
+                        k = 0;
+                        i++;
+                    }
+                }
+            }
+            n = new List<IFeature>();
+            n.Add(new RobotPose(new Vector3(1.0f,2.0f,3.0f),-10f));
+            n.Add(new Feature(new Vector2(4f,5f),null, 1));
+            o = new SparseColumn();
+            o[0] = new Matrix(1,3);
+            o[0][0, 0] = 130.0f;
+            o[0][0, 1] = 205.0f;
+            o[0][0, 2] = 280.0f;
+            o[1] = new Matrix(1,2);
+            o[1][0, 0] = 355;
+            o[1][0, 1] = 430;
+            Assert.AreEqual(o, m * n);
+            n = new List<IFeature>();
+            Assert.Throws<MatrixSizeException>(() => { var tmp = m * n; });
+            n = new List<IFeature>();
+            n.Add(new Feature(new Vector2(5f,6f),null, 0));
+            n.Add(new RobotPose(new Vector3(1.0f,2.0f,3.0f),-10f));
+            Assert.Throws<MatrixSizeException>(() => { var tmp = m * n; });
+        }
+
+        [Test]
+        [TestOf(typeof(SparseMatrix))]
+        public void SparseMatrixTestSparseColumnMultiplication() {
+            SparseMatrix m = new SparseMatrix();
+            SparseColumn n = new SparseColumn();
+            SparseColumn o = new SparseColumn();
+            Assert.AreEqual(o, m * n);
+            Assert.AreEqual(null, ((SparseMatrix) null) * n);
+            Assert.AreEqual(null, m * ((List<IFeature>) null));
+            Assert.AreEqual(null, ((SparseMatrix) null) * ((List<IFeature>) null));
+            m.Enlarge(RANDOM_ITERATIONS);
+            m[0, 0] = new Matrix(3);
+            int i;
+            n[0] = new Matrix(1,3);
+            n[0][0, 0] = 1.0f;
+            n[0][0, 1] = 2.0f;
+            n[0][0, 2] = 3.0f;
+            o[0] = new Matrix(1,3);
+            o[0][0, 0] = 1.0f;
+            o[0][0, 1] = 2.0f;
+            o[0][0, 2] = 3.0f;
+            for(i = 1; i < RANDOM_ITERATIONS; i++) {
+                m[i, i] = new Matrix(2);
+                n[i] = new Matrix(1,2);
+                n[i][0, 0] = 2f+2f*i;
+                n[i][0, 1] = 3f+2f*i;
+                o[i] = new Matrix(1,2);
+                o[i][0, 0] = 2f+2f*i;
+                o[i][0, 1] = 3f+2f*i;
+            }
+            Assert.AreEqual(o, m * n);
+            m = new SparseMatrix();
+            m.Enlarge(2);
+            m[0, 0] = new Matrix(3);
+            m[0, 1] = new Matrix(3, 2);
+            m[1, 0] = new Matrix(2, 3);
+            m[1, 1] = new Matrix(2);
+            i = 0;
+            int j = 0,
+                k = 0,
+                l = 0;
+            while(true) {
+                m[i, j][k, l] = 6 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                k++;
+                if(i > 0) {
+                    if(k > 1) {
+                        k = 0;
+                        i++;
+                        if(i > 1) {
+                            i = 0;
+                            l++;
+                            if(j > 0) {
+                                if(l > 1) {
+                                    l = 0;
+                                    j++;
+                                    if(j > 1) break;
+                                }
+                            } else {
+                                if(l > 2) {
+                                    l = 0;
+                                    j++;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if(k > 2) {
+                        k = 0;
+                        i++;
+                    }
+                }
+            }
+            n = new SparseColumn();
+            n[0] = new Matrix(1,3);
+            n[0][0, 0] = 1.0f;
+            n[0][0, 1] = 2.0f;
+            n[0][0, 2] = 3.0f;
+            n[1] = new Matrix(1,2);
+            n[1][0, 0] = 4f;
+            n[1][0, 1] = 5f;
+            o = new SparseColumn();
+            o[0] = new Matrix(1,3);
+            o[0][0, 0] = 130.0f;
+            o[0][0, 1] = 205.0f;
+            o[0][0, 2] = 280.0f;
+            o[1] = new Matrix(1,2);
+            o[1][0, 0] = 355;
+            o[1][0, 1] = 430;
+            Assert.AreEqual(o, m * n);
+            n = new SparseColumn();
+            n[0] = new Matrix(1,2);
+            n[0][0, 0] = 4f;
+            n[0][0, 1] = 5f;
+            n[1] = new Matrix(1,3);
+            n[1][0, 0] = 1.0f;
+            n[1][0, 1] = 1.0f;
+            n[1][0, 2] = 1.0f;
+            Assert.Throws<MatrixSizeException>(() => { var tmp = m * n; });
+        }
+
+        [Test]
+        [TestOf(typeof(SparseMatrix))]
+        public void SparseMatrixTestSparseMatrixMultiplication() {
+        }
+
+        [Test]
+        [TestOf(typeof(SparseMatrix))]
+        public void SparseMatrixTestTranslate() {
+        }
+    #endregion
+    #region SparseTranslatedMatrix
+        [Test]
+        [TestOf(typeof(SparseTranslatedMatrix))]
+        public void SparseTranslatedMatrixTestValues() {
+            SparseMatrix c = new SparseMatrix();
+            c.Enlarge(10);
+            c.SetRowCount(1234);
+            c[4, 8] = new Matrix(23, 12);
+            SparseTranslatedMatrix d = new SparseTranslatedMatrix(c);
+            Assert.IsTrue(d.RowCount() == 10);
+            Assert.IsTrue(d.ColumnCount() == 1234);
+
+            Matrix m = new Matrix(23, 12);
+            SparseColumn e = d.GetRow(4);
+            Assert.AreEqual(m, e[8]);
+        }
+
+        [Test]
+        [TestOf(typeof(SparseTranslatedMatrix))]
+        public void SparseTranslatedMatrixTestTranslate() {
+            SparseMatrix c = new SparseMatrix();
+            c.Enlarge(10);
+            c.SetRowCount(1234);
+            c[4, 8] = new Matrix(23, 12);
+            SparseTranslatedMatrix d = new SparseTranslatedMatrix(c);
+            Assert.AreEqual(c, ~d);
+        }
+        #endregion
+    #region SparseCovarianceMatrix
+        [Test]
+        [TestOf(typeof(SparseCovarianceMatrix))]
+        public void SparseCovarianceMatrixTestValues() {
         }
     #endregion
     }
