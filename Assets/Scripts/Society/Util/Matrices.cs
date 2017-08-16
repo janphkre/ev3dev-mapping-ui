@@ -6,7 +6,7 @@ using UnityEngine;
 namespace ev3devMapping.Society {
 
 public class MatrixException : Exception {
-        public MatrixException(string s) : base(s) { }
+    public MatrixException(string s) : base(s) { }
 }
 
 public class MatrixSizeException : MatrixException {
@@ -408,7 +408,7 @@ public class CovarianceMatrix : AMatrix, ICovarianceMatrix {
 
     private const float INITIAL_ERROR = 0.1f;
 
-    public List<Row> val = new List<Row>();
+    internal List<Row> val = new List<Row>();
     public int count = 3;
     
     private void initialize(int i) {
@@ -630,7 +630,7 @@ public class CovarianceMatrix : AMatrix, ICovarianceMatrix {
 [Serializable]
 public class SparseColumn {
 
-    public IntMatrixDictionary val = new IntMatrixDictionary();
+    internal IntMatrixDictionary val = new IntMatrixDictionary();
     //public readonly int size;
 
     public SparseColumn() { }
@@ -937,7 +937,7 @@ public class SparseCovarianceMatrix : ICovarianceMatrix {
         }
         return result;
     }
-
+    
     public override bool Equals(object other) {
         if(other == null) return false;
         if(other.GetType() == typeof(SparseCovarianceMatrix)) {
@@ -959,24 +959,6 @@ public class SparseCovarianceMatrix : ICovarianceMatrix {
         }
         s += "";
         return s;
-    }
-}
-
-public class DefaultedSparseCovarianceMatrix : ICovarianceMatrix {
-
-    private SparseCovarianceMatrix m;
-    private Matrix def;
-
-    public DefaultedSparseCovarianceMatrix(SparseCovarianceMatrix m, Matrix def) {
-        this.m = m;
-        this.def = def;
-    }
-
-    public Matrix this[int i, int j] {
-        get {
-            if (i < 0) return def;
-            return m[i, j];
-        }
     }
 }
 
@@ -1008,9 +990,9 @@ public class SparseTriangularMatrix {
             if (this[i, i] != null) {
                 Matrix m = rightHandSide[i];
                 for (int j = 0; j < i; j++) {//Columns
-                    m -= this[j, i] * result[j];
+                    m -= ~this[i, j] * result[j];
                 }
-                if (m != null) result[i] = m * !(this[i, i].Duplicate());
+                if (m != null) result[i] = !(this[i, i].Duplicate()) * m;
             }
         }
         return result;

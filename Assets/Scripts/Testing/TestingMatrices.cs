@@ -1529,6 +1529,103 @@ namespace ev3devMapping.Testing {
             Assert.Throws<MatrixSizeException>(() => { var tmp = ~n * m; });
         }
     #endregion
+    #region SparseTriangularMatrix
+        [Test]
+        [TestOf(typeof(SparseTriangularMatrix))]
+        public void SparseTriangularMatrixTestValues() {
+            SparseTriangularMatrix m = new SparseTriangularMatrix();
+            Assert.IsTrue(m.ColumnCount() == 0);
+            m.Enlarge(10);
+            Assert.IsTrue(m.ColumnCount() == 10);
+            int i = 0;
+            for(; i < 10; i++) m[i, i] = new Matrix(3);
+            for(i = 6; i < 10; i++) m[5, i] = new Matrix(2);
+            Matrix o = new Matrix(3);
+            Matrix p = new Matrix(2);
+            for (i = 0; i < 10; i++) {
+                for(int j = i; j < 10; j++) {
+                    if(i == j) Assert.AreEqual(o, m[i, i]);
+                    else if(i == 5) Assert.AreEqual(p, m[5, j]);
+                    else Assert.AreEqual(null, m[i, j]);
+                }
+            }
+            IEnumerator<SparseColumn> enumerator = m.GetColumnEnumerator();
+            i = 0;
+            while(enumerator.MoveNext()) {
+                for(int j = i; j < 10; j++) {
+                    if(i == j) Assert.AreEqual(o, m[i, i]);
+                    else if(i == 5) Assert.AreEqual(p, m[5, j]);
+                    else Assert.AreEqual(null, m[i, j]);
+                }
+                i++;
+            }
+            enumerator.Dispose();
+        }
+
+        [Test]
+        [TestOf(typeof(SparseTriangularMatrix))]
+        public void SparseTriangularMatrixTestSolveLowerLeftSparse() {
+            SparseTriangularMatrix m = new SparseTriangularMatrix();
+            SparseColumn c = new SparseColumn(),
+                         d = new SparseColumn();
+            m.Enlarge(2);
+            m[0, 0] = new Matrix(3);
+            m[0, 1] = new Matrix(3, 2);
+            m[1, 0] = new Matrix(2, 3);
+            m[1, 1] = new Matrix(2);
+            Assert.AreEqual(d, m.solveLowerLeftSparse(c));
+            int i = 0,
+                j = 0,
+                k = 0,
+                l = 0;
+            while(true) {
+                if(i >= j && k >= l) m[i, j][k, l] = 6 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                k++;
+                if(i > 0) {
+                    if(k > 1) {
+                        k = 0;
+                        i++;
+                        if(i > 1) {
+                            i = 0;
+                            l++;
+                            if(j > 0) {
+                                if(l > 1) {
+                                    l = 0;
+                                    j++;
+                                    if(j > 1) break;
+                                }
+                            } else {
+                                if(l > 2) {
+                                    l = 0;
+                                    j++;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if(k > 2) {
+                        k = 0;
+                        i++;
+                    }
+                }
+            }
+            c[0] = new Matrix(1,3);
+            c[1] = new Matrix(1,2);
+            d[0] = new Matrix(1,3);
+            d[1] = new Matrix(1,2);
+            c[0][0, 0] = 1f;
+            c[0][0, 1] = 2f;
+            c[0][0, 2] = 3f;
+            c[1][0, 0] = 4f;
+            c[1][0, 1] = 5f;
+            d[0][0, 0] = 1f/ 6f;
+            d[0][0, 1] = 1f / 72f;
+            d[0][0, 2] = 7f / 1296f;
+            d[1][0, 0] = 91f / 31104f;
+            d[1][0, 1] = 1729f / 933120f;
+            Assert.AreEqual(d, m.solveLowerLeftSparse(c));
+        }
+    #endregion
     }
 }
 
