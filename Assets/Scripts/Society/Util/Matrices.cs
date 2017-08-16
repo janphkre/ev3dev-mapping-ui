@@ -677,11 +677,19 @@ public class SparseColumn {
         if(other.GetType() == typeof(SparseColumn)) {
             SparseColumn o = (SparseColumn) other;
             if(val.Keys.Count != o.val.Keys.Count) return false;
-            foreach (int key in val.Keys) if(!val[key].Equals(o.val[key])) return false;
-            foreach (int key in o.val.Keys) if(!o.val[key].Equals(val[key])) return false;
+            foreach (int key in val.Keys) if(!this[key].Equals(o[key])) return false;
+            foreach (int key in o.val.Keys) if(!o[key].Equals(this[key])) return false;
             return true;
         }
         return false;
+    }
+    
+    public override string ToString() {
+        string s = "";
+        foreach(KeyValuePair<int, Matrix> pair in val) {
+            s += "[" + pair.Key + ": " + pair.Value.ToString() + "]";
+        }
+        return s;
     }
 }
 
@@ -759,7 +767,7 @@ public class SparseMatrix {
         if (a == null || b == null) return null;
         if (a.ColumnCount() != b.RowCount()) throw new MatrixSizeException(a.ColumnCount(), b.RowCount(), "*");
         SparseMatrix result = new SparseMatrix();
-        for (int j = 0; j < b.ColumnCount(); j++) result.AddColumn(new SparseColumn());
+        result.Enlarge(b.ColumnCount());
         int count = a.RowCount();
         result.SetRowCount(count);
         int i = 0;
@@ -767,9 +775,9 @@ public class SparseMatrix {
             for(int j = 0; j < count; j++) {
                 Matrix resultField = null;
                 foreach (KeyValuePair<int, Matrix> pair in colB.val) {
-                        resultField += a[j, pair.Key] * pair.Value;
+                        resultField += a[pair.Key, j] * pair.Value;
                 }
-                if (resultField != null) result[j, i] = resultField;
+                if (resultField != null) result[i, j] = resultField;
             }
             i++;
         }
@@ -778,6 +786,7 @@ public class SparseMatrix {
 
     //translate
     public static SparseTranslatedMatrix operator ~(SparseMatrix a) {
+        if(a == null) return null;
         return new SparseTranslatedMatrix(a);
     }
 
@@ -790,6 +799,18 @@ public class SparseMatrix {
             return true;
         }
         return false;
+    }
+
+    public override string ToString() {
+        string s = "";
+        for( int i = 0; i < val.Count; i++) {
+            string t = val[i].ToString();
+            if(t.Equals("")) continue;
+            s += t;
+            if(i != val.Count - 1) s += ", ";
+        }
+        s += "";
+        return s;
     }
 }
 
@@ -814,12 +835,13 @@ public class SparseTranslatedMatrix {
 
     //translate
     public static SparseMatrix operator ~(SparseTranslatedMatrix a) {
+        if(a == null) return null;
         return a.matrix;
     }
 }
 
 [Serializable]
-public class SparseCovarianceMatrix : AMatrix, ICovarianceMatrix {
+public class SparseCovarianceMatrix : ICovarianceMatrix {
     public SparseColumnList val = new SparseColumnList();
     
     public SparseCovarianceMatrix() { }
@@ -832,49 +854,6 @@ public class SparseCovarianceMatrix : AMatrix, ICovarianceMatrix {
         get { return val[i][j]; }
         set { val[i][j] = value; }
     }
-    
-    //These protected methods should only be used in the inverse operator of CovarianceMatrix!
-    //(They assume that the first column contains a robot pose and all other poses contain features)
-    protected override float getFloat(int i, int j) {
-        int iM, iD, jM, jD;
-        if(i < 3) {
-            iM = i;
-            iD = 0;
-        } else {
-            iM = (i - 3) % 2;
-            iD = (i - 3 - iM) / 2 + 1;
-        }
-        if(j < 3) {
-            jM = j;
-            jD = 0;
-        } else {
-            jM = (j - 3) % 2;
-            jD = (j - 3 - jM) / 2 + 1;
-        }
-        return this[iD,jD][iM,jM];
-    }
-
-    protected override void setFloat(int i, int j, float f) {
-        int iM, iD, jM, jD;
-        if(i < 3) {
-            iM = i;
-            iD = 0;
-        } else {
-            iM = (i - 3) % 2;
-            iD = (i - 3 - iM) / 2 + 1;
-        }
-        if(j < 3) {
-            jM = j;
-            jD = 0;
-        } else {
-            jM = (j - 3) % 2;
-            jD = (j - 3 - jM) / 2 + 1;
-        }
-        this[iD,jD][iM,jM] = f;
-    }
-    
-    protected override int getSizeX() { return val.Count * 2 + 1; }
-    protected override int getSizeY() { return val.Count * 2 + 1; }
 
     public SparseColumn GetColumn(int i) {
         return val[i];
@@ -898,21 +877,20 @@ public class SparseCovarianceMatrix : AMatrix, ICovarianceMatrix {
             var enumerator = keepRows.GetEnumerator();
             if (!enumerator.MoveNext()) throw new ArgumentException("keepRows is empty");
             int j = 0;
-            for (int i = 0; i < size - 1; i++) {
-                //After the last element in keepRows enumerartor.Current is Undefined. MoveNext returned false.
+            for (int i = 0; i < size; i++) {
                 if (enumerator.Current == i) {
                     if (col[i] != null) {
-                        col[j++] = col[i];
+                        col[j] = col[i];
                         col.Remove(i);
                     }
+                    j++;
                     if (!enumerator.MoveNext()) {
-                        for (i++; i < size - 1; i++) {
+                        for (i++; i < size; i++) {
                             col.Remove(i);
                         }
                         break;
                     }
-                }
-                col.Remove(i);
+                } else col.Remove(i);
             }
             //Move last row:
             if (col[size - 1] != null) {
@@ -924,39 +902,63 @@ public class SparseCovarianceMatrix : AMatrix, ICovarianceMatrix {
     }
 
     public void Addition(SparseMatrix addition) {
+        if(addition == null) return;
         if (ColumnCount() != addition.ColumnCount()) throw new MatrixSizeException(ColumnCount(), addition.ColumnCount(), "a");
         int i = 0;
         foreach (SparseColumn colAdd in addition.val) {
             SparseColumn col = val[i];
             foreach (KeyValuePair<int, Matrix> pair in colAdd.val) {
-                col[pair.Key] = pair.Value;
+                col[pair.Key] += pair.Value;
             }
             i++;
         }
     }
 
     public static SparseMatrix operator *(SparseTranslatedMatrix a, SparseCovarianceMatrix b) {
-    if (a == null || b == null) return null;
-    if (a.ColumnCount() != b.ColumnCount()) throw new MatrixSizeException(a.ColumnCount(), b.ColumnCount(), "*");
-    int count = a.RowCount();
-    SparseMatrix result = new SparseMatrix();
-    for (int i = 0; i < b.ColumnCount(); i++) result.AddColumn(new SparseColumn());
-    result.SetRowCount(a.RowCount());
-    for (int i = 0; i < count; i++) {
-        SparseColumn row = a.GetRow(i);
-        for (int j = 0; j < count; j++) {
-            SparseColumn col = b.val[j];
-            Matrix resultField = null;
-            foreach (KeyValuePair<int, Matrix> pair in row.val) {
-                Matrix m;
-                if (col.val.TryGetValue(pair.Key, out m)) {
-                    resultField += pair.Value * m;
+        if (a == null || b == null) return null;
+        if (a.ColumnCount() != b.ColumnCount()) throw new MatrixSizeException(a.ColumnCount(), b.ColumnCount(), "*");
+        int count = a.ColumnCount();
+        SparseMatrix result = new SparseMatrix();
+        result.Enlarge(b.ColumnCount());
+        result.SetRowCount(a.RowCount());
+        for (int i = 0; i < a.RowCount(); i++) {
+            SparseColumn row = a.GetRow(i);
+            for (int j = 0; j < count; j++) {
+                SparseColumn col = b.val[j];
+                Matrix resultField = null;
+                foreach (KeyValuePair<int, Matrix> pair in row.val) {
+                    Matrix m;
+                    if (col.val.TryGetValue(pair.Key, out m)) {
+                        resultField += ~pair.Value * m;
+                    }
                 }
+                if (resultField != null) result[j, i] = resultField;
             }
-            if (resultField != null) result[j, i] = resultField;
         }
+        return result;
     }
-    return result;
+
+    public override bool Equals(object other) {
+        if(other == null) return false;
+        if(other.GetType() == typeof(SparseCovarianceMatrix)) {
+            SparseCovarianceMatrix o = (SparseCovarianceMatrix) other;
+            if(val.Count != o.val.Count) return false;
+            for (int i = 0; i < val.Count; i++) if(!val[i].Equals(o.val[i])) return false;
+            return true;
+        }
+        return false;
+    }
+
+    public override string ToString() {
+        string s = "";
+        for( int i = 0; i < val.Count; i++) {
+            string t = val[i].ToString();
+            if(t.Equals("")) continue;
+            s += t;
+            if(i != val.Count - 1) s += ", ";
+        }
+        s += "";
+        return s;
     }
 }
 

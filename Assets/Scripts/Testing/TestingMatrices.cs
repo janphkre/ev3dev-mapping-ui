@@ -1,5 +1,6 @@
 ﻿using ev3devMapping.Society;
 using NUnit.Framework;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -1177,11 +1178,130 @@ namespace ev3devMapping.Testing {
         [Test]
         [TestOf(typeof(SparseMatrix))]
         public void SparseMatrixTestSparseMatrixMultiplication() {
+            SparseMatrix m = new SparseMatrix(),
+                         n = new SparseMatrix(),
+                         o = new SparseMatrix();
+            Assert.AreEqual(null, m * ((SparseMatrix) null));
+            Assert.AreEqual(null, ((SparseMatrix) null) * n);
+            Assert.AreEqual(null, ((SparseMatrix) null) * ((SparseMatrix) null));
+            Assert.AreEqual(o, m * n);
+            m.Enlarge(RANDOM_ITERATIONS);
+            n.Enlarge(RANDOM_ITERATIONS);
+            o.Enlarge(RANDOM_ITERATIONS);
+            n.SetRowCount(RANDOM_ITERATIONS);
+            System.Random r = new System.Random();
+            int i;
+            for(i = 0; i < RANDOM_ITERATIONS; i++) {
+                int size = r.Next(2,4);
+                m[i, i] = new Matrix(size);
+                n[i, i] = new Matrix(size);
+                o[i, i] = new Matrix(size);
+            }
+            Assert.AreEqual(o, m * n);
+            m = new SparseMatrix();
+            m.Enlarge(2);
+            m.SetRowCount(2);
+            m[0, 0] = new Matrix(3);
+            m[0, 1] = new Matrix(3, 2);
+            m[1, 0] = new Matrix(2, 3);
+            m[1, 1] = new Matrix(2);
+            n = new SparseMatrix();
+            n.Enlarge(2);
+            n.SetRowCount(2);
+            n[0, 0] = new Matrix(3);
+            n[0, 1] = new Matrix(3, 2);
+            n[1, 0] = new Matrix(2, 3);
+            n[1, 1] = new Matrix(2);
+            o = new SparseMatrix();
+            o.Enlarge(2);
+            o[0, 0] = new Matrix(3);
+            o[0, 1] = new Matrix(3, 2);
+            o[1, 0] = new Matrix(2, 3);
+            o[1, 1] = new Matrix(2);
+            i = 0;
+            int j = 0,
+                k = 0,
+                l = 0;
+            while(true) {
+                m[i, j][k, l] = 6 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                n[i, j][k, l] = 31 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                k++;
+                if(i > 0) {
+                    if(k > 1) {
+                        k = 0;
+                        i++;
+                        if(i > 1) {
+                            i = 0;
+                            l++;
+                            if(j > 0) {
+                                if(l > 1) {
+                                    l = 0;
+                                    j++;
+                                    if(j > 1) break;
+                                }
+                            } else {
+                                if(l > 2) {
+                                    l = 0;
+                                    j++;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if(k > 2) {
+                        k = 0;
+                        i++;
+                    }
+                }
+            }
+            o[0, 0][0, 0] = 1690;
+            o[0, 0][1, 0] = 1730;
+            o[0, 0][2, 0] = 1770;
+            o[1, 0][0, 0] = 1810;
+            o[1, 0][1, 0] = 1850;
+            o[0, 0][0, 1] = 2715;
+            o[0, 0][1, 1] = 2780;
+            o[0, 0][2, 1] = 2845;
+            o[1, 0][0, 1] = 2910;
+            o[1, 0][1, 1] = 2975;
+            o[0, 0][0, 2] = 3740;
+            o[0, 0][1, 2] = 3830;
+            o[0, 0][2, 2] = 3920;
+            o[1, 0][0, 2] = 4010;
+            o[1, 0][1, 2] = 4100;
+            o[0, 1][0, 0] = 4765;
+            o[0, 1][1, 0] = 4880;
+            o[0, 1][2, 0] = 4995;
+            o[1, 1][0, 0] = 5110;
+            o[1, 1][1, 0] = 5225;
+            o[0, 1][0, 1] = 5790;
+            o[0, 1][1, 1] = 5930;
+            o[0, 1][2, 1] = 6070;
+            o[1, 1][0, 1] = 6210;
+            o[1, 1][1, 1] = 6350;
+            Assert.AreEqual(o, m * n);
+            n = new SparseMatrix();
+            n.Enlarge(2);
+            n.SetRowCount(12345);
+            Assert.Throws<MatrixSizeException>(() => { var tmp = m * n; });
+            n.Enlarge(12);
+            n.SetRowCount(2);
+            Assert.Throws<MatrixSizeException>(() => { var tmp = n * m; });
         }
 
         [Test]
         [TestOf(typeof(SparseMatrix))]
         public void SparseMatrixTestTranslate() {
+            Assert.AreEqual(null, ~((SparseMatrix) null));
+            SparseMatrix c = new SparseMatrix();
+            c.Enlarge(RANDOM_ITERATIONS);
+            c.SetRowCount(RANDOM_ITERATIONS);
+            Assert.AreEqual(c, ~~c);
+             System.Random r = new System.Random();
+            for(int i = 0; i < RANDOM_ITERATIONS; i++) {
+                c[i, i] = new Matrix(r.Next(2,4));
+            }
+            Assert.AreEqual(c, ~~c);
         }
     #endregion
     #region SparseTranslatedMatrix
@@ -1204,6 +1324,7 @@ namespace ev3devMapping.Testing {
         [Test]
         [TestOf(typeof(SparseTranslatedMatrix))]
         public void SparseTranslatedMatrixTestTranslate() {
+            Assert.AreEqual(null, ~((SparseTranslatedMatrix) null));
             SparseMatrix c = new SparseMatrix();
             c.Enlarge(10);
             c.SetRowCount(1234);
@@ -1216,6 +1337,196 @@ namespace ev3devMapping.Testing {
         [Test]
         [TestOf(typeof(SparseCovarianceMatrix))]
         public void SparseCovarianceMatrixTestValues() {
+            SparseCovarianceMatrix m = new SparseCovarianceMatrix();
+            Assert.IsTrue(m.val.Count == 0);
+            Assert.IsTrue(m.ColumnCount() == 0);
+            m.Enlarge(10);
+            Assert.IsTrue(m.val.Count == 10);
+            Assert.IsTrue(m.ColumnCount() == 10);
+            for(int i = 0; i < 10; i++) Assert.AreEqual(new SparseColumn(), m.GetColumn(i));
+            m.Add(new SparseColumn());
+            Assert.IsTrue(m.val.Count == 11);
+            Assert.IsTrue(m.ColumnCount() == 11);
+            Assert.AreEqual(new SparseColumn(), m.GetColumn(10));
+            m.Clear();
+            Assert.IsTrue(m.val.Count == 11);
+            Assert.IsTrue(m.ColumnCount() == 11);
+        }
+
+        [Test]
+        [TestOf(typeof(SparseCovarianceMatrix))]
+        public void SparseCovarianceMatrixTestTrim() {
+            SparseCovarianceMatrix m = new SparseCovarianceMatrix(),
+                                   n = new SparseCovarianceMatrix();
+            HashSet<int> rows = new HashSet<int>();
+            m.Enlarge(RANDOM_ITERATIONS);
+            n.Enlarge(RANDOM_ITERATIONS);
+            System.Random r = new System.Random();
+            int j = 0;
+            for(int i = 0; i < RANDOM_ITERATIONS; i++) {
+                m[i, i] = new Matrix(1, 1);
+                m[i, i][0, 0] = i;
+                if(r.Next(2) == 1) {
+                    rows.Add(i);
+                    n[i, j] = new Matrix(1, 1);
+                    n[i, j++][0, 0] = i;
+                }
+            }
+            m.Trim(rows, RANDOM_ITERATIONS);
+            Assert.AreEqual(n, m);
+            Assert.Throws<ArgumentException>(() => { m.Trim(new HashSet<int>(), RANDOM_ITERATIONS); });
+        }
+
+        [Test]
+        [TestOf(typeof(SparseCovarianceMatrix))]
+        public void SparseCovarianceMatrixTestAddition() {
+            SparseCovarianceMatrix m = new SparseCovarianceMatrix(),
+                                   n = new SparseCovarianceMatrix();
+            SparseMatrix o = new SparseMatrix();
+            m.Enlarge(SPARSE_ITERATIONS);
+            n.Enlarge(SPARSE_ITERATIONS);
+            o.Enlarge(SPARSE_ITERATIONS);
+            System.Random r = new System.Random();
+            for(int i = 0; i < SPARSE_ITERATIONS; i++) {
+                for(int j = 0; j < SPARSE_ITERATIONS; j++) {
+                    var val1 = r.Next(RANDOM_ITERATIONS);
+                    m[i, j] = new Matrix(1, 1);
+                    m[i, j][0, 0] = (float) val1;
+                    n[i, j] = new Matrix(1, 1);
+                    n[i, j][0, 0] = (float) val1;
+                }
+            }
+            m.Addition(null);
+            Assert.AreEqual(m, n);
+            m.Addition(o);
+            Assert.AreEqual(m, n);
+            m.Clear();
+            n.Clear();
+            for(int i = 0; i < SPARSE_ITERATIONS; i++) {
+                for(int j = 0; j < SPARSE_ITERATIONS; j++) {
+                    var val1 = r.Next(RANDOM_ITERATIONS);
+                    var val2 = r.Next(RANDOM_ITERATIONS);
+                    m[i, j] = new Matrix(1, 1);
+                    m[i, j][0, 0] = (float) val1;
+                    n[i, j] = new Matrix(1, 1);
+                    n[i, j][0, 0] = (float) (val1 + val2);
+                    o[i, j] = new Matrix(1, 1);
+                    o[i, j][0, 0] = (float) val2;
+                }
+            }
+            m.Addition(o);
+            Assert.AreEqual(n, m);
+            o = new SparseMatrix();
+            Assert.Throws<MatrixSizeException>(() => { m.Addition(o); });
+        }
+
+        [Test]
+        [TestOf(typeof(SparseCovarianceMatrix))]
+        public void SparseCovarianceMatrixTestMultiplication() {
+            SparseCovarianceMatrix m = new SparseCovarianceMatrix();
+            SparseMatrix n = new SparseMatrix(),
+                         o = new SparseMatrix();
+            Assert.AreEqual(null, ~n * (SparseCovarianceMatrix) null);
+            Assert.AreEqual(null, ((SparseTranslatedMatrix) null) * m);
+            Assert.AreEqual(null, ((SparseTranslatedMatrix) null) * ((SparseCovarianceMatrix) null));
+            Assert.AreEqual(o, ~n * m);
+            m.Enlarge(RANDOM_ITERATIONS);
+            n.Enlarge(RANDOM_ITERATIONS);
+            o.Enlarge(RANDOM_ITERATIONS);
+            n.SetRowCount(RANDOM_ITERATIONS);
+            System.Random r = new System.Random();
+            int i;
+            for(i = 0; i < RANDOM_ITERATIONS; i++) {
+                int size = r.Next(2,4);
+                m[i, i] = new Matrix(size);
+                n[i, i] = new Matrix(size);
+                o[i, i] = new Matrix(size);
+            }
+            m = new SparseCovarianceMatrix();
+            m.Enlarge(2);
+            m[0, 0] = new Matrix(3);
+            m[0, 1] = new Matrix(3, 2);
+            m[1, 0] = new Matrix(2, 3);
+            m[1, 1] = new Matrix(2);
+            n = new SparseMatrix();
+            n.Enlarge(2);
+            n.SetRowCount(2);
+            n[0, 0] = new Matrix(3);
+            n[0, 1] = new Matrix(3, 2);
+            n[1, 0] = new Matrix(2, 3);
+            n[1, 1] = new Matrix(2);
+            o = new SparseMatrix();
+            o.Enlarge(2);
+            o[0, 0] = new Matrix(3);
+            o[0, 1] = new Matrix(3, 2);
+            o[1, 0] = new Matrix(2, 3);
+            o[1, 1] = new Matrix(2);
+            i = 0;
+            int j = 0,
+                k = 0,
+                l = 0;
+            while(true) {
+                m[i, j][k, l] = 6 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                n[i, j][k, l] = 31 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                k++;
+                if(i > 0) {
+                    if(k > 1) {
+                        k = 0;
+                        i++;
+                        if(i > 1) {
+                            i = 0;
+                            l++;
+                            if(j > 0) {
+                                if(l > 1) {
+                                    l = 0;
+                                    j++;
+                                    if(j > 1) break;
+                                }
+                            } else {
+                                if(l > 2) {
+                                    l = 0;
+                                    j++;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if(k > 2) {
+                        k = 0;
+                        i++;
+                    }
+                }
+            }
+            o[0, 0][0, 0] = 3530;
+            o[0, 0][1, 0] = 3735;
+            o[0, 0][2, 0] = 3940;
+            o[1, 0][0, 0] = 4145;
+            o[1, 0][1, 0] = 4350;
+            o[0, 0][0, 1] = 3610;
+            o[0, 0][1, 1] = 3820;
+            o[0, 0][2, 1] = 4030;
+            o[1, 0][0, 1] = 4240;
+            o[1, 0][1, 1] = 4450;
+            o[0, 0][0, 2] = 3690;
+            o[0, 0][1, 2] = 3905;
+            o[0, 0][2, 2] = 4120;
+            o[1, 0][0, 2] = 4335;
+            o[1, 0][1, 2] = 4550;
+            o[0, 1][0, 0] = 3770;
+            o[0, 1][1, 0] = 3990;
+            o[0, 1][2, 0] = 4210;
+            o[1, 1][0, 0] = 4430;
+            o[1, 1][1, 0] = 4650;
+            o[0, 1][0, 1] = 3850;
+            o[0, 1][1, 1] = 4075;
+            o[0, 1][2, 1] = 4300;
+            o[1, 1][0, 1] = 4525;
+            o[1, 1][1, 1] = 4750;
+            Assert.AreEqual(o, ~n * m);
+            n = new SparseMatrix();
+            n.Enlarge(2);
+            n.SetRowCount(12345);
+            Assert.Throws<MatrixSizeException>(() => { var tmp = ~n * m; });
         }
     #endregion
     }

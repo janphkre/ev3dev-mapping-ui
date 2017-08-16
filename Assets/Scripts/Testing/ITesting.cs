@@ -5,5 +5,6 @@
 
         public static double TESTING_SPACE = 1000000.0d;
         public static int RANDOM_ITERATIONS = 10000;
+        public static int SPARSE_ITERATIONS = 1000;
     }
 }
