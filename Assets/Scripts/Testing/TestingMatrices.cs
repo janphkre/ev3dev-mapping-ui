@@ -184,18 +184,18 @@ namespace ev3devMapping.Testing {
             Assert.AreEqual(null, !n);
             //Inverse:
             m[0, 0] = 3.0f;
-            m[0, 1] = 5.0f;
             m[1, 0] = 10.0f;
+            m[0, 1] = 5.0f;
             m[1, 1] = 7.0f;
 
             n[0, 0] = 3.0f;
-            n[0, 1] = 5.0f;
             n[1, 0] = 10.0f;
+            n[0, 1] = 5.0f;
             n[1, 1] = 7.0f;
 
             o[0, 0] = -7.0f / 29.0f;
-            o[0, 1] = 5.0f / 29.0f;
             o[1, 0] = 10.0f / 29.0f;
+            o[0, 1] = 5.0f / 29.0f;
             o[1, 1] = -3.0f / 29.0f;
 
             Matrix p = !n;
@@ -205,7 +205,46 @@ namespace ev3devMapping.Testing {
             m = new Matrix(2);
             Assert.AreEqual(m, n);
             Assert.AreEqual(m, o);
+            m = new Matrix(3);
+            n = new Matrix(3);
+            o = new Matrix(3);
+
+            m[0, 0] = 6f;
+            m[1, 0] = 0f;
+            m[2, 0] = 0f;
+            m[0, 1] = 11f;
+            m[1, 1] = 12f;
+            m[2, 1] = 0f;
+            m[0, 2] = 16f;
+            m[1, 2] = 17f;
+            m[2, 2] = 18f;
+
+            n[0, 0] = 6f;
+            n[1, 0] = 0f;
+            n[2, 0] = 0f;
+            n[0, 1] = 11f;
+            n[1, 1] = 12f;
+            n[2, 1] = 0f;
+            n[0, 2] = 16f;
+            n[1, 2] = 17f;
+            n[2, 2] = 18f;
+
+            o[0, 0] = 1f / 6f;
+            o[1, 0] = 0f;
+            o[2, 0] = 0f;
+            o[0, 1] = -11f / 72f;
+            o[1, 1] = 1f / 12f;
+            o[2, 1] = 0f;
+            o[0, 2] = -5f / 1296f;
+            o[1, 2] = -17f / 216f;
+            o[2, 2] = 1f / 18f;
+
+            p = !n;
+            Assert.AreEqual(o, p);
+            p = !o;
+            Assert.AreEqual(m, p);
             //Inverse of identity:
+            m = new Matrix(2);
             p = !m;
             m = new Matrix(2);
             Assert.AreEqual(m, p);
@@ -1579,7 +1618,7 @@ namespace ev3devMapping.Testing {
                 k = 0,
                 l = 0;
             while(true) {
-                if(i >= j && k >= l) m[i, j][k, l] = 6 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                if((i == j && k <= l) || (i < j)) m[i, j][k, l] = 6 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
                 k++;
                 if(i > 0) {
                     if(k > 1) {
@@ -1609,6 +1648,10 @@ namespace ev3devMapping.Testing {
                     }
                 }
             }
+            Debug.Log(m[0, 0]);
+            Debug.Log(m[1, 0]);
+            Debug.Log(m[0, 1]);
+            Debug.Log(m[1, 1]);
             c[0] = new Matrix(1,3);
             c[1] = new Matrix(1,2);
             d[0] = new Matrix(1,3);
@@ -1624,6 +1667,74 @@ namespace ev3devMapping.Testing {
             d[1][0, 0] = 91f / 31104f;
             d[1][0, 1] = 1729f / 933120f;
             Assert.AreEqual(d, m.solveLowerLeftSparse(c));
+        }
+
+        [Test]
+        [TestOf(typeof(SparseTriangularMatrix))]
+        public void SparseTriangularMatrixTestSolveUpperRightSparse() {
+            SparseTriangularMatrix m = new SparseTriangularMatrix();
+            SparseColumn c = new SparseColumn(),
+                         d = new SparseColumn();
+            m.Enlarge(2);
+            m[0, 0] = new Matrix(3);
+            m[0, 1] = new Matrix(3, 2);
+            m[1, 0] = new Matrix(2, 3);
+            m[1, 1] = new Matrix(2);
+            Assert.AreEqual(d, m.solveUpperRightSparse(c));
+            int i = 0,
+                j = 0,
+                k = 0,
+                l = 0;
+            while(true) {
+                if((i == j && k <= l) || (i < j)) m[i, j][k, l] = 6 + (i > 0 ? i * 2 + 1 : 0) + (j > 0 ? j * 10 + 5 : 0) + k + l * 5;
+                k++;
+                if(i > 0) {
+                    if(k > 1) {
+                        k = 0;
+                        i++;
+                        if(i > 1) {
+                            i = 0;
+                            l++;
+                            if(j > 0) {
+                                if(l > 1) {
+                                    l = 0;
+                                    j++;
+                                    if(j > 1) break;
+                                }
+                            } else {
+                                if(l > 2) {
+                                    l = 0;
+                                    j++;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    if(k > 2) {
+                        k = 0;
+                        i++;
+                    }
+                }
+            }
+            Debug.Log(m[0, 0]);
+            Debug.Log(m[1, 0]);
+            Debug.Log(m[0, 1]);
+            Debug.Log(m[1, 1]);
+            c[0] = new Matrix(1,3);
+            c[1] = new Matrix(1,2);
+            d[0] = new Matrix(1,3);
+            d[1] = new Matrix(1,2);
+            c[0][0, 0] = 1f;
+            c[0][0, 1] = 2f;
+            c[0][0, 2] = 3f;
+            c[1][0, 0] = 4f;
+            c[1][0, 1] = 5f;
+            d[0][0, 0] = -30875f / 186624f;
+            d[0][0, 1] = -2375f / 31104f;
+            d[0][0, 2] = -125f / 2592f;
+            d[1][0, 0] = -5f /144f;
+            d[1][0, 1] = 1f/ 6f;
+            Assert.AreEqual(d, m.solveUpperRightSparse(c));
         }
     #endregion
     }
