@@ -1023,12 +1023,8 @@ public class DefaultedSparseFloatMatrix {
     }
 
     public float this[int i, int j] {
-        get {
-            return val[i][j];
-        }
-        set {
-
-        }
+        get { return val[i][j]; }
+        set {  val[i][j] = value; }
     }
 
     public IEnumerator<KeyValuePair<int, float>> GetColumn(int i) {
@@ -1060,14 +1056,6 @@ public class SparseFloatColumn {
             return def;
         }
         set { val[j] = value; }
-    }
-
-    public void Remove(int i) {
-        val.Remove(i);
-    }
-
-    public void Clear() {
-        val.Clear();
     }
 }
 }

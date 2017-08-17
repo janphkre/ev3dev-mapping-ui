@@ -74,6 +74,8 @@ class AntColonyOptimization {
         this.nodes = nodes;
         scores = new DefaultedSparseFloatMatrix(float.NaN);
         pheromones = new DefaultedSparseFloatMatrix(float.NaN);
+        scores.Enlarge(nodes.Count);
+        pheromones.Enlarge(nodes.Count);
         for (int i = 0; i < nodes.Count; i++) {
             var connectedNodes = nodes[i].Connected;
             foreach (int c in connectedNodes) {
@@ -84,8 +86,6 @@ class AntColonyOptimization {
         this.start = start;
         this.target = target;
 
-        pheromones = new DefaultedSparseFloatMatrix(0.0f);
-        pheromones.Enlarge(nodes.Count);
         probabilities = new float[nodes.Count];
         ants = new Ant[ANT_COUNT];
         for (int i = 0; i < ANT_COUNT; i++) { ants[i] = new Ant(); }

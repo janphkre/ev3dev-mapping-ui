@@ -1,6 +1,5 @@
 ﻿using ev3devMapping.Society;
 using NUnit.Framework;
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -1227,6 +1226,7 @@ namespace ev3devMapping.Testing {
             m.Enlarge(RANDOM_ITERATIONS);
             n.Enlarge(RANDOM_ITERATIONS);
             o.Enlarge(RANDOM_ITERATIONS);
+            m.SetRowCount(RANDOM_ITERATIONS);
             n.SetRowCount(RANDOM_ITERATIONS);
             System.Random r = new System.Random();
             int i;
@@ -1236,6 +1236,9 @@ namespace ev3devMapping.Testing {
                 n[i, i] = new Matrix(size);
                 o[i, i] = new Matrix(size);
             }
+            var p = m * n;
+            Assert.IsTrue(p.RowCount() == RANDOM_ITERATIONS);
+            Assert.IsTrue(p.ColumnCount() == RANDOM_ITERATIONS);
             Assert.AreEqual(o, m * n);
             m = new SparseMatrix();
             m.Enlarge(2);
@@ -1413,7 +1416,7 @@ namespace ev3devMapping.Testing {
             }
             m.Trim(rows, RANDOM_ITERATIONS);
             Assert.AreEqual(n, m);
-            Assert.Throws<ArgumentException>(() => { m.Trim(new HashSet<int>(), RANDOM_ITERATIONS); });
+            Assert.Throws<System.ArgumentException>(() => { m.Trim(new HashSet<int>(), RANDOM_ITERATIONS); });
         }
 
         [Test]
@@ -1648,10 +1651,6 @@ namespace ev3devMapping.Testing {
                     }
                 }
             }
-            Debug.Log(m[0, 0]);
-            Debug.Log(m[1, 0]);
-            Debug.Log(m[0, 1]);
-            Debug.Log(m[1, 1]);
             c[0] = new Matrix(1,3);
             c[1] = new Matrix(1,2);
             d[0] = new Matrix(1,3);
@@ -1716,10 +1715,6 @@ namespace ev3devMapping.Testing {
                     }
                 }
             }
-            Debug.Log(m[0, 0]);
-            Debug.Log(m[1, 0]);
-            Debug.Log(m[0, 1]);
-            Debug.Log(m[1, 1]);
             c[0] = new Matrix(1,3);
             c[1] = new Matrix(1,2);
             d[0] = new Matrix(1,3);
@@ -1737,7 +1732,45 @@ namespace ev3devMapping.Testing {
             Assert.AreEqual(d, m.solveUpperRightSparse(c));
         }
     #endregion
+    #region DefaultedSparseFloatMatrix
+        [Test]
+        [TestOf(typeof(DefaultedSparseFloatMatrix))]
+        public void DefaultedSparseFloatMatrixTestValues() {
+            DefaultedSparseFloatMatrix m = new DefaultedSparseFloatMatrix(float.NaN);
+            Assert.IsTrue(m.ColumnCount() == 0);
+            m.Enlarge(10);
+            Assert.IsTrue(m.ColumnCount() == 10);
+            int i = 0;
+            for(; i < 10; i++) m[i, i] = i;
+            for(i = 6; i < 10; i++) m[5, i] = 5;
+            for (i = 0; i < 10; i++) {
+                for(int j = i; j < 10; j++) {
+                    if(i == j) Assert.AreEqual(i, m[i, i]);
+                    else if(i == 5) Assert.AreEqual(5, m[5, j]);
+                    else Assert.IsTrue(float.IsNaN(m[i, j]));
+                }
+            }
+            IEnumerator<KeyValuePair<int, float>> enumerator = m.GetColumn(5);
+            i = 0;
+            while(enumerator.MoveNext()) {
+                Assert.AreEqual(5, enumerator.Current.Value);
+                i++;
+            }
+            enumerator.Dispose();
+        }
+    #endregion
+    #region SparseFloatColumn
+        [Test]
+        [TestOf(typeof(SparseFloatColumn))]
+        public void SparseFloatColumnTestValues() {
+            SparseFloatColumn m = new SparseFloatColumn(float.NaN);
+            int i = 0;
+            for(; i < 10; i++) m[i] = i;
+            for (i = 0; i < 10; i++) Assert.AreEqual(i, m[i]);
+            for (i = 10; i < 20; i++) Assert.IsTrue(float.IsNaN(m[i]));
+        }
     }
+    #endregion
 }
 
 #pragma warning restore 0219
