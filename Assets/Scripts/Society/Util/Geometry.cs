@@ -37,10 +37,10 @@ public class Geometry {
      * See http://hdl.handle.net/10216/348                                                     *
      * Paper by R. R. Pinho, J. M. R. S Tavares and M. F. V. Correia                           *
      * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-    //Calculates the approximated mahalanobis distance between two points.
-    public static float MahalanobisDistance(Vector2 a, Vector2 b, Matrix inversedCovariance) {
+    //Calculates the non-rooted mahalanobis distance between two points.
+    public static float SquaredMahalanobisDistance(Vector2 a, Vector2 b, Matrix inversedCovariance) {
         var v = a - b;
-        return ((v.x * v.x) / inversedCovariance[0, 0]) + ((v.y * v.y) / inversedCovariance[1, 1]);//TODO: which part of the (whole) inversed covariance matrix is to be used?
+        return v.x * (v.y * (inversedCovariance[1, 0] + inversedCovariance[0, 1]) + inversedCovariance[0, 0] * v.x ) + inversedCovariance[1, 1] * v.y * v.y;
     }
 
     //Calculates the mahalanobis distance between two points.
@@ -104,7 +104,8 @@ public class Geometry {
         int r = x % y;
         return r < 0 ? r + y : r;
     }
-
+    
+    //Compares two floats with a reduced precision. This is used in the Matrix.Equals() methods.
     public static bool CompareFloats(float a, float b) {
         return Mathf.Abs(a-b) < FLOAT_PRECISION;
     }

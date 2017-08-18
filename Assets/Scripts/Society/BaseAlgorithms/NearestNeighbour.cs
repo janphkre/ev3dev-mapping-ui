@@ -27,7 +27,7 @@ class NearestNeighbour {
             Feature minimumFeature = null;
             while (features.MoveNext()) {
                 if (matchedFeatures.Contains(features.Current.index)) continue;
-                var currentDistance = Geometry.MahalanobisDistance(features.Current.feature, measurementTranslated, featureInversedCovariance[features.Current.index, features.Current.index]);
+                var currentDistance = Geometry.SquaredMahalanobisDistance(features.Current.feature, measurementTranslated, featureInversedCovariance[features.Current.index, features.Current.index]);
                 if (currentDistance < minimumDistance) {
                     minimumDistance = currentDistance;
                     minimumFeature = features.Current;
