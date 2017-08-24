@@ -175,14 +175,15 @@ public class ServerMap : NetworkBehaviour {
                     gridSize = 1f;
                 } else {
                     gridOffset = new Vector2();
-                    float maxEstimationDistance = Geometry.EuclideanDistance(Vector3.zero, clientMap.lastGlobalPose.pose);
+                    float maxEstimationDistance = Geometry.SquaredEuclideanDistance(Vector2.zero, clientMap.lastGlobalPose.pose);
                     lock (clientMaps) {
                         foreach (KeyValuePair<int, ServerClientItem> pair in clientMaps) {
                             if (!clientMap.wasMatched) continue;
-                            var currentDistance = Geometry.EuclideanDistance(pair.Value.lastGlobalPose.pose, clientMap.lastGlobalPose.pose);
+                            var currentDistance = Geometry.SquaredEuclideanDistance(pair.Value.lastGlobalPose.pose, clientMap.lastGlobalPose.pose);
                             if (currentDistance > maxEstimationDistance) maxEstimationDistance = currentDistance;
                         }
                     }
+                    maxEstimationDistance = Mathf.Sqrt(maxEstimationDistance);
                     if (maxEstimationDistance == 0.0f) maxEstimationDistance = 1.0f;
                     float radius = 0.0f;
                     int featureCount = 0;

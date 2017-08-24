@@ -7,8 +7,8 @@ public enum TachometerPosition { Differential, Left, Right }
 public class Physics : MonoBehaviour, ItemCopy<Physics>
 {
     public float turningRadius = 1.19f;
-	public float wheelDiameterMm=94.8f;
-	public float wheelbaseMm=185.0f;
+	public float wheelDiameterMm = 94.8f;
+	public float wheelbaseMm = 185.0f;
 	public int encoderCountsPerRotation=360;
 	public int maxEncoderCountsPerSecond=1000;
 	public bool reverseMotorPolarity=false;
@@ -17,7 +17,7 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
     //Calculated at start:
     public float turningRadiusSquared;
     public float turningRadiusAngledSquared;
-    public float innerTurningDiameter;
+    public float turningDiameter;
     public float halfWheelbase;
     public float differentialRadiusCounts;
     public float distancePerEncoderCountMm;
@@ -28,7 +28,7 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
 	}
 	
     public void Calculate() {
-        innerTurningDiameter = 2f * turningRadius - (wheelbaseMm / 1000.0f);
+        turningDiameter = 2f * turningRadius;
         turningRadiusSquared = turningRadius * turningRadius;
         turningRadiusAngledSquared = Mathf.Sqrt(2f * turningRadiusSquared);
         halfWheelbase = wheelbaseMm / 2000.0f;

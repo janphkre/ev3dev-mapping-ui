@@ -138,11 +138,11 @@ public class GlobalClientMap: Behaviour {
             int j = 0;
             foreach (List<Feature> collection in globalStateCollection) {
                 RobotPose collectionPose = collection[0].ParentPose();
-                float estimationError = SLAMRobot.ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * globalStateCollection.Count * (Geometry.EuclideanDistance(collectionPose.pose, lastPose.pose));
+                float estimationError = SLAMRobot.ROBOT_UNCERTAINTY + ESTIMATION_ERROR_RATE * globalStateCollection.Count * (Geometry.EuclideanDistance((Vector2) collectionPose.pose, lastPose.pose));
                 if ((localMap.end - start).magnitude <= estimationError + localMap.radius + collectionPose.radius) {
                     //2.1.2) Find the set of potentially matched features:
                     for (int i = 0; i < collection.Count; i++) {
-                        if (Geometry.EuclideanDistance(localMap.end, collection[i].feature) <= estimationError + localMap.radius) {
+                        if (Geometry.EuclideanDistance((Vector2) localMap.end, collection[i].feature) <= estimationError + localMap.radius) {
                             prematchedFeatures.Add(collection[i].index);//Like this the matchedFeatures should be sorted at all times.
                             if (estimationError > maxEstimationError) maxEstimationError = estimationError;
                         }

@@ -16,10 +16,14 @@ public class Geometry {
         return (b - a).magnitude;
     }
 
-    //Calculates the distance between two points.
-    public static float EuclideanDistance(Vector3 a, Vector3 b) {
-        return (b - a).magnitude;
+    public static float SquaredEuclideanDistance(Vector2 a, Vector2 b) {
+        return (b - a).sqrMagnitude;
     }
+
+    //Calculates the distance between two points.
+    /*public static float EuclideanDistance(Vector3 a, Vector3 b) {
+        return (b - a).magnitude;
+    }*/
 
     //Calculates the distance between two points. a.y is ignored.
     public static float EuclideanDistance(Vector3 a, Vector2 b) {
@@ -53,10 +57,10 @@ public class Geometry {
     public static float Radius(Vector2 pos, Vector2[] features) {
         float max = 0f;
         foreach(Vector4 feature in features) {
-            float distance = EuclideanDistance(pos, feature);
+            float distance = SquaredEuclideanDistance(pos, feature);
             if (max < distance) max = distance;
         }
-        return max;
+        return Mathf.Sqrt(max);
     }
 
     //Feature is rotated around end by z (in degrees)
@@ -69,7 +73,7 @@ public class Geometry {
     public static Vector2 ToRangeBearing(Vector2 feat, Vector3 origin) {
         var f = feat - (Vector2) origin;
         var result = new Vector2(Mathf.Abs(f.magnitude), -origin.z);
-        result.y += Mathf.Atan2(f.x, f.y);
+        result.y += Mathf.Atan2(f.y, f.x);
         return result;
     }
 
@@ -78,7 +82,7 @@ public class Geometry {
     public static Vector2 ToRangeBearing(Vector3 feat, Vector3 origin) {
         var f = new Vector2(feat.x - origin.x, feat.z - origin.y);
         var result = new Vector2(Mathf.Abs(f.magnitude), -origin.z);
-        result.y += Mathf.Atan2(f.x, f.y);
+        result.y += Mathf.Atan2(f.y, f.x);
         return result;
     }
 
@@ -94,8 +98,8 @@ public class Geometry {
 
     //Checks wether the feature, provided as range and bearing, is within currently the drivable funnel of the 
     public static bool IsWithinFunnel(Vector2 featureRB) {
-        if (featureRB.y == 0) return true;
-        return Mathf.Sin(Mathf.Abs(featureRB.y)) * MainMenu.Physics.innerTurningDiameter - MainMenu.Physics.halfWheelbase < featureRB.x;
+        if (featureRB.y == 0f) return true;
+        return Mathf.Sin(Mathf.Abs(featureRB.y)) * MainMenu.Physics.turningDiameter - MainMenu.Physics.halfWheelbase < featureRB.x;
         //This is not completly correct. The turning circle should only be moved half wheelbase to the side!
     }
 

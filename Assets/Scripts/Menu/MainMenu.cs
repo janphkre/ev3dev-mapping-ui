@@ -3,6 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
 using System.IO;
+using ev3devMapping.Testing;
 
 namespace ev3devMapping {
 
@@ -10,7 +11,7 @@ public class MainMenu : MonoBehaviour {
 
     public const string BASE_SCENE = "Base";
     public const string MAIN_MENU_SCENE = "MainMenu";
-    public const string TESTING_PLANNING_SCENE = "TestingPlanning";
+    public const string TESTING_PLANNING_SCENE = "TestingPlaning";
 
     public const string SETTINGS = "settings.txt";
     public static readonly string[] INPUT_FIELDS = {
@@ -160,8 +161,8 @@ public class MainMenu : MonoBehaviour {
                 reader.Close();
                 reader.Dispose();
             }
-            //GameObject.Find("Robot").GetComponent<RobotNetworking>().OnStartLocalPlayer();
-
+            GameObject r = Instantiate(robotPrefab, SceneManager.DynamicObjects);
+            //r.GetComponent<RobotNetworking>().OnStartLocalPlayer();
         }
     }
 }

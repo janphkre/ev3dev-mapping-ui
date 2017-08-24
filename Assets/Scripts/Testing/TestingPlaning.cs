@@ -1,17 +1,39 @@
-﻿using UnityEngine;
+﻿using System;
+using ev3devMapping.Society;
+using NUnit.Framework;
+using UnityEngine;
 
-//This script is attached to the "Robot" GameObject.
+namespace ev3devMapping.Testing {
 
-class TestingPlaning : MonoBehaviour {
+    //This script is attached to the "Robot" GameObject.
+    public class TestingPlaning : ITesting {
 
-    internal Planing planing;
-    internal PlaningInputData sampleInput;
+        public GameObject GraphObj;
+        public PointCloud laserPointCloud;
 
-    public void Start() {
-        planing = gameObject.GetComponentInChildren<Planing>();
-        sampleInput = new PlaningInputData();
-        sampleInput.Read();
-        //Perform tests here:
+        public void Start() {
+            GraphTestSampleInput();
+        }
+        
+        public void GraphTestSampleInput() {
+            Vector2 v;
 
+            PlaningInputData sampleInput = new PlaningInputData();
+            sampleInput.Read();
+            GraphObj = Instantiate(GraphObj, SceneManager.DynamicObjects);
+            Graph graph = GraphObj.GetComponent<Graph>();
+            graph.Feed(sampleInput);
+
+            Assert.IsTrue(graph.HasUnvisitedNodes());            
+            Assert.IsTrue(graph.GetNewTarget(out v));
+            Assert.IsTrue(graph.UnvisitedNodeCount() > 0);
+
+            laserPointCloud = Instantiate(laserPointCloud, SceneManager.DynamicObjects);
+            laserPointCloud.numberOfPoints = sampleInput.Readings.Length;
+            laserPointCloud.Awake();
+            laserPointCloud.SetVertices(sampleInput.Readings);
+            Debug.Log(graph.UnvisitedNodeCount());
+            graph.DisplayNodes(graph.UnvisitedNodeCount());
+        }
     }
 }

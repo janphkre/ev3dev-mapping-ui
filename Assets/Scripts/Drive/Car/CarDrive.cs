@@ -74,7 +74,13 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         packet.param1 = STEER_BACKWARD;
         Send(packet);
     }
-
+    
+    public void DriveAhead(bool backwards) {
+        packet.timestamp_us = Timestamp.TimestampUs();
+        packet.command = backwards ? CarDrivePacket.Commands.BACKWARD : CarDrivePacket.Commands.FORWARD;
+        Send(packet);
+    }
+    
     private short CalculateSegment(float segment) {
         if (MainMenu.Physics.Differential == TachometerPosition.Differential) {
             segment *= MainMenu.Physics.turningRadius;

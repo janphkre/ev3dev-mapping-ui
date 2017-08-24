@@ -237,7 +237,11 @@ public class Graph : MonoBehaviour {
         sendCounter %= SEND_FREQUENCY;
         if (sendCounter == 0) NetworkManager.singleton.client.SendUnreliable((short)MessageType.ClientGraph, message);
         //Display nodes:
-        map.ProcessNodes(nodes, lastMatchedCounter);
+        DisplayNodes(lastMatchedCounter);
+    }
+
+    public void DisplayNodes(int count) {
+        map.ProcessNodes(nodes, count);
     }
 
     //Returns a new target in the "unexplored" territory the robot is atm in.
@@ -250,6 +254,10 @@ public class Graph : MonoBehaviour {
         }
         result = Vector2.zero;
         return false;
+    }
+
+    public int UnvisitedNodeCount() {
+        return unvisitedNodes.Count;
     }
 
     public bool HasUnvisitedNodes() {

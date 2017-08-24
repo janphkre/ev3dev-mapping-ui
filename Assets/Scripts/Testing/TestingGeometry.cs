@@ -21,10 +21,24 @@ namespace ev3devMapping.Testing {
 
             Assert.AreEqual(Math.Sqrt(149.0d), Geometry.EuclideanDistance(new Vector2(10.0f, 10.0f), new Vector2(20.0f, 17.0f)), DELTA);
             Assert.AreEqual(0.0d, Geometry.EuclideanDistance(new Vector2(23.5f, 23.5f), new Vector2(23.5f, 23.5f)), DELTA);
-            Assert.AreEqual(153.08, Geometry.EuclideanDistance(new Vector2(48.5f, -11.9f), new Vector2(-66.8f, 88.8f)), 0.01d);
+            Assert.AreEqual(153.08d, Geometry.EuclideanDistance(new Vector2(48.5f, -11.9f), new Vector2(-66.8f, 88.8f)), 0.01d);
+
+            //Squared Vector2, Vector2
+            Assert.AreEqual(0.0d, Geometry.SquaredEuclideanDistance(Vector2.zero, Vector2.zero), DELTA);
+            Assert.AreEqual(1.0d, Geometry.SquaredEuclideanDistance(new Vector2(0.0f, 1.0f), Vector2.zero), DELTA);
+            Assert.AreEqual(1.0d, Geometry.SquaredEuclideanDistance(new Vector2(1.0f, 0.0f), Vector2.zero), DELTA);
+            Assert.AreEqual(1.0d, Geometry.SquaredEuclideanDistance(Vector2.zero, new Vector2(1.0f, 0.0f)), DELTA);
+            Assert.AreEqual(1.0d, Geometry.SquaredEuclideanDistance(Vector2.zero, new Vector2(0.0f, 1.0f)), DELTA);
+            Assert.AreEqual(2.0d, Geometry.SquaredEuclideanDistance(new Vector2(1.0f, 1.0f), Vector2.zero), DELTA);
+            Assert.AreEqual(2.0d, Geometry.SquaredEuclideanDistance(Vector2.zero, new Vector2(1.0f, 1.0f)), DELTA);
+
+            Assert.AreEqual(149.0d, Geometry.SquaredEuclideanDistance(new Vector2(10.0f, 10.0f), new Vector2(20.0f, 17.0f)), DELTA);
+            Assert.AreEqual(0.0d, Geometry.SquaredEuclideanDistance(new Vector2(23.5f, 23.5f), new Vector2(23.5f, 23.5f)), DELTA);
+            Assert.AreEqual(23434.58d, Geometry.SquaredEuclideanDistance(new Vector2(48.5f, -11.9f), new Vector2(-66.8f, 88.8f)), 0.01d);
+
 
             //Vector3, Vector3
-            Assert.AreEqual(0.0d, Geometry.EuclideanDistance(Vector3.zero, Vector3.zero), DELTA);
+            /*Assert.AreEqual(0.0d, Geometry.EuclideanDistance(Vector3.zero, Vector3.zero), DELTA);
             Assert.AreEqual(1.0d, Geometry.EuclideanDistance(new Vector3(0.0f, 1.0f), Vector3.zero), DELTA);
             Assert.AreEqual(1.0d, Geometry.EuclideanDistance(new Vector3(1.0f, 0.0f), Vector3.zero), DELTA);
             Assert.AreEqual(1.0d, Geometry.EuclideanDistance(Vector3.zero, new Vector3(1.0f, 0.0f)), DELTA);
@@ -34,7 +48,7 @@ namespace ev3devMapping.Testing {
 
             Assert.AreEqual(Math.Sqrt(149.0d), Geometry.EuclideanDistance(new Vector3(10.0f, 10.0f), new Vector3(20.0f, 17.0f)), DELTA);
             Assert.AreEqual(0.0d, Geometry.EuclideanDistance(new Vector3(23.5f, 23.5f), new Vector3(23.5f, 23.5f)), DELTA);
-            Assert.AreEqual(153.08, Geometry.EuclideanDistance(new Vector3(48.5f, -11.9f), new Vector3(-66.8f, 88.8f)), 0.01d);
+            Assert.AreEqual(153.08, Geometry.EuclideanDistance(new Vector3(48.5f, -11.9f), new Vector3(-66.8f, 88.8f)), 0.01d);*/
 
             //Vector3, Vector2
             Assert.AreEqual(0.0d, Geometry.EuclideanDistance(Vector3.zero, Vector2.zero), DELTA);
@@ -158,6 +172,112 @@ namespace ev3devMapping.Testing {
             b = new Vector2(9f, 10f);
             Assert.AreEqual(Mathf.Sqrt(72f), Geometry.RealMahalanobisDistance(a, b, m), DELTA);
             Assert.AreEqual(72f, Geometry.SquaredMahalanobisDistance(a, b, m), DELTA);
+        }
+
+        [Test]
+        [TestOf(typeof(Geometry))]
+        public void GeometryTestRadius() {
+            Vector2[] f = new Vector2[5];
+            f[0] = new Vector2(1f, 2f);
+            f[1] = new Vector2(4f, 3f);
+            f[2] = new Vector2(9f, 9f);
+            f[3] = new Vector2(5f, 6f);
+            f[4] = new Vector2(8f, 7f);
+            Assert.AreEqual(Mathf.Sqrt(162f), Geometry.Radius(Vector2.zero, f), DELTA);
+            Assert.AreEqual(Mathf.Sqrt(313f), Geometry.Radius(new Vector2(-3f, -4f), f), DELTA);
+        }
+
+        [Test]
+        [TestOf(typeof(Geometry))]
+        public void GeometryTestRangeBearing() {
+            //Vector2, Vector3
+            Assert.AreEqual(Vector2.zero, Geometry.ToRangeBearing(Vector2.zero, Vector3.zero));
+            Assert.AreEqual(Vector2.zero, Geometry.ToRangeBearing(new Vector2(1.0f, 1.0f), new Vector3(1.0f, 1.0f, 0.0f)));
+            Assert.AreEqual(new Vector2(1.0f, 0.0f), Geometry.ToRangeBearing(new Vector2(1.0f, 0.0f), Vector3.zero));
+            Assert.AreEqual(new Vector2(1.0f, Geometry.HALF_CIRCLE), Geometry.ToRangeBearing(new Vector2(-1.0f, 0.0f), Vector3.zero));
+            Assert.AreEqual(new Vector2(2.0f, Geometry.RIGHT_ANGLE), Geometry.ToRangeBearing(new Vector2(0.0f, 2.0f), Vector3.zero));
+            Assert.AreEqual(new Vector2(3.0f, 0.0f), Geometry.ToRangeBearing(new Vector2(0.0f, 3.0f), new Vector3(0.0f, 0.0f, Geometry.RIGHT_ANGLE)));
+            Assert.AreEqual(new Vector2(4.0f, Geometry.RIGHT_ANGLE), Geometry.ToRangeBearing(new Vector2(-3.0f, 0.0f), new Vector3(1.0f, 0.0f, Geometry.RIGHT_ANGLE)));
+
+            //Vector3, Vector3
+            Assert.AreEqual(Vector2.zero, Geometry.ToRangeBearing(new Vector3(0.0f, float.NaN, 0.0f), Vector3.zero));
+            Assert.AreEqual(Vector2.zero, Geometry.ToRangeBearing(new Vector3(1.0f, float.NaN, 1.0f), new Vector3(1.0f, 1.0f, 0.0f)));
+            Assert.AreEqual(new Vector2(1.0f, 0.0f), Geometry.ToRangeBearing(new Vector3(1.0f, float.NaN, 0.0f), Vector3.zero));
+            Assert.AreEqual(new Vector2(1.0f, Geometry.HALF_CIRCLE), Geometry.ToRangeBearing(new Vector3(-1.0f, float.NaN, 0.0f), Vector3.zero));
+            Assert.AreEqual(new Vector2(2.0f, Geometry.RIGHT_ANGLE), Geometry.ToRangeBearing(new Vector3(0.0f, float.NaN, 2.0f), Vector3.zero));
+            Assert.AreEqual(new Vector2(3.0f, 0.0f), Geometry.ToRangeBearing(new Vector3(0.0f, float.NaN, 3.0f), new Vector3(0.0f, 0.0f, Geometry.RIGHT_ANGLE)));
+            Assert.AreEqual(new Vector2(4.0f, Geometry.RIGHT_ANGLE), Geometry.ToRangeBearing(new Vector3(-3.0f, float.NaN, 0.0f), new Vector3(1.0f, 0.0f, Geometry.RIGHT_ANGLE)));
+
+            Assert.AreEqual(new Vector2(2.0f, -Geometry.RIGHT_ANGLE), Geometry.ToRangeBearing(new Vector3(0.0f, float.NaN, -2.0f), Vector3.zero));
+            Assert.AreEqual(new Vector2(4.0f, Geometry.HALF_CIRCLE + Geometry.RIGHT_ANGLE), Geometry.ToRangeBearing(new Vector3(-3.0f, float.NaN, 0.0f), new Vector3(1.0f, 0.0f, -Geometry.RIGHT_ANGLE)));
+
+            //float, float
+            Assert.AreEqual(Vector2.zero, Geometry.FromRangeBearing(0.0f, 0.0f));
+            Assert.AreEqual(new Vector2(5.0f,0.0f), Geometry.FromRangeBearing(5.0f, 0.0f));
+            Vector2 v = Geometry.FromRangeBearing(5.0f, Geometry.FULL_CIRCLE);
+            Assert.AreEqual(5.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, Geometry.HALF_CIRCLE);
+            Assert.AreEqual(-5.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, Geometry.RIGHT_ANGLE);
+            Assert.AreEqual(0.0f, v.x, DELTA);
+            Assert.AreEqual(5.0f, v.y, DELTA);
+            
+            //float, float, Vector3
+            v = Geometry.FromRangeBearing(0.0f, 0.0f, Vector3.zero);
+            Assert.AreEqual(0.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, 0.0f, Vector3.zero);
+            Assert.AreEqual(5.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, Geometry.FULL_CIRCLE, Vector3.zero);
+            Assert.AreEqual(5.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, Geometry.HALF_CIRCLE, Vector3.zero);
+            Assert.AreEqual(-5.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, Geometry.RIGHT_ANGLE, Vector3.zero);
+            Assert.AreEqual(0.0f, v.x, DELTA);
+            Assert.AreEqual(5.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(0.0f, 0.0f, new Vector3(1.0f, 1.0f, 0.0f));
+            Assert.AreEqual(1.0f, v.x, DELTA);
+            Assert.AreEqual(1.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, 0.0f, new Vector3(1.0f, 1.0f, Geometry.RIGHT_ANGLE));
+            Assert.AreEqual(1.0f, v.x, DELTA);
+            Assert.AreEqual(6.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, Geometry.FULL_CIRCLE, new Vector3(1.0f, 1.0f, Geometry.FULL_CIRCLE));
+            Assert.AreEqual(6.0f, v.x, DELTA);
+            Assert.AreEqual(1.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, Geometry.HALF_CIRCLE, new Vector3(1.0f, 1.0f, Geometry.RIGHT_ANGLE));
+            Assert.AreEqual(1.0f, v.x, DELTA);
+            Assert.AreEqual(-4.0f, v.y, DELTA);
+            v = Geometry.FromRangeBearing(5.0f, Geometry.RIGHT_ANGLE, new Vector3(1.0f, 1.0f, Geometry.HALF_CIRCLE));
+            Assert.AreEqual(1.0f, v.x, DELTA);
+            Assert.AreEqual(-4.0f, v.y, DELTA);
+
+            //Rotate
+            v = Geometry.Rotate(Vector2.zero, Vector3.zero, 0.0f);
+            Assert.AreEqual(0.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.Rotate(new Vector2(0.0f, -1.0f), Vector3.zero, Geometry.RIGHT_ANGLE);
+            Assert.AreEqual(1.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.Rotate(new Vector2(0.0f, -5.0f), Vector3.zero, Geometry.HALF_CIRCLE);
+            Assert.AreEqual(0.0f, v.x, DELTA);
+            Assert.AreEqual(5.0f, v.y, DELTA);
+            v = Geometry.Rotate(new Vector2(0.0f, 5.0f), Vector3.zero, Geometry.FULL_CIRCLE);
+            Assert.AreEqual(0.0f, v.x, DELTA);
+            Assert.AreEqual(5.0f, v.y, DELTA);
+            v = Geometry.Rotate(new Vector2(0.0f, 5.0f), new Vector3(0.0f, 0.0f, Geometry.RIGHT_ANGLE), Geometry.FULL_CIRCLE);
+            Assert.AreEqual(0.0f, v.x, DELTA);
+            Assert.AreEqual(5.0f, v.y, DELTA);
+            v = Geometry.Rotate(new Vector2(0.0f, 5.0f), new Vector3(0.0f, 0.0f, Geometry.RIGHT_ANGLE), Geometry.RIGHT_ANGLE);
+            Assert.AreEqual(-5.0f, v.x, DELTA);
+            Assert.AreEqual(0.0f, v.y, DELTA);
+            v = Geometry.Rotate(new Vector2(0.0f, 5.0f), new Vector3(0.0f, 0.0f, Geometry.RIGHT_ANGLE), Geometry.HALF_CIRCLE);
+            Assert.AreEqual(0.0f, v.x, DELTA);
+            Assert.AreEqual(-5.0f, v.y, DELTA);
         }
     }
 }

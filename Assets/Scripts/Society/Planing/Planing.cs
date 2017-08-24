@@ -60,6 +60,11 @@ public class PlaningInputData {
             ReadingsRB = new Vector2[count];
             while (!reader.EndOfStream && i < count) {
                 V2Parse(reader.ReadLine(), out Readings[i], out ReadingsRB[i]);
+                if(ReadingsRB[i].y > Geometry.HALF_CIRCLE) {
+                    ReadingsRB[i].y -= Geometry.FULL_CIRCLE;
+                } else if(ReadingsRB[i].y < -Geometry.HALF_CIRCLE) {
+                    ReadingsRB[i].y += Geometry.FULL_CIRCLE;
+                }
                 i++;
             }
             reader.Close();
@@ -246,7 +251,12 @@ public class Planing : MonoBehaviour {
     private void calculateRB() {
         PositionData pos = positionHistory.GetNewestThreadSafe();
         lastLaserReadings.LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading * Mathf.PI / 180f);
-        for (int i = 0; i < lastLaserReadings.Readings.Length; i++) lastLaserReadings.ReadingsRB[i] = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], lastLaserReadings.LastPose);
+        for (int i = 0; i < lastLaserReadings.Readings.Length; i++) {
+            var rb = Geometry.ToRangeBearing(lastLaserReadings.Readings[i], lastLaserReadings.LastPose);
+            if(rb.y > Geometry.HALF_CIRCLE) lastLaserReadings.ReadingsRB[i].y -= Geometry.FULL_CIRCLE;
+            else if(rb.y < -Geometry.HALF_CIRCLE) rb.y += Geometry.FULL_CIRCLE;
+            lastLaserReadings.ReadingsRB[i] = rb;
+        }
     }
 
     private bool obstaclePlaning() {
@@ -254,11 +264,8 @@ public class Planing : MonoBehaviour {
         if (targetRB.x < TARGET_RADIUS) {
             //Reached the current target.
             lock (currentTarget) currentTarget.Pop();
+            obstacles = null;
             return false;
-        }
-        if (!Geometry.IsWithinFunnel(targetRB)) {
-            //TODO! the target is not in the current reachable funnel. Do something
-            throw new NotImplementedException();
         }
         positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, Geometry.RIGHT_ANGLE, lastLaserReadings.LastPose);
         negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, lastLaserReadings.LastPose);
@@ -270,12 +277,14 @@ public class Planing : MonoBehaviour {
                 currentTarget.Pop();
                 currentTarget.Push(TargetCommand.Backtrack);
             }
+            obstacles = null;
             return false;
         }
         if (backwards) {
             //Try to turn around in a two/three point turn:
             if (hypothesizeTurn(unobstructedRadius)) {
                 backwards = false;
+                obstacles = null;
                 return true;
             }
             //Continue to go backwards:
@@ -284,14 +293,27 @@ public class Planing : MonoBehaviour {
             targetRB.y += Geometry.HALF_CIRCLE;
             targetRB.y %= Geometry.FULL_CIRCLE;
             unobstructedRadius = findBothUnobstructedRadius(out obstacles);
+            if (unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
+                //Reached a dead end.
+                steering.Halt();
+                lock (currentTarget) {
+                    currentTarget.Pop();
+                    currentTarget.Push(TargetCommand.Backtrack);
+                }
+                obstacles = null;
+                return false;
+            }
         }
-        if (Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
+        if (!Geometry.IsWithinFunnel(targetRB) || Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
+            //The target is not in the current reachable funnel. Move forward.
             //The robot is facing towards the target. No turn is needed.
-            targetRB.y = 0.0f;
+            steering.DriveAhead(backwards);
+            return true;
+        } else {
+            float steeringSegment = findSteeringSegment(unobstructedRadius, targetRB);
+            steering.Steer(steeringSegment, backwards);
         }
-        float steeringSegment = findSteeringSegment(unobstructedRadius, targetRB);
         obstacles = null;
-        steering.Steer(steeringSegment, backwards);
         return true;
     }
 

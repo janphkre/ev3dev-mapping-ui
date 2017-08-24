@@ -1,5 +1,6 @@
-﻿namespace ev3devMapping.Testing {
-    public abstract class ITesting {
+﻿using UnityEngine;
+namespace ev3devMapping.Testing {
+    public abstract class ITesting: MonoBehaviour {
         public static double DELTA = 0.0001d;
         public static double DELTA_2 = 0.01d;
 
