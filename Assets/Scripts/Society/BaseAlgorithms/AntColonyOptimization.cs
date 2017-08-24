@@ -29,13 +29,20 @@ class AntColonyOptimization {
     private Ant[] ants;
 
     private class Ant {
+        
+        public float Score { get; private set; }
 
-        private float score = 0.0f;
         private LinkedList<int> path = new LinkedList<int>();
         private HashSet<int> visited = new HashSet<int>();
+        
+        public Ant() {
+            Score = 0.0f;
+            path = new LinkedList<int>();
+            visited = new HashSet<int>();    
+        }
 
         public void Clear() {
-            score = 0.0f;
+            Score = 0.0f;
             path.Clear();
             visited.Clear();
         }
@@ -43,7 +50,7 @@ class AntColonyOptimization {
         public void Add(int i, float scoreAddition) {
             path.AddLast(i);
             visited.Add(i);
-            score += scoreAddition;
+            Score += scoreAddition;
         }
 
         public void RemoveLast(float scoreSubstraction) {
@@ -59,10 +66,6 @@ class AntColonyOptimization {
 
         public int Previous {
             get { return path.Last.Previous.Value; }
-        }
-
-        public float Score {
-            get { return Score; }
         }
 
         public IEnumerator<int> GetPath() {
