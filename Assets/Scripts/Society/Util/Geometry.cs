@@ -96,13 +96,6 @@ public class Geometry {
         return new Vector2((posRange * Mathf.Cos(posBearing + origin.z)) + origin.x, (posRange * Mathf.Sin(posBearing + origin.z)) + origin.y);
     }
 
-    //Checks wether the feature, provided as range and bearing, is within currently the drivable funnel of the 
-    public static bool IsWithinFunnel(Vector2 featureRB) {
-        if (featureRB.y == 0f) return true;
-        return Mathf.Sin(Mathf.Abs(featureRB.y)) * MainMenu.Physics.turningDiameter - MainMenu.Physics.halfWheelbase < featureRB.x;
-        //This is not completly correct. The turning circle should only be moved half wheelbase to the side!
-    }
-
     //Mathematical Modulo (Non-Symmetrical)
     public static int Modulo(int x, int y) {
         int r = x % y;

@@ -76,6 +76,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   CirclePrefab: {fileID: 1436171459923692, guid: d28ced70374d6cb448639ba812150cf6,
     type: 2}
+  EdgePrefab: {fileID: 1675068530329876, guid: 5003445f3b525c546a74e474767879cb, type: 2}
 --- !u!114 &114958291430546058
 MonoBehaviour:
   m_ObjectHideFlags: 1

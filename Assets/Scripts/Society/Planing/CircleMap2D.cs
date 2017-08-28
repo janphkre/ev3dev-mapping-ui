@@ -4,33 +4,100 @@ using UnityEngine;
 namespace ev3devMapping.Society {
 
 public class CircleMap2D : Object {
-
+    
+    private class Circle {
+        public GameObject GameObj { get; private set; }
+        public List<int[]> Connected {get; private set; }
+        
+        public Circle(GameObject gameObj) {
+                GameObj = gameObj;
+                Connected = new List<int[]>();
+        }
+    }
+    
     public const float MAP_HEIGHT = 0.0f;
     public const float ITEM_HEIGHT = 0.01f;
-    private GameObject prefab;
+    private GameObject prefabCircle;
+    private GameObject prefabEdge;
     private Transform container;
-    private LinkedList<GameObject> circles = new LinkedList<GameObject>();
-
-    public CircleMap2D(GameObject circle) {
-        prefab = circle;
+    private List<Circle> circles = new List<Circle>();
+    private List<LineRenderer> edges = new List<LineRenderer>();
+    
+    public CircleMap2D(GameObject circle, GameObject edge) {
+        prefabCircle = circle;
+        prefabEdge = edge;
         container = new GameObject("CircleMap2D").transform;
         container.parent = SceneManager.DynamicObjects;
     }
 
-    public void ProcessNodes(List<GraphNode> nodes, int count) {
-        int i = 0;
-        foreach(GameObject circle in circles) {
-            Vector2 position = nodes[i++].Position;
-            circle.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
-        }
-        while(i < count) {
-            GameObject circle = Instantiate(prefab, container);
+    public void ProcessNodes(List<GraphNode> nodes, int count, List<int> unvisitedNodes) {
+        int i = 0,
+            j = 0;
+        foreach (Circle circle in circles) {
             Vector2 position = nodes[i].Position;
-            circle.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
-            circle.transform.localScale = new Vector3(nodes[i].radius, ITEM_HEIGHT, nodes[i].radius);
-            circles.AddLast(circle);
+            circle.GameObj.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
+            var material = circle.GameObj.GetComponent<MeshRenderer>().material;
+            if (i == unvisitedNodes[j]) j++;
+            else material.color = Color.white;
+            for (int k = 0; k < circle.Connected.Count; k++) {
+                //Existing edges:
+                //circle.Connected[i] = nodes[i].Connected[k];
+                edges[circle.Connected[k][0]].SetPosition(circle.Connected[k][1], circle.GameObj.transform.position);
+                
+            }
+            for (int k = circle.Connected.Count; k < nodes[i].Connected.Count; k++) {
+                //New edges:
+                if (nodes[i].Connected[k] > i) {
+                    int[] c = new int[2];
+                    c[0] = nodes[i].Connected[k];
+                    c[1] = 1;
+                    circle.Connected.Add(c);
+                } else {
+                    int[] c = new int[2];
+                    c[0] = edges.Count;
+                    c[1] = 0;
+                    circle.Connected.Add(c);
+                    circles[nodes[i].Connected[k]].Connected[circles[nodes[i].Connected[k]].Connected.FindIndex((int[] l) => { return l[0] == i; })][0] = edges.Count;
+                    edges.Add(createEdge(nodes[nodes[i].Connected[k]], nodes[i], "Edge" + nodes[i].Connected[k] + "," + i));
+                }
+            }
             i++;
         }
+        while(i < count) {
+            Circle circle = new Circle(Instantiate(prefabCircle, container));
+            circle.GameObj.name = "Circle"+i;
+            Vector2 position = nodes[i].Position;
+            circle.GameObj.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
+            circle.GameObj.transform.localScale = new Vector3(nodes[i].radius, ITEM_HEIGHT, nodes[i].radius);
+            for(int k = 0; k < nodes[i].Connected.Count; k++) {
+                if (nodes[i].Connected[k] > i) {
+                    int[] c = new int[2];
+                    c[0] = nodes[i].Connected[k];
+                    c[1] = 1;
+                    circle.Connected.Add(c);
+                } else {
+                    int[] c = new int[2];
+                    c[0] = edges.Count;
+                    c[1] = 0;
+                    circle.Connected.Add(c);
+                    circles[nodes[i].Connected[k]].Connected[circles[nodes[i].Connected[k]].Connected.FindIndex((int[] l) => { return l[0] == i; })][0] = edges.Count;
+                    edges.Add(createEdge(nodes[nodes[i].Connected[j]], nodes[i], "Edge" + nodes[i].Connected[j] + "," + i));
+                }
+                
+            }
+            circles.Add(circle);
+            i++;
+        }
+    }
+
+    private LineRenderer createEdge(GraphNode a, GraphNode b, string name) {
+        GameObject edge = Instantiate(prefabEdge, container);
+        edge.name = name;
+        edge.transform.parent = container;
+        LineRenderer line = edge.GetComponent<LineRenderer>();
+        Vector3[] positions = { new Vector3(a.Position.x, MAP_HEIGHT, a.Position.y), new Vector3(b.Position.x, MAP_HEIGHT, b.Position.y) };
+        line.SetPositions(positions);
+        return line;
     }
 }
 }

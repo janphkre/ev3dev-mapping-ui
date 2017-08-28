@@ -63,7 +63,8 @@ public class Graph : MonoBehaviour {
     public const int SEND_FREQUENCY = 20;
 
     public GameObject CirclePrefab;
-
+    public GameObject EdgePrefab;
+    
     //Synchronized:
     private GraphNodeList nodes;
     private IntList unvisitedNodes;
@@ -80,7 +81,7 @@ public class Graph : MonoBehaviour {
         nodes = new GraphNodeList();
         unvisitedNodes = new IntList();
         message = new GraphMessage(nodes, unvisitedNodes);
-        map = new CircleMap2D(CirclePrefab);
+        map = new CircleMap2D(CirclePrefab, EdgePrefab);
     }
 
     //Builds the graph with the provided laser readings.
@@ -113,7 +114,7 @@ public class Graph : MonoBehaviour {
             if (closestDistance > ROBOT_NODE_DISTANCE) {
                 //Find the closest obstacle:
                 float closestReading = lastLaserReadings.ReadingsRB[0].x;
-                for (int i = 1; i < lastLaserReadings.Readings.Length; i++) {
+                for (int i = 1; i < lastLaserReadings.ReadingsCount; i++) {
                     if (lastLaserReadings.ReadingsRB[i].x < closestReading) closestReading = lastLaserReadings.ReadingsRB[i].x;
                 }
                 //Create circle around current pose. The radius is the distance to the closest feature.
@@ -133,12 +134,12 @@ public class Graph : MonoBehaviour {
 
         //Find holes in the laserReading:
         float closestReadingDistance = float.MaxValue;
-        int previousReading = lastLaserReadings.Readings.Length - 1; 
-        for (int i = 0; i < lastLaserReadings.Readings.Length; previousReading = i++) {
+        int previousReading = lastLaserReadings.ReadingsCount - 1; 
+        for (int i = 0; i < lastLaserReadings.ReadingsCount; previousReading = i++) {
             if (closestReadingDistance > lastLaserReadings.ReadingsRB[i].x) closestReadingDistance = lastLaserReadings.ReadingsRB[i].x;
             if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[i].x) > EXTREMA_DISTANCE_CUTOFF) {
                 //i is an extremum compared to the previousReading.
-                Vector3 centerOffset = (lastLaserReadings.Readings[i] - lastLaserReadings.Readings[previousReading]) / 2f;
+                Vector3 centerOffset = (lastLaserReadings.Readings[previousReading] - lastLaserReadings.Readings[i]) / 2f;
                 Vector2 center;
                 lock (nodes) {
                     center = new Vector2(lastLaserReadings.Readings[i].x + centerOffset.x + lastMatch.x, lastLaserReadings.Readings[i].z + centerOffset.z + lastMatch.y);
@@ -169,17 +170,19 @@ public class Graph : MonoBehaviour {
                     if (lastLaserReadings.ReadingsRB[previousReading].x < lastLaserReadings.ReadingsRB[i].x) {
                         //previous is closer than i.
                         for (; j <= EXTREMA_CHECK_RANGE; j++) {
-                            if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[(i + j) % lastLaserReadings.Readings.Length].x) < EXTREMA_DISTANCE_CUTOFF) break;
+                            if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[(i + j) % lastLaserReadings.ReadingsCount].x) < EXTREMA_DISTANCE_CUTOFF) break;
                         }
                     } else {
                         //i is closer than previous.
                         for (; j <= EXTREMA_CHECK_RANGE; j++) {
-                            if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].x - lastLaserReadings.ReadingsRB[Geometry.Modulo((i - j), lastLaserReadings.Readings.Length)].x) < EXTREMA_DISTANCE_CUTOFF) break;
+                            if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].x - lastLaserReadings.ReadingsRB[Geometry.Modulo((i - j), lastLaserReadings.ReadingsCount)].x) < EXTREMA_DISTANCE_CUTOFF) break;
                         }
                     }
                     if (j <= EXTREMA_CHECK_RANGE) continue;
                     //Add node:
+                    Debug.Log("Graph " + centerOffset + ", " + lastLaserReadings.Readings[i] + ", " + lastLaserReadings.Readings[previousReading]);
                     var node = new GraphNode(new Vector2(lastLaserReadings.Readings[i].x + centerOffset.x, lastLaserReadings.Readings[i].z + centerOffset.z), centerOffset.magnitude);
+                    nodes[lastNode].Add(nodes.Count);
                     node.Add(lastNode);
                     if (closestRadiusDistance < 0f) {
                         node.Add(closestRadiusNode);
@@ -193,14 +196,17 @@ public class Graph : MonoBehaviour {
                     }
                 } else {
                     //Connect the two nodes:
-                    connectNodes(closestNode, lastNode);
+                    if(closestNode != lastNode) connectNodes(closestNode, lastNode);
                 }
             }
         }
         for(int i = 0; i < currentCount; i++) {
             //Connect all nodes that are closer than closestDistance.
+            if(i == lastNode) continue;
             if(Geometry.EuclideanDistance(nodes[i].Position, (Vector2)currentPose) < closestReadingDistance) connectNodes(lastNode, i);
         }
+        //Display nodes:
+        DisplayNodes(nodes.Count);
     }
 
     //Adapts the graph onto the global client map.
@@ -236,16 +242,15 @@ public class Graph : MonoBehaviour {
         sendCounter++;
         sendCounter %= SEND_FREQUENCY;
         if (sendCounter == 0) NetworkManager.singleton.client.SendUnreliable((short)MessageType.ClientGraph, message);
-        //Display nodes:
-        DisplayNodes(lastMatchedCounter);
     }
 
     public void DisplayNodes(int count) {
-        map.ProcessNodes(nodes, count);
+        map.ProcessNodes(nodes, count, unvisitedNodes);
     }
 
     //Returns a new target in the "unexplored" territory the robot is atm in.
     public bool GetNewTarget(out Vector2 result) {
+        Debug.Log("Graph - connected node count: " + nodes[lastNode].Connected.Count);
         foreach (int j in nodes[lastNode].Connected) {
             if(unvisitedNodes.Contains(j)) {
                 lock(nodes) result =  nodes[j].Position - (Vector2) lastMatch;
@@ -304,6 +309,7 @@ public class Graph : MonoBehaviour {
 
     private void connectNodes(int i, int j) {
         if (!nodes[i].IsConnected(j)) {
+            Debug.Log("Connecting" +i+","+j);
             //no locking needed
             //lock(nodes) {
             nodes[i].Add(j);

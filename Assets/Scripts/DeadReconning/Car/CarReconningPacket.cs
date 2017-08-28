@@ -4,7 +4,7 @@ namespace ev3devMapping {
 
 class CarReconningPacket : IDatagram {
 
-    public ulong timestamp_us;
+    public ulong timestamp_us = 0;
     public int position_drive;
     public short heading;
 

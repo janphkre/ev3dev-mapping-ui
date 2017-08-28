@@ -1,9 +1,7 @@
 ﻿using ev3devMapping.Society;
-using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UI;
 using System.IO;
-using ev3devMapping.Testing;
 
 namespace ev3devMapping {
 
