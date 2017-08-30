@@ -67,6 +67,9 @@ public class CircleMap2D : Object {
             Circle circle = new Circle(Instantiate(prefabCircle, container));
             circle.GameObj.name = "Circle"+i;
             Vector2 position = nodes[i].Position;
+            if(float.IsNaN(position.x) || float.IsNaN(position.y)) {
+                throw new System.ArithmeticException("Node position is NaN:" + nodes[i].centerOffset.x + ", " + nodes[i].centerOffset.y);
+            }
             circle.GameObj.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
             circle.GameObj.transform.localScale = new Vector3(nodes[i].radius, ITEM_HEIGHT, nodes[i].radius);
             for(int k = 0; k < nodes[i].Connected.Count; k++) {
@@ -81,7 +84,7 @@ public class CircleMap2D : Object {
                     c[1] = 0;
                     circle.Connected.Add(c);
                     circles[nodes[i].Connected[k]].Connected[circles[nodes[i].Connected[k]].Connected.FindIndex((int[] l) => { return l[0] == i; })][0] = edges.Count;
-                    edges.Add(createEdge(nodes[nodes[i].Connected[j]], nodes[i], "Edge" + nodes[i].Connected[j] + "," + i));
+                    edges.Add(createEdge(nodes[nodes[i].Connected[k]], nodes[i], "Edge" + nodes[i].Connected[k] + "," + i));
                 }
                 
             }

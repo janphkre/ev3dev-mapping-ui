@@ -12,7 +12,8 @@ public class GraphNode {
     public Vector2 centerOffset;
     public float radius;//Radius is the euclidean distance to the nearest feature.
     [SerializeField] private IntList connectedNodes = new IntList();
-
+    [SerializeField] private HashSet<int> disconnectedNodes = new HashSet<int>();
+    
     public Vector2 Position {
         get { lock(this) return pose + centerOffset; }
     }
@@ -32,6 +33,14 @@ public class GraphNode {
 
     public List<int> Connected {
         get { return connectedNodes; }
+    }
+    
+    public void Remove(int i) {
+        disconnectedNodes.Add(i);
+    }
+
+    public bool IsDisconnected(int i) {
+        return disconnectedNodes.Contains(i);
     }
 }
 
@@ -179,15 +188,11 @@ public class Graph : MonoBehaviour {
                         }
                     }
                     if (j <= EXTREMA_CHECK_RANGE) continue;
+                    if(closestRadiusDistance < 0f) continue;
                     //Add node:
-                    Debug.Log("Graph " + centerOffset + ", " + lastLaserReadings.Readings[i] + ", " + lastLaserReadings.Readings[previousReading]);
                     var node = new GraphNode(new Vector2(lastLaserReadings.Readings[i].x + centerOffset.x, lastLaserReadings.Readings[i].z + centerOffset.z), centerOffset.magnitude);
                     nodes[lastNode].Add(nodes.Count);
                     node.Add(lastNode);
-                    if (closestRadiusDistance < 0f) {
-                        node.Add(closestRadiusNode);
-                        nodes[closestRadiusNode].Add(nodes.Count);
-                    }
                     unvisitedNodes.Add(nodes.Count);
                     lock (nodes) {
                         node.centerOffset += (Vector2) lastMatch;
@@ -212,6 +217,7 @@ public class Graph : MonoBehaviour {
     //Adapts the graph onto the global client map.
     //The graph is always matched except for new nodes that have not been processed by this function yet.
     public void Feed(List<List<Feature>> clientMap, Vector3 currentMatch, Vector3 currentPose) {
+        Debug.LogError("Feeding ClientMap to Graph!");
         Vector3 matchDelta = currentMatch - lastMatch;
         while (true) {
             lock(nodes) {
@@ -250,7 +256,6 @@ public class Graph : MonoBehaviour {
 
     //Returns a new target in the "unexplored" territory the robot is atm in.
     public bool GetNewTarget(out Vector2 result) {
-        Debug.Log("Graph - connected node count: " + nodes[lastNode].Connected.Count);
         foreach (int j in nodes[lastNode].Connected) {
             if(unvisitedNodes.Contains(j)) {
                 lock(nodes) result =  nodes[j].Position - (Vector2) lastMatch;
@@ -308,14 +313,27 @@ public class Graph : MonoBehaviour {
     }
 
     private void connectNodes(int i, int j) {
-        if (!nodes[i].IsConnected(j)) {
-            Debug.Log("Connecting" +i+","+j);
+        if (!nodes[i].IsConnected(j) && !nodes[i].IsDisconnected(j)) {
             //no locking needed
             //lock(nodes) {
             nodes[i].Add(j);
             nodes[j].Add(i);
             //}
         }
+    }
+
+    public void DisconnectNode(Vector2 target) {
+        int targetIndex = -1;
+        float targetDistance = float.MaxValue;
+        foreach(int i in nodes[lastNode].Connected) {
+            float currentDistance = Geometry.EuclideanDistance(nodes[i].Position, target);
+            if(currentDistance < targetDistance) {
+                targetDistance = currentDistance;
+                targetIndex = i;
+            }
+        }
+        nodes[lastNode].Remove(targetIndex);
+        nodes[targetIndex].Remove(lastNode);
     }
 }
 }

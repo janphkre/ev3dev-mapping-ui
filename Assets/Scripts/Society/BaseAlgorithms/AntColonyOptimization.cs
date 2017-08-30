@@ -112,8 +112,7 @@ class AntColonyOptimization {
             result.AddLast(max);
             i = max;
         }
-        if(result.Count != 0) if (result.Last.Value == target) throw new System.Exception("Target is already in list!");
-        result.AddLast(target);
+        if(result.Count == 0)  result.AddLast(target);
         return result;
     }
 

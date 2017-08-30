@@ -16,6 +16,8 @@ public enum TargetCommand {
 
 public class PlaningInputData {
     
+    public static float MIN_READING_DISTANCE = 0.04f;
+
     public Vector3 LastPose;
     public Vector3[] Readings;
     public Vector2[] ReadingsRB;
@@ -28,19 +30,24 @@ public class PlaningInputData {
         ReadingsRB = new Vector2[readings.Length - invalidCount];
         int count = 0;
         for (int i = 0; i < readings.Length; i++) {
-            if (!invalid[i] && readings[i].x != 0f && readings[i].z != 0f) Readings[count++] = readings[i];
+            if (!invalid[i]) Readings[count++] = readings[i];
         }
         ReadingsCount = count;
     }
 
     public void CalculateRB(PositionData pos) {
         LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading * Mathf.PI / 180f);
+        int j = 0;
         for (int i = 0; i < ReadingsCount; i++) {
             var rb = Geometry.ToRangeBearing(Readings[i], LastPose);
-            if(rb.y > Geometry.HALF_CIRCLE) ReadingsRB[i].y -= Geometry.FULL_CIRCLE;
+            if(rb.x < MIN_READING_DISTANCE) continue;
+            if(rb.y > Geometry.HALF_CIRCLE) rb.y -= Geometry.FULL_CIRCLE;
             else if(rb.y < -Geometry.HALF_CIRCLE) rb.y += Geometry.FULL_CIRCLE;
-            ReadingsRB[i] = rb;
+            ReadingsRB[j] = rb;
+            Readings[j] = Readings[i];
+            j++;
         }
+        ReadingsCount = j;
     }
     
     #region Testing
@@ -53,7 +60,7 @@ public class PlaningInputData {
         using (var writer = new StreamWriter(File.OpenWrite(PLANING_FILE))) {
             writer.WriteLine(LastPose.ToString());
             writer.WriteLine(ReadingsCount);
-            for (int i = 0; i < Readings.Length; i++) {
+            for (int i = 0; i < ReadingsCount; i++) {
                 writer.WriteLine(Readings[i].ToString() + "; " + ReadingsRB[i].ToString());
             }
             writer.Flush();
@@ -104,12 +111,11 @@ public class PlaningInputData {
 public class Planing : MonoBehaviour {
 
     //Parameters:
-    public const int GRAPH_FEED_INTERVAL = 5;
     public const float ALPHA = Geometry.HALF_CIRCLE + Geometry.HALF_CIRCLE / 4f;
     public const float BETA = Geometry.RIGHT_ANGLE + Geometry.RIGHT_ANGLE / 3f;
     public const float GAMMA = Geometry.RIGHT_ANGLE / 8f;
     public const float OBSTACLE_PLANING_STEP = Geometry.HALF_CIRCLE / 36f;
-    public const float MIN_OBSTACLE_DISTANCE = 0.1f;
+    public const float MIN_OBSTACLE_DISTANCE = 0.15f;
     public const float UNOBSTRUCTED_OBSTACLE_MULTIPLIER = 1.5f;
     public const float TARGET_RADIUS = 0.1f;
     public const float MAX_OFFSET_ANGLE = Geometry.HALF_CIRCLE;
@@ -272,6 +278,7 @@ public class Planing : MonoBehaviour {
     }
 
     private bool obstaclePlaning() {
+        Debug.Log("P"+lastLaserReadings.LastPose);
         var targetRB = Geometry.ToRangeBearing(currentTargetPosition, lastLaserReadings.LastPose);
         if (targetRB.x < TARGET_RADIUS) {
             //Reached the current target.
@@ -282,8 +289,7 @@ public class Planing : MonoBehaviour {
         }
         positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, Geometry.RIGHT_ANGLE, lastLaserReadings.LastPose);
         negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, lastLaserReadings.LastPose);
-        Debug.Log("+ " + positiveTurningCenter + ", - " + negativeTurningCenter);
-        var unobstructedRadius = findBothUnobstructedRadius(out obstacles);
+        var unobstructedRadius = findBothUnobstructedRadius();
         if (unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
             //Reached a dead end.
             Debug.Log("Planing - Reached dead end. (1) " + unobstructedRadius);
@@ -307,7 +313,7 @@ public class Planing : MonoBehaviour {
             lastLaserReadings.LastPose.z %= Geometry.FULL_CIRCLE;
             targetRB.y += Geometry.HALF_CIRCLE;
             targetRB.y %= Geometry.FULL_CIRCLE;
-            unobstructedRadius = findBothUnobstructedRadius(out obstacles);
+            unobstructedRadius = findBothUnobstructedRadius();
             if (unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
                 //Reached a dead end.
                 Debug.Log("Planing - Reached dead end. (2) " + unobstructedRadius);
@@ -320,6 +326,7 @@ public class Planing : MonoBehaviour {
                 return false;
             }
         }
+        Debug.Log("Target " + currentTargetPosition + "," + targetRB);
         if (!IsWithinFunnel(targetRB) || Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
             //The target is not in the current reachable funnel. Move forward.
             //The robot is facing towards the target. No turn is needed.
@@ -327,6 +334,15 @@ public class Planing : MonoBehaviour {
             return true;
         } else {
             float steeringSegment = findSteeringSegment(unobstructedRadius, targetRB);
+            Debug.Log("Steer " + steeringSegment);
+            if(float.IsNaN(steeringSegment)) {
+                steering.Halt();
+                lock (currentTarget) {
+                    currentTarget.Pop();
+                }
+                obstacles = null;
+                return false;
+            }
             steering.Steer(steeringSegment, backwards);
         }
         obstacles = null;
@@ -375,10 +391,11 @@ public class Planing : MonoBehaviour {
         return false;
     }
 
-    private Vector2 findBothUnobstructedRadius(out List<Vector3> obstacles) {
+    private Vector2 findBothUnobstructedRadius() {
         obstacles = new List<Vector3>();
         //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
         Vector2 unobstructedRadius = new Vector2(ALPHA, ALPHA);
+        var DEBUG_R = "";
         for (int i = 0; i < lastLaserReadings.ReadingsCount; i++) {
             if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].y) > BETA) continue;
             if (IsWithinFunnel(lastLaserReadings.ReadingsRB[i])) {
@@ -389,6 +406,7 @@ public class Planing : MonoBehaviour {
                 }
                 //The obstacle is in front of our possible movements.
                 obstacles.Add(lastLaserReadings.Readings[i]);
+                DEBUG_R += lastLaserReadings.ReadingsRB[i] + "\n";
                 if (lastLaserReadings.ReadingsRB[i].y >= 0f) {
                     var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], positiveTurningCenter);
                     if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
@@ -406,7 +424,7 @@ public class Planing : MonoBehaviour {
                 }
             }
         }
-        Debug.Log("R"+unobstructedRadius);
+        Debug.Log("R"+unobstructedRadius+"\n\n"+DEBUG_R);
         unobstructedRadius.x -= UNOBSTRUCTED_OFFSET;
         unobstructedRadius.y = UNOBSTRUCTED_OFFSET - unobstructedRadius.y;
         return unobstructedRadius;
@@ -461,6 +479,9 @@ public class Planing : MonoBehaviour {
         var bearing = Geometry.RIGHT_ANGLE - Mathf.Abs(targetRB.y);
         var c = MainMenu.Physics.turningRadiusSquared + targetRB.x * targetRB.x - 2f * MainMenu.Physics.turningRadius * targetRB.x * Mathf.Cos(bearing);
         float steeringSegment = (Mathf.Asin((targetRB.x * Mathf.Sin(bearing)) / Mathf.Sqrt(c)) - Mathf.Asin(Mathf.Sqrt(c - MainMenu.Physics.turningRadiusSquared) / Mathf.Sqrt(c)));
+        float lineLength;
+        if(steeringSegment > Geometry.RIGHT_ANGLE) lineLength = targetRB.x - MainMenu.Physics.turningRadius;
+        else lineLength = targetRB.x - MainMenu.Physics.turningRadius * steeringSegment;
         if (bearing < 0) steeringSegment = -steeringSegment;
         //Find the closest steerable way towards the currentTargetPosition
         //TODO: A steering plan consists of two elements: A line and a turn.
@@ -475,7 +496,7 @@ public class Planing : MonoBehaviour {
                         Vector3 line = Geometry.Rotate(lastLaserReadings.LastPose, currentAngle >= 0f ? positiveTurningCenter : negativeTurningCenter, currentAngle);
                         line.z = lastLaserReadings.LastPose.z + currentAngle;
                         //targetRB.x is roughly the real target distance from line plus not more than MainMenu.Physics.turningRadius.
-                        if (checkLine(line, targetRB.x)) break;
+                        if (checkLine(line, lineLength)) break;
                     } else {
                         f = unobstructedRadius.y - steeringSegment - OBSTACLE_PLANING_STEP;
                     }
@@ -491,7 +512,7 @@ public class Planing : MonoBehaviour {
                     if (currentAngle <= unobstructedRadius.x) {
                         Vector3 line = Geometry.Rotate(lastLaserReadings.LastPose, currentAngle >= 0f ? positiveTurningCenter : negativeTurningCenter, currentAngle);
                         line.z = lastLaserReadings.LastPose.z + currentAngle;
-                        if (checkLine(line, targetRB.x)) break;
+                        if (checkLine(line, lineLength)) break;
                     } else {
                         g = steeringSegment - unobstructedRadius.x - OBSTACLE_PLANING_STEP;
                     }
@@ -501,8 +522,10 @@ public class Planing : MonoBehaviour {
                 }
             }
             if (f >= MAX_OFFSET_ANGLE && g >= MAX_OFFSET_ANGLE) {
-                //TODO! something went wrong. This would mean that the step was too big so the unobstructed range was missed.
-                throw new NotImplementedException();
+                //This means that either the steerable range was smaller than OBSTACLE_PLANING_STEP
+                //or the target is blocked by an obstacle -> remove edge from graph
+                globalGraph.DisconnectNode(currentTargetPosition);
+                return float.NaN;
             }
             steeringSegment += (f < g ? f : g);
         }
@@ -512,7 +535,7 @@ public class Planing : MonoBehaviour {
     private bool checkLine(Vector3 line, float length) {
         foreach (Vector3 obstacle in obstacles) {
             Vector2 obstacleRB = Geometry.ToRangeBearing(obstacle, line);
-            if (Mathf.Sin(obstacleRB.y) * obstacleRB.x < MIN_OBSTACLE_DISTANCE && Mathf.Cos(obstacleRB.y) * obstacleRB.x < length) return false;
+            if (Mathf.Abs(Mathf.Sin(obstacleRB.y) * obstacleRB.x) < MIN_OBSTACLE_DISTANCE && Mathf.Abs(Mathf.Cos(obstacleRB.y) * obstacleRB.x) < length) return false;
         }
         return true;
     }
