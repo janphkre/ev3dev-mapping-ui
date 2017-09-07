@@ -80,8 +80,7 @@ public class ServerMap : NetworkBehaviour {
         lock (colorLock) {
             hue = (1.0f / 3.0f) * (colorCounter % 3);
             int iteration = colorCounter / 3;
-            int iterationTwo = Mathf.NextPowerOfTwo(iteration);            
-            Debug.Log("Color " + iteration + ", " + iterationTwo);
+            int iterationTwo = Mathf.NextPowerOfTwo(iteration);
             if(iteration != 0) hue += (1 + 2 * (iteration - (iterationTwo / 2))) / (6.0f * iterationTwo);
             colorCounter++;
         }

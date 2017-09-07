@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace ev3devMapping.Testing {
 
-    //This script is attached to the "Robot" GameObject.
+    //This script is attached to the "Settings" GameObject.
     public class TestingPlaning : ITesting {
 
         public GameObject GraphObj;
@@ -74,14 +74,15 @@ namespace ev3devMapping.Testing {
             Assert.AreNotEqual(Vector2.zero, v);
             Assert.AreEqual(Vector2.zero, graph.GetStartPath(new Vector3(1.0f,1.0f,0.0f)).Last.Value);
 
-            GraphObj.AddComponent<Planing>();
             Assert.AreEqual(TargetCommand.Waiting, Planing.singleton.GetCurrentTarget());
             Planing.singleton.StartPlaning();
             Assert.AreEqual(TargetCommand.Waiting, Planing.singleton.GetCurrentTarget());
 
             //sampleInput.CalculateRB(new PositionData());
             PositionHistory positionHistory = SceneManager.DynamicObjects.gameObject.AddComponent<PositionHistory>();
-            positionHistory.PutThreadSafe(new PositionData());
+            var p = new PositionData();
+            p.heading = 45;
+            positionHistory.PutThreadSafe(p);
             Planing.singleton.LaserReadings = sampleInput;
             //Expect a NullReferenceException
         }

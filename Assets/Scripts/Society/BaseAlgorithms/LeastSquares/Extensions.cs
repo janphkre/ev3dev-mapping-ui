@@ -5,7 +5,6 @@ namespace ev3dev.Society.LeastSquares
     using System.Collections.Generic;
     using System.Linq;
     using System;
-
     /// <summary>
     /// Linq extensions
     /// </summary>

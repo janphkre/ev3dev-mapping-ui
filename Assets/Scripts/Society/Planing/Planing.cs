@@ -39,10 +39,8 @@ public class PlaningInputData {
         LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading * Mathf.PI / 180f);
         int j = 0;
         for (int i = 0; i < ReadingsCount; i++) {
-            var rb = Geometry.ToRangeBearing(Readings[i], LastPose);
+            var rb = Geometry.ToRangeBearing2(Readings[i], LastPose);
             if(rb.x < MIN_READING_DISTANCE) continue;
-            if(rb.y > Geometry.HALF_CIRCLE) rb.y -= Geometry.FULL_CIRCLE;
-            else if(rb.y < -Geometry.HALF_CIRCLE) rb.y += Geometry.FULL_CIRCLE;
             ReadingsRB[j] = rb;
             Readings[j] = Readings[i];
             j++;
@@ -115,8 +113,8 @@ public class Planing : MonoBehaviour {
     public const float BETA = Geometry.RIGHT_ANGLE + Geometry.RIGHT_ANGLE / 3f;
     public const float GAMMA = Geometry.RIGHT_ANGLE / 8f;
     public const float OBSTACLE_PLANING_STEP = Geometry.HALF_CIRCLE / 36f;
-    public const float MIN_OBSTACLE_DISTANCE = 0.15f;
-    public const float UNOBSTRUCTED_OBSTACLE_MULTIPLIER = 1.5f;
+    public const float MIN_OBSTACLE_DISTANCE = 0.1f;
+    public const float UNOBSTRUCTED_OBSTACLE_MULTIPLIER = 1f;
     public const float TARGET_RADIUS = 0.1f;
     public const float MAX_OFFSET_ANGLE = Geometry.HALF_CIRCLE;
     public const float MIN_CORRECTION_ANGLE = Geometry.HALF_CIRCLE / 180f;
@@ -146,15 +144,35 @@ public class Planing : MonoBehaviour {
     private PlaningInputData lastLaserReadings = null;
 
     private bool backwards = false;
-    private Vector2 positiveTurningCenter;
-    private Vector2 negativeTurningCenter;
+    private Vector3 positiveTurningCenter;
+    private Vector3 negativeTurningCenter;
     private List<Vector3> obstacles;
-
+    
+    private LineRenderer rendererX;
+    private LineRenderer rendererY;
+    private GameObject centerX;
+    private GameObject centerY;
+    
     public void Awake() {
         singleton = this;
         UNOBSTRUCTED_OFFSET = Mathf.Acos(1f - UNOBSTRUCTED_OBSTACLE_MULTIPLIER * MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
         globalGraph = gameObject.GetComponent<Graph>();
         currentTarget.Push(TargetCommand.Waiting);
+
+        GameObject obj = new GameObject("RendererX");
+        rendererX = obj.AddComponent<LineRenderer>();
+        rendererX.startWidth = 0.01f;
+        rendererX.endWidth = 0.01f;
+        obj = new GameObject("RendererY");
+        rendererY = obj.AddComponent<LineRenderer>();
+        rendererY.startWidth = 0.01f;
+        rendererY.endWidth = 0.01f;
+        centerX = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        centerX.GetComponent<MeshRenderer>().material.color = Color.magenta;
+        centerX.transform.localScale = new Vector3(0.1f,0.1f,0.1f);
+        centerY = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        centerY.transform.localScale = new Vector3(0.1f,0.1f,0.1f);
+        centerY.GetComponent<MeshRenderer>().material.color = Color.magenta;
     }
 
     public void Start() {
@@ -278,7 +296,6 @@ public class Planing : MonoBehaviour {
     }
 
     private bool obstaclePlaning() {
-        Debug.Log("P"+lastLaserReadings.LastPose);
         var targetRB = Geometry.ToRangeBearing(currentTargetPosition, lastLaserReadings.LastPose);
         if (targetRB.x < TARGET_RADIUS) {
             //Reached the current target.
@@ -288,18 +305,23 @@ public class Planing : MonoBehaviour {
             return false;
         }
         positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, Geometry.RIGHT_ANGLE, lastLaserReadings.LastPose);
+        positiveTurningCenter.z = lastLaserReadings.LastPose.z;
         negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, lastLaserReadings.LastPose);
+        negativeTurningCenter.z = lastLaserReadings.LastPose.z;
         var unobstructedRadius = findBothUnobstructedRadius();
         if (unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
             //Reached a dead end.
-            Debug.Log("Planing - Reached dead end. (1) " + unobstructedRadius);
+            steering.Halt();
+            lastLaserReadings.Write();
+            throw new ArgumentException("Ra" + unobstructedRadius);
+            /*Debug.Log("Planing - Reached dead end. (1) " + unobstructedRadius);
             steering.Halt();
             lock (currentTarget) {
                 currentTarget.Pop();
                 currentTarget.Push(TargetCommand.Backtrack);
             }
             obstacles = null;
-            return false;
+            return false;*/
         }
         if (backwards) {
             //Try to turn around in a two/three point turn:
@@ -325,8 +347,45 @@ public class Planing : MonoBehaviour {
                 obstacles = null;
                 return false;
             }
+            //TODO: SET CORRECT ANGLES FOR NACKWARDS-DISPLAY:
+            var arcPoints = new List<Vector3>();
+            float arcStep = 1f / 1000f;
+            for(float f = 0; f < unobstructedRadius.x; f += arcStep) {
+                float x = Mathf.Sin(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
+                float y = Mathf.Cos(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
+                arcPoints.Add(new Vector3(x+positiveTurningCenter.x,0.3f,y+positiveTurningCenter.y));
+            }
+            rendererX.positionCount = arcPoints.Count;
+            rendererX.SetPositions(arcPoints.ToArray());
+            arcPoints = new List<Vector3>();
+            for(float f = 0; f > unobstructedRadius.y; f -= arcStep) {
+                float x = Mathf.Sin(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
+                float y = Mathf.Cos(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
+                arcPoints.Add(new Vector3(x+negativeTurningCenter.x,0.3f,y+negativeTurningCenter.y));
+            }
+            rendererY.positionCount = arcPoints.Count;
+            rendererY.SetPositions(arcPoints.ToArray());
+        } else {
+            var arcPoints = new List<Vector3>();
+            float arcStep = 1f / 1000f;
+            float positiveOffset = Geometry.HALF_CIRCLE - lastLaserReadings.LastPose.z;
+            for(float f = 0; f > -unobstructedRadius.x; f -= arcStep) {
+                float x = Mathf.Sin(f+positiveOffset) * MainMenu.Physics.turningRadius;
+                float y = Mathf.Cos(f+positiveOffset) * MainMenu.Physics.turningRadius;
+                arcPoints.Add(new Vector3(x+positiveTurningCenter.x,0.3f,y+positiveTurningCenter.y));
+            }
+            rendererX.positionCount = arcPoints.Count;
+            rendererX.SetPositions(arcPoints.ToArray());
+            arcPoints = new List<Vector3>();
+            for(float f = 0; f < -unobstructedRadius.y; f += arcStep) {
+                float x = Mathf.Sin(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
+                float y = Mathf.Cos(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
+                arcPoints.Add(new Vector3(x+negativeTurningCenter.x,0.3f,y+negativeTurningCenter.y));
+            }
+            rendererY.positionCount = arcPoints.Count;
+            rendererY.SetPositions(arcPoints.ToArray());
         }
-        Debug.Log("Target " + currentTargetPosition + "," + targetRB);
+        Debug.Log("Target " + currentTargetPosition + "," + targetRB + "R" + unobstructedRadius + "P" + lastLaserReadings.LastPose);
         if (!IsWithinFunnel(targetRB) || Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
             //The target is not in the current reachable funnel. Move forward.
             //The robot is facing towards the target. No turn is needed.
@@ -395,7 +454,6 @@ public class Planing : MonoBehaviour {
         obstacles = new List<Vector3>();
         //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
         Vector2 unobstructedRadius = new Vector2(ALPHA, ALPHA);
-        var DEBUG_R = "";
         for (int i = 0; i < lastLaserReadings.ReadingsCount; i++) {
             if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].y) > BETA) continue;
             if (IsWithinFunnel(lastLaserReadings.ReadingsRB[i])) {
@@ -406,25 +464,21 @@ public class Planing : MonoBehaviour {
                 }
                 //The obstacle is in front of our possible movements.
                 obstacles.Add(lastLaserReadings.Readings[i]);
-                DEBUG_R += lastLaserReadings.ReadingsRB[i] + "\n";
                 if (lastLaserReadings.ReadingsRB[i].y >= 0f) {
-                    var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], positiveTurningCenter);
-                    if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = Mathf.Asin(lastLaserReadings.ReadingsRB[i].x * Mathf.Cos(lastLaserReadings.ReadingsRB[i].y) / distance);
-                        currentAngle = (currentAngle + Geometry.FULL_CIRCLE) % Geometry.FULL_CIRCLE;
-                        if (currentAngle < unobstructedRadius.x) unobstructedRadius.x = currentAngle;
+                    var turningRB = Geometry.ToRangeBearing2(lastLaserReadings.Readings[i], positiveTurningCenter);
+                    if (Mathf.Abs(turningRB.x - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        turningRB.y = Geometry.RIGHT_ANGLE + turningRB.y;
+                        if (turningRB.y < unobstructedRadius.x) unobstructedRadius.x = turningRB.y;
                     }
                 } else {
-                    var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], negativeTurningCenter);
-                    if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = Mathf.Asin(lastLaserReadings.ReadingsRB[i].x * Mathf.Cos(lastLaserReadings.ReadingsRB[i].y) / distance);
-                        currentAngle = (currentAngle + Geometry.FULL_CIRCLE) % Geometry.FULL_CIRCLE;
-                        if (currentAngle < unobstructedRadius.y) unobstructedRadius.y = currentAngle;
+                    var turningRB = Geometry.ToRangeBearing2(lastLaserReadings.Readings[i], negativeTurningCenter);
+                    if (Mathf.Abs(turningRB.x - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        turningRB.y = Geometry.RIGHT_ANGLE - turningRB.y;
+                        if (turningRB.y < unobstructedRadius.y) unobstructedRadius.y = turningRB.y;
                     }
                 }
             }
         }
-        Debug.Log("R"+unobstructedRadius+"\n\n"+DEBUG_R);
         unobstructedRadius.x -= UNOBSTRUCTED_OFFSET;
         unobstructedRadius.y = UNOBSTRUCTED_OFFSET - unobstructedRadius.y;
         return unobstructedRadius;
@@ -440,12 +494,13 @@ public class Planing : MonoBehaviour {
             if (IsWithinFunnel(rangeBearing)) {
                 //The obstacle is in front of our possible movements.
                 if (rangeBearing.y <= 0f) {
-                    var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], negativeTurningCenter);
-                    if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = Mathf.Asin(rangeBearing.x * Mathf.Cos(rangeBearing.y) / distance);
+                    var turningRB = Geometry.ToRangeBearing2(lastLaserReadings.Readings[i], negativeTurningCenter);
+                    if (Mathf.Abs(turningRB.x - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        var currentAngle = Mathf.Asin(rangeBearing.x * Mathf.Cos(rangeBearing.y) / turningRB.x);
                         currentAngle = (currentAngle + Geometry.FULL_CIRCLE) % Geometry.FULL_CIRCLE;
                         if (currentAngle < unobstructedRadius) unobstructedRadius = currentAngle;
                     }
+                    throw new NotImplementedException("turningRb can not be calculated through negativeTurningCenter!");
                 }
             }
         }
@@ -468,6 +523,7 @@ public class Planing : MonoBehaviour {
                         currentAngle = (currentAngle + Geometry.FULL_CIRCLE) % Geometry.FULL_CIRCLE;
                         if (currentAngle < unobstructedRadius) unobstructedRadius = currentAngle;
                     }
+                    throw new NotImplementedException("turningRb can not be calculated through positiveTurningCenter!");
                 }
             }
         }

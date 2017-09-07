@@ -9,6 +9,10 @@ namespace ev3dev.Society.LeastSquares
   {
     public Fit(IEnumerable<Vector3> points) {
         Points = points;
+        var uniquePoints = new List<Vector2>();
+        UniquePoints = uniquePoints;
+        var grp = Points.GroupBy((p) => { return p.x; });
+        foreach (IGrouping<float, Vector3> g in grp) uniquePoints.Add(new Vector2(g.Key, g.Select(p => p.z).Average()));
     }
 
     protected IEnumerable<Vector3> Points;
@@ -20,19 +24,7 @@ namespace ev3dev.Society.LeastSquares
     /// <summary>
     /// group points with equal x value, average group y value
     /// </summary>
-    protected IEnumerable<Vector3> UniquePoints
-    {
-      get
-      {
-        var grp = Points.GroupBy((p) => { return p.x; });
-        foreach (IGrouping<float, Vector3> g in grp)
-        {
-          float currentX = g.Key;
-          float averageYforX = g.Select(p => p.y).Average();
-          yield return new Vector3() { x = currentX, y = averageYforX };
-        }
-      }
-    }
+    protected IEnumerable<Vector2> UniquePoints;
     /// <summary>
     /// count of point set used for interpolation
     /// </summary>
@@ -46,7 +38,7 @@ namespace ev3dev.Society.LeastSquares
     /// ordinates
     /// </summary>
     public IEnumerable<float> Y { get { return UniquePoints.Select(p => p.y); } }
-    public IEnumerable<float> Y_Orig { get { return Points.Select(p => p.y); } }
+    public IEnumerable<float> Y_Orig { get { return Points.Select(p => p.z); } }
 
     /// <summary>
     /// x mean

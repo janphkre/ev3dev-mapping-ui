@@ -58,17 +58,17 @@ public class CircleMap2D : Object {
                     c[1] = 0;
                     circle.Connected.Add(c);
                     circles[nodes[i].Connected[k]].Connected[circles[nodes[i].Connected[k]].Connected.FindIndex((int[] l) => { return l[0] == i; })][0] = edges.Count;
-                    edges.Add(createEdge(nodes[nodes[i].Connected[k]], nodes[i], "Edge" + nodes[i].Connected[k] + "," + i));
+                    edges.Add(createEdge(nodes[nodes[i].Connected[k]].Position, nodes[i].Position, "E" + nodes[i].Connected[k] + "," + i));
                 }
             }
             i++;
         }
         while(i < count) {
             Circle circle = new Circle(Instantiate(prefabCircle, container));
-            circle.GameObj.name = "Circle"+i;
+            circle.GameObj.name = "C"+i;
             Vector2 position = nodes[i].Position;
             if(float.IsNaN(position.x) || float.IsNaN(position.y)) {
-                throw new System.ArithmeticException("Node position is NaN:" + nodes[i].centerOffset.x + ", " + nodes[i].centerOffset.y);
+                throw new System.ArithmeticException("Node position is NaN:" + nodes[i].centerOffset.x + ", " + nodes[i].centerOffset.y + ", " + (nodes[i].pose == null ? "null" : nodes[i].pose.pose == null ? "pose"+nodes[i].pose.index+".null" : "p" + nodes[i].pose.pose.x + ", " + nodes[i].pose.pose.y));
             }
             circle.GameObj.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
             circle.GameObj.transform.localScale = new Vector3(nodes[i].radius, ITEM_HEIGHT, nodes[i].radius);
@@ -84,7 +84,7 @@ public class CircleMap2D : Object {
                     c[1] = 0;
                     circle.Connected.Add(c);
                     circles[nodes[i].Connected[k]].Connected[circles[nodes[i].Connected[k]].Connected.FindIndex((int[] l) => { return l[0] == i; })][0] = edges.Count;
-                    edges.Add(createEdge(nodes[nodes[i].Connected[k]], nodes[i], "Edge" + nodes[i].Connected[k] + "," + i));
+                    edges.Add(createEdge(nodes[nodes[i].Connected[k]].Position, nodes[i].Position, "E" + nodes[i].Connected[k] + "," + i));
                 }
                 
             }
@@ -93,14 +93,20 @@ public class CircleMap2D : Object {
         }
     }
 
-    private LineRenderer createEdge(GraphNode a, GraphNode b, string name) {
+    private LineRenderer createEdge(Vector2 a, Vector2 b, string name) {
         GameObject edge = Instantiate(prefabEdge, container);
         edge.name = name;
         edge.transform.parent = container;
         LineRenderer line = edge.GetComponent<LineRenderer>();
-        Vector3[] positions = { new Vector3(a.Position.x, MAP_HEIGHT, a.Position.y), new Vector3(b.Position.x, MAP_HEIGHT, b.Position.y) };
+        Vector3[] positions = { new Vector3(a.x, MAP_HEIGHT, a.y), new Vector3(b.x, MAP_HEIGHT, b.y) };
         line.SetPositions(positions);
         return line;
+    }
+
+    public void RemoveEdge(int i, int j) {
+        //Assert i < j
+        var str = "E" + i + "," +j;
+        edges.RemoveAll((LineRenderer r) => { return r.gameObject.name.Equals(str); });
     }
 }
 }

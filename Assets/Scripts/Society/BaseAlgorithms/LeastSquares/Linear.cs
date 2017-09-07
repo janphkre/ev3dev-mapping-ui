@@ -15,7 +15,7 @@
         /// <summary>
         /// the computed slope, aka regression coefficient
         /// </summary>
-        public Vector3 Slope { get { return new Vector3(ssxy,ssxx).normalized; } }
+        public Vector3 Slope { get { return new Vector3(ssxx, 0f, ssxy); } }
 
         // dotvector(x,y)-n*avgx*avgy
         float ssxy { get { return X.DotProduct(Y) - CountUnique * AverageX * AverageY; } }
@@ -25,9 +25,7 @@
         /// <summary>
         /// computed  intercept
         /// </summary>
-        public Vector3 Average { get { return new Vector3(AverageY, AverageX); } }
-
-        public Ray Ray { get { return new Ray(Average, Slope); } }
+        public Vector3 Average { get { return new Vector3(AverageX, 0f, AverageY); } }
     }
 }
 

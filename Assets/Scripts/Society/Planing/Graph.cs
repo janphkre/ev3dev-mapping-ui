@@ -334,6 +334,8 @@ public class Graph : MonoBehaviour {
         }
         nodes[lastNode].Remove(targetIndex);
         nodes[targetIndex].Remove(lastNode);
+        if(lastNode < targetIndex) map.RemoveEdge(lastNode, targetIndex);
+        else map.RemoveEdge(targetIndex, lastNode);
     }
 }
 }

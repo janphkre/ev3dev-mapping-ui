@@ -42,19 +42,22 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         // Calculate the linear displacement since last packet:
         float ddiff = packet.position_drive - lastPacket.position_drive;
         float distanceTravelled = Mathf.Abs(ddiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M);
-
+        
         //Calculate rotation delta:
-        float delta = packet.HeadingInDegrees - lastPacket.HeadingInDegrees / 2f;
+        float delta = packet.HeadingInDegrees - lastPacket.HeadingInDegrees;
         delta = (delta * Mathf.PI) / 180f;
         if (physics.reverseMotorPolarity ^ ddiff < 0f) delta = Mathf.PI - delta;
         delta = delta % Mathf.PI;
-        var result = Society.Geometry.FromRangeBearing(distanceTravelled * Mathf.Sin(delta) / delta, ((lastPacket.HeadingInDegrees * Mathf.PI) / 180f) + delta);
+        float range = physics.turningDiameter * Mathf.Sin(distanceTravelled / physics.turningDiameter);
+        var result = Society.Geometry.FromRangeBearing(range, ((lastPacket.HeadingInDegrees * Mathf.PI) / 180f) + delta);
         // Finally update the position and heading
         lastPosition.timestamp = packet.timestamp_us;
         lastPosition.position = new Vector3(lastPosition.position.x + result.x, lastPosition.position.y, lastPosition.position.z + result.y);
         lastPosition.heading = packet.HeadingInDegrees + initialHeading;
 
         lastPacket.CloneFrom(packet);
+        if(float.IsNaN(lastPosition.position.x) || float.IsNaN(lastPosition.position.y) || float.IsNaN(lastPosition.position.z) || float.IsNaN(lastPosition.heading))
+                throw new ArgumentException();
         positionHistory.PutThreadSafe(lastPosition);
     }
 

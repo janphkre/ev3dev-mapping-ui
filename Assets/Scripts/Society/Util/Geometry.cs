@@ -1,4 +1,5 @@
 ﻿
+using System;
 using UnityEngine;
 
 namespace ev3devMapping.Society {
@@ -85,6 +86,13 @@ public class Geometry {
         result.y += Mathf.Atan2(f.y, f.x);
         return result;
     }
+    
+    public static Vector2 ToRangeBearing2(Vector3 feat, Vector3 origin) {
+        var result = ToRangeBearing(feat, origin);
+        if(result.y > HALF_CIRCLE) result.y -= FULL_CIRCLE;
+        else if(result.y < -HALF_CIRCLE) result.y += FULL_CIRCLE;
+        return result;
+    }
 
     //Returns the position of the feature from the range and bearing. (Converting polar coordinates into carthesic coordinates)
     public static Vector2 FromRangeBearing(float posRange, float posBearing) {
@@ -105,6 +113,10 @@ public class Geometry {
     //Compares two floats with a reduced precision. This is used in the Matrix.Equals() methods.
     public static bool CompareFloats(float a, float b) {
         return Mathf.Abs(a-b) < FLOAT_PRECISION;
+    }
+
+    public static float Multiply(Vector3 a, Vector3 b) {
+        return a.x*b.x+a.y*b.y+a.z*b.z;
     }
 }
 }
