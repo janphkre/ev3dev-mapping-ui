@@ -78,10 +78,11 @@ namespace ev3devMapping.Testing {
             Planing.singleton.StartPlaning();
             Assert.AreEqual(TargetCommand.Waiting, Planing.singleton.GetCurrentTarget());
 
-            //sampleInput.CalculateRB(new PositionData());
+            MainMenu.Physics.turningRadius = 0.595f;
+            MainMenu.Physics.Calculate();
             PositionHistory positionHistory = SceneManager.DynamicObjects.gameObject.AddComponent<PositionHistory>();
             var p = new PositionData();
-            p.heading = 45;
+            p.heading = 90;
             positionHistory.PutThreadSafe(p);
             Planing.singleton.LaserReadings = sampleInput;
             //Expect a NullReferenceException

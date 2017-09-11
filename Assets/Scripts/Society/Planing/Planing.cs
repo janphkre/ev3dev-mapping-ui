@@ -118,6 +118,10 @@ public class Planing : MonoBehaviour {
     public const float TARGET_RADIUS = 0.1f;
     public const float MAX_OFFSET_ANGLE = Geometry.HALF_CIRCLE;
     public const float MIN_CORRECTION_ANGLE = Geometry.HALF_CIRCLE / 180f;
+    public const float ARC_STEP = 1f / 4f;
+    public const float UNOBSTRUCTED_HEIGHT = 0.02f;
+    public const float STEERING_HEIGHT = 0.04f;
+    
     //Calculated once at Startup:
     public static float UNOBSTRUCTED_OFFSET;
 
@@ -150,9 +154,8 @@ public class Planing : MonoBehaviour {
     
     private LineRenderer rendererX;
     private LineRenderer rendererY;
-    private GameObject centerX;
-    private GameObject centerY;
     
+    private LineRenderer rendererSteering;
     public void Awake() {
         singleton = this;
         UNOBSTRUCTED_OFFSET = Mathf.Acos(1f - UNOBSTRUCTED_OBSTACLE_MULTIPLIER * MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
@@ -163,16 +166,18 @@ public class Planing : MonoBehaviour {
         rendererX = obj.AddComponent<LineRenderer>();
         rendererX.startWidth = 0.01f;
         rendererX.endWidth = 0.01f;
+        rendererX.positionCount = 0;
         obj = new GameObject("RendererY");
         rendererY = obj.AddComponent<LineRenderer>();
         rendererY.startWidth = 0.01f;
         rendererY.endWidth = 0.01f;
-        centerX = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        centerX.GetComponent<MeshRenderer>().material.color = Color.magenta;
-        centerX.transform.localScale = new Vector3(0.1f,0.1f,0.1f);
-        centerY = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        centerY.transform.localScale = new Vector3(0.1f,0.1f,0.1f);
-        centerY.GetComponent<MeshRenderer>().material.color = Color.magenta;
+        rendererY.positionCount = 0;
+        obj = new GameObject("RendererSteer");
+        rendererSteering = obj.AddComponent<LineRenderer>();
+        rendererSteering.material.color = Color.green;
+        rendererSteering.startWidth = 0.01f;
+        rendererSteering.endWidth = 0.01f;
+        rendererSteering.positionCount = 0;
     }
 
     public void Start() {
@@ -214,12 +219,12 @@ public class Planing : MonoBehaviour {
                     wasUsed = true;
                     globalGraph.Feed(lastLaserReadings);
                 }
-            } else if (currentTarget.Peek() == TargetCommand.Turn) {
-                Debug.Log("Planing - Turning.");
+            /*} else if (currentTarget.Peek() == TargetCommand.Turn) {
+                //Debug.Log("Planing - Turning.");
                 //Wait for the turn to finish:
                 yield return new WaitWhile(steering.IsTurning);
                 wasUsed = true;
-                lock (currentTarget) currentTarget.Pop();
+                lock (currentTarget) currentTarget.Pop();*/
             } else if (currentTarget.Peek() == TargetCommand.Waiting) {
                 if (returnToStart) {
                     Debug.Log("Planing - Returning to start.");
@@ -324,9 +329,14 @@ public class Planing : MonoBehaviour {
             return false;*/
         }
         if (backwards) {
+            if(Mathf.Abs(targetRB.y) < Geometry.RIGHT_ANGLE) {
+                backwards = false;
+                obstacles = null;
+                return true;
+            }
             //Try to turn around in a two/three point turn:
             if (hypothesizeTurn(unobstructedRadius)) {
-                backwards = false;
+                //backwards = false;
                 obstacles = null;
                 return true;
             }
@@ -347,43 +357,11 @@ public class Planing : MonoBehaviour {
                 obstacles = null;
                 return false;
             }
-            //TODO: SET CORRECT ANGLES FOR NACKWARDS-DISPLAY:
-            var arcPoints = new List<Vector3>();
-            float arcStep = 1f / 1000f;
-            for(float f = 0; f < unobstructedRadius.x; f += arcStep) {
-                float x = Mathf.Sin(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
-                float y = Mathf.Cos(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
-                arcPoints.Add(new Vector3(x+positiveTurningCenter.x,0.3f,y+positiveTurningCenter.y));
-            }
-            rendererX.positionCount = arcPoints.Count;
-            rendererX.SetPositions(arcPoints.ToArray());
-            arcPoints = new List<Vector3>();
-            for(float f = 0; f > unobstructedRadius.y; f -= arcStep) {
-                float x = Mathf.Sin(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
-                float y = Mathf.Cos(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
-                arcPoints.Add(new Vector3(x+negativeTurningCenter.x,0.3f,y+negativeTurningCenter.y));
-            }
-            rendererY.positionCount = arcPoints.Count;
-            rendererY.SetPositions(arcPoints.ToArray());
+            DrawArc(rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, Geometry.RIGHT_ANGLE - lastLaserReadings.LastPose.z, -unobstructedRadius.x);
+            DrawArc(rendererY, UNOBSTRUCTED_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, -unobstructedRadius.y);
         } else {
-            var arcPoints = new List<Vector3>();
-            float arcStep = 1f / 1000f;
-            float positiveOffset = Geometry.HALF_CIRCLE - lastLaserReadings.LastPose.z;
-            for(float f = 0; f > -unobstructedRadius.x; f -= arcStep) {
-                float x = Mathf.Sin(f+positiveOffset) * MainMenu.Physics.turningRadius;
-                float y = Mathf.Cos(f+positiveOffset) * MainMenu.Physics.turningRadius;
-                arcPoints.Add(new Vector3(x+positiveTurningCenter.x,0.3f,y+positiveTurningCenter.y));
-            }
-            rendererX.positionCount = arcPoints.Count;
-            rendererX.SetPositions(arcPoints.ToArray());
-            arcPoints = new List<Vector3>();
-            for(float f = 0; f < -unobstructedRadius.y; f += arcStep) {
-                float x = Mathf.Sin(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
-                float y = Mathf.Cos(f-lastLaserReadings.LastPose.z) * MainMenu.Physics.turningRadius;
-                arcPoints.Add(new Vector3(x+negativeTurningCenter.x,0.3f,y+negativeTurningCenter.y));
-            }
-            rendererY.positionCount = arcPoints.Count;
-            rendererY.SetPositions(arcPoints.ToArray());
+            DrawArc(rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, Geometry.RIGHT_ANGLE - lastLaserReadings.LastPose.z, unobstructedRadius.x);
+            DrawArc(rendererY, UNOBSTRUCTED_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, unobstructedRadius.y);
         }
         Debug.Log("Target " + currentTargetPosition + "," + targetRB + "R" + unobstructedRadius + "P" + lastLaserReadings.LastPose);
         if (!IsWithinFunnel(targetRB) || Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
@@ -426,7 +404,7 @@ public class Planing : MonoBehaviour {
             if (findPositiveUnobstructedRadius(movedPose) >= Geometry.RIGHT_ANGLE) {
                 Debug.Log("Planing - Positive half turning.");
                 steering.SteerForward(Geometry.RIGHT_ANGLE);
-                lock (currentTarget) currentTarget.Push(TargetCommand.Turn);
+                //lock (currentTarget) currentTarget.Push(TargetCommand.Turn);
                 return true;
             }
         }
@@ -440,7 +418,7 @@ public class Planing : MonoBehaviour {
             if (findNegativeUnobstructedRadius(movedPose) >= Geometry.RIGHT_ANGLE) {
                 Debug.Log("Planing - Negative half turning.");
                 steering.SteerForward(-Geometry.RIGHT_ANGLE);
-                lock (currentTarget) currentTarget.Push(TargetCommand.Turn);
+                //lock (currentTarget) currentTarget.Push(TargetCommand.Turn);
                 return true;
             }
         }
@@ -585,6 +563,8 @@ public class Planing : MonoBehaviour {
             }
             steeringSegment += (f < g ? f : g);
         }
+        if(steeringSegment > 0) DrawArc(rendererSteering, STEERING_HEIGHT, positiveTurningCenter, Geometry.RIGHT_ANGLE - lastLaserReadings.LastPose.z, steeringSegment);
+        else DrawArc(rendererSteering, STEERING_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, steeringSegment);
         return steeringSegment;
     }
 
@@ -601,6 +581,19 @@ public class Planing : MonoBehaviour {
         if (featureRB.y == 0f) return true;
         return Mathf.Sin(Mathf.Abs(featureRB.y)) * MainMenu.Physics.turningDiameter - MainMenu.Physics.halfWheelbase < featureRB.x;
         //This is not completly correct. The turning circle should only be moved half wheelbase to the side!
+    }
+
+    public static void DrawArc(LineRenderer renderer, float height, Vector2 center, float offset, float angle) {
+        var arcPoints = new List<Vector3>();
+        float sign = Mathf.Sign(angle);
+        angle *= sign;
+        for(float f = 0; f < angle; f += ARC_STEP) {
+            float x = Mathf.Cos(sign * f + offset) * MainMenu.Physics.turningRadius;
+            float y = Mathf.Sin(sign * f + offset) * MainMenu.Physics.turningRadius;
+            arcPoints.Add(new Vector3(x+center.x,height,y+center.y));
+        }
+        renderer.positionCount = arcPoints.Count;
+        renderer.SetPositions(arcPoints.ToArray());
     }
 }
 }

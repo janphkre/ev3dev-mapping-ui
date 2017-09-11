@@ -26,7 +26,7 @@ public class LaserModuleProperties : ModuleProperties
 	public string motorPort = "outC";
 	public int laserDutyCycle = 44;
 	public int crcTolerancePct = 10;
-    public float laserOffset = 0f;
+    public float laserOffset = -90f;
 }
 	
 [Serializable]
@@ -225,11 +225,10 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 			// calculate reading in laser plane
 			distance_mm = packet.laser_readings[i].distance;
 			alpha = angle + module.laserOffset;
-
-			pos.x = -(distance_mm * (float)Mathf.Sin(angle * Constants.DEG2RAD) + Constants.B * (float)Mathf.Sin(alpha * Constants.DEG2RAD)) / 1000.0f;
+			pos.x = -(distance_mm * (float)Mathf.Sin(alpha * Constants.DEG2RAD)) / 1000.0f;
 			pos.y = 0;
-			pos.z = (distance_mm * (float)Mathf.Cos(angle * Constants.DEG2RAD) + Constants.B * (float)Mathf.Cos(alpha * Constants.DEG2RAD)) / 1000.0f;
-
+			pos.z = (distance_mm * (float)Mathf.Cos(alpha * Constants.DEG2RAD)) / 1000.0f;
+            
 			// translate/rotate reading taking into acount laser mounting position and rotation
 			readings[angle_index] = laserTRS.MultiplyPoint3x4 (pos);
 		}

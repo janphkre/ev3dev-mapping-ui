@@ -62,6 +62,7 @@ MonoBehaviour:
     motorPort: outB
     laserDutyCycle: 45
     crcTolerancePct: 10
+    laserOffset: 0
   plot:
     plotType: 2
     distanceLimit: 2

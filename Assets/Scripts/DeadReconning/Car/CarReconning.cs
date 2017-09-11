@@ -25,6 +25,17 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
     protected override void Start() {
         base.Start();
     }
+    
+    protected void Update() {
+        PositionData currentPosition;
+        try {
+            currentPosition = positionHistory.GetNewestThreadSafe();
+        } catch(InvalidOperationException e) {
+            return;
+        }
+        transform.parent.transform.position = currentPosition.position;
+		transform.parent.transform.rotation = Quaternion.Euler(0.0f, currentPosition.heading, 0.0f);
+    }
 
     protected override void ProcessPacket(CarReconningPacket packet) {
         //First call - set first udp packet with reference encoder positions
