@@ -129,7 +129,7 @@ public class Planing : MonoBehaviour {
 
     public PlaningInputData LaserReadings {
         private get { lock (laserReadingsLock) return currentLaserReadings; }
-        set { lock (laserReadingsLock) currentLaserReadings = value; }
+        set { /*Debug.Log("New LaserReading.");*/ lock (laserReadingsLock) currentLaserReadings = value; }
     }
 
     public Graph GlobalGraph { get { return globalGraph; } }
@@ -154,8 +154,8 @@ public class Planing : MonoBehaviour {
     
     private LineRenderer rendererX;
     private LineRenderer rendererY;
-    
     private LineRenderer rendererSteering;
+
     public void Awake() {
         singleton = this;
         UNOBSTRUCTED_OFFSET = Mathf.Acos(1f - UNOBSTRUCTED_OBSTACLE_MULTIPLIER * MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
@@ -175,8 +175,8 @@ public class Planing : MonoBehaviour {
         obj = new GameObject("RendererSteer");
         rendererSteering = obj.AddComponent<LineRenderer>();
         rendererSteering.material.color = Color.green;
-        rendererSteering.startWidth = 0.01f;
-        rendererSteering.endWidth = 0.01f;
+        rendererSteering.startWidth = 0.02f;
+        rendererSteering.endWidth = 0.02f;
         rendererSteering.positionCount = 0;
     }
 
@@ -213,7 +213,7 @@ public class Planing : MonoBehaviour {
             lastLaserReadings = LaserReadings;
             wasUsed = false;
             if (currentTarget.Peek() == TargetCommand.ExplorePosition) {
-                Debug.Log("Planing - Exploring position.");
+                //Debug.Log("Planing - Exploring position.");
                 lastLaserReadings.CalculateRB(positionHistory.GetNewestThreadSafe());
                 if (obstaclePlaning()) {
                     wasUsed = true;
@@ -227,7 +227,7 @@ public class Planing : MonoBehaviour {
                 lock (currentTarget) currentTarget.Pop();*/
             } else if (currentTarget.Peek() == TargetCommand.Waiting) {
                 if (returnToStart) {
-                    Debug.Log("Planing - Returning to start.");
+                    //Debug.Log("Planing - Returning to start.");
                     steering.Halt();
                     lock (currentTarget) {
                         currentTarget.Clear();
@@ -240,7 +240,6 @@ public class Planing : MonoBehaviour {
                     backwards = !backwards;
                     returnToStart = false;
                 } else if (start) {
-                    Debug.Log("Planing - Starting.");
                     lock (currentTarget) { currentTarget.Push(TargetCommand.RandomMove); }
                     start = false;
                     lastLaserReadings.CalculateRB(positionHistory.GetNewestThreadSafe());
@@ -255,7 +254,7 @@ public class Planing : MonoBehaviour {
                 do {
                     calculating = false;
                     if (currentTarget.Peek() == TargetCommand.RandomMove) {
-                        Debug.Log("Planing - Calculating random move.");
+                        //Debug.Log("Planing - Calculating random move.");
                         if (!globalGraph.GetNewTarget(out currentTargetPosition)) {
                             steering.Halt();
                             if (globalGraph.HasUnvisitedNodes()) {
@@ -269,7 +268,7 @@ public class Planing : MonoBehaviour {
                             }
                         } else lock (currentTarget) currentTarget.Push(TargetCommand.ExplorePosition);
                     } else if (currentTarget.Peek() == TargetCommand.ExplorePosition) {
-                        Debug.Log("Planing - Calculating explore position.");
+                        //Debug.Log("Planing - Calculating explore position.");
                         if (currentPath.Count <= 0) {
                             currentPath = null;
                             lock (currentTarget) currentTarget.Pop();
@@ -279,7 +278,7 @@ public class Planing : MonoBehaviour {
                             currentPath.RemoveFirst();
                         }
                     } else if (currentTarget.Peek() == TargetCommand.Backtrack) {
-                        Debug.Log("Planing - Calculating backtrack.");
+                        //Debug.Log("Planing - Calculating backtrack.");
                         if (currentPath == null) {
                             currentPath = globalGraph.GetUnexploredNodePath(lastLaserReadings.LastPose);
                             currentTargetPosition = currentPath.First.Value;
@@ -377,6 +376,7 @@ public class Planing : MonoBehaviour {
                 lock (currentTarget) {
                     currentTarget.Pop();
                 }
+                backwards = true;
                 obstacles = null;
                 return false;
             }
@@ -513,9 +513,9 @@ public class Planing : MonoBehaviour {
         var bearing = Geometry.RIGHT_ANGLE - Mathf.Abs(targetRB.y);
         var c = MainMenu.Physics.turningRadiusSquared + targetRB.x * targetRB.x - 2f * MainMenu.Physics.turningRadius * targetRB.x * Mathf.Cos(bearing);
         float steeringSegment = (Mathf.Asin((targetRB.x * Mathf.Sin(bearing)) / Mathf.Sqrt(c)) - Mathf.Asin(Mathf.Sqrt(c - MainMenu.Physics.turningRadiusSquared) / Mathf.Sqrt(c)));
-        float lineLength;
-        if(steeringSegment > Geometry.RIGHT_ANGLE) lineLength = targetRB.x - MainMenu.Physics.turningRadius;
-        else lineLength = targetRB.x - MainMenu.Physics.turningRadius * steeringSegment;
+        //float lineLength;
+        //if(steeringSegment > Geometry.RIGHT_ANGLE) lineLength = targetRB.x - MainMenu.Physics.turningRadius;
+        //else lineLength = targetRB.x - MainMenu.Physics.turningRadius * steeringSegment;
         if (bearing < 0) steeringSegment = -steeringSegment;
         //Find the closest steerable way towards the currentTargetPosition
         //TODO: A steering plan consists of two elements: A line and a turn.
@@ -530,7 +530,7 @@ public class Planing : MonoBehaviour {
                         Vector3 line = Geometry.Rotate(lastLaserReadings.LastPose, currentAngle >= 0f ? positiveTurningCenter : negativeTurningCenter, currentAngle);
                         line.z = lastLaserReadings.LastPose.z + currentAngle;
                         //targetRB.x is roughly the real target distance from line plus not more than MainMenu.Physics.turningRadius.
-                        if (checkLine(line, lineLength)) break;
+                        if (checkLine(line, 0.1f)) break;
                     } else {
                         f = unobstructedRadius.y - steeringSegment - OBSTACLE_PLANING_STEP;
                     }
@@ -546,7 +546,7 @@ public class Planing : MonoBehaviour {
                     if (currentAngle <= unobstructedRadius.x) {
                         Vector3 line = Geometry.Rotate(lastLaserReadings.LastPose, currentAngle >= 0f ? positiveTurningCenter : negativeTurningCenter, currentAngle);
                         line.z = lastLaserReadings.LastPose.z + currentAngle;
-                        if (checkLine(line, lineLength)) break;
+                        if (checkLine(line, 0.1f)) break;
                     } else {
                         g = steeringSegment - unobstructedRadius.x - OBSTACLE_PLANING_STEP;
                     }
@@ -559,12 +559,13 @@ public class Planing : MonoBehaviour {
                 //This means that either the steerable range was smaller than OBSTACLE_PLANING_STEP
                 //or the target is blocked by an obstacle -> remove edge from graph
                 globalGraph.DisconnectNode(currentTargetPosition);
+                Debug.Log("Disconnecting " + currentTargetPosition);
                 return float.NaN;
             }
             steeringSegment += (f < g ? f : g);
         }
-        if(steeringSegment > 0) DrawArc(rendererSteering, STEERING_HEIGHT, positiveTurningCenter, Geometry.RIGHT_ANGLE - lastLaserReadings.LastPose.z, steeringSegment);
-        else DrawArc(rendererSteering, STEERING_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, steeringSegment);
+        if(steeringSegment > 0) DrawArc(rendererSteering, STEERING_HEIGHT, positiveTurningCenter, Geometry.RIGHT_ANGLE - lastLaserReadings.LastPose.z, backwards ? steeringSegment : -steeringSegment);
+        else DrawArc(rendererSteering, STEERING_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, backwards ? steeringSegment : -steeringSegment);
         return steeringSegment;
     }
 

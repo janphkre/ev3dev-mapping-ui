@@ -13,29 +13,33 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     private static short STEER_FORWARD = 128;
     private static short STEER_BACKWARD = -127;
 
-    public ulong keepAliveUs = 100000L; //100ms * 1000
+    public static ulong KEEP_ALIVE_US = 200 * 1000; //200 (ms) * 1000 (us)
     public CarDriveModuleProperties module = null;
-
-    private CarDrivePacket packet = new CarDrivePacket();
     
+    private ulong lastTimestamp;
+
     protected override void OnDestroy() {
         Halt();
         base.OnDestroy();
     }
 
     protected override void Start() {
-        packet.timestamp_us = Timestamp.TimestampUs();
+        lastTimestamp = Timestamp.TimestampUs();
     }
 
     public void Update() {
-        if (Timestamp.TimestampUs() - packet.timestamp_us < keepAliveUs) return;
-        packet.timestamp_us = Timestamp.TimestampUs();
+        if ((Timestamp.TimestampUs() - lastTimestamp) < KEEP_ALIVE_US) return;
+        lastTimestamp = Timestamp.TimestampUs();
+        CarDrivePacket packet = new CarDrivePacket();
+        packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.KEEPALIVE;
         Send(packet);
     }
 
     public void Halt() {
-        packet.timestamp_us = Timestamp.TimestampUs();
+        lastTimestamp = Timestamp.TimestampUs();
+        CarDrivePacket packet = new CarDrivePacket();
+        packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.STOP;
         Send(packet);
     }
@@ -50,7 +54,9 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     }*/
 
     public void Steer(float segment, bool backwards) {
-        packet.timestamp_us = Timestamp.TimestampUs();
+        lastTimestamp = Timestamp.TimestampUs();
+        CarDrivePacket packet = new CarDrivePacket();
+        packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURN;
         packet.param2 = CalculateSegment(segment);
         packet.param1 = backwards ? STEER_BACKWARD : STEER_FORWARD;
@@ -59,7 +65,9 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
 
     //Moves forward for the segment of the max steering angle circle and stops afterwards.
     public void SteerForward(float segment) {
-        packet.timestamp_us = Timestamp.TimestampUs();
+        lastTimestamp = Timestamp.TimestampUs();
+        CarDrivePacket packet = new CarDrivePacket();
+        packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURNSTOP;
         packet.param2 = CalculateSegment(segment);
         packet.param1 = STEER_FORWARD;
@@ -68,7 +76,9 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
 
     //Same as SteerForward but backwards
     public void SteerBackwards(float segment) {
-        packet.timestamp_us = Timestamp.TimestampUs();
+        lastTimestamp = Timestamp.TimestampUs();
+        CarDrivePacket packet = new CarDrivePacket();
+        packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURNSTOP;
         packet.param2 = CalculateSegment(segment);
         packet.param1 = STEER_BACKWARD;
@@ -76,7 +86,9 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     }
     
     public void DriveAhead(bool backwards) {
-        packet.timestamp_us = Timestamp.TimestampUs();
+        lastTimestamp = Timestamp.TimestampUs();
+        CarDrivePacket packet = new CarDrivePacket();
+        packet.timestamp_us = lastTimestamp;
         packet.command = backwards ? CarDrivePacket.Commands.BACKWARD : CarDrivePacket.Commands.FORWARD;
         Send(packet);
     }
