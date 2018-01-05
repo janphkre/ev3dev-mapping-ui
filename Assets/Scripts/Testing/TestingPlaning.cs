@@ -82,7 +82,7 @@ namespace ev3devMapping.Testing {
             MainMenu.Physics.Calculate();
             PositionHistory positionHistory = SceneManager.DynamicObjects.gameObject.AddComponent<PositionHistory>();
             var p = new PositionData();
-            p.heading = 90;
+            p.heading = 0;
             positionHistory.PutThreadSafe(p);
             Planing.singleton.LaserReadings = sampleInput;
             //Expect a NullReferenceException

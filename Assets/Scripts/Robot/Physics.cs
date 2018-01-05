@@ -7,7 +7,7 @@ public enum TachometerPosition { Differential, Left, Right }
 public class Physics : MonoBehaviour, ItemCopy<Physics>
 {
     public float turningRadius = 1.19f;
-	public float wheelDiameterMm = 94.8f;
+	public float wheelDiameterMm = 92.8f;
 	public float wheelbaseMm = 185.0f;
 	public int encoderCountsPerRotation=360;
 	public int maxEncoderCountsPerSecond=1000;

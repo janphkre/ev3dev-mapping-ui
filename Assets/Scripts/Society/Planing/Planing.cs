@@ -37,6 +37,7 @@ public class PlaningInputData {
 
     public void CalculateRB(PositionData pos) {
         LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading * Mathf.PI / 180f);
+        Debug.Log("Using: "+ LastPose);
         int j = 0;
         for (int i = 0; i < ReadingsCount; i++) {
             var rb = Geometry.ToRangeBearing2(Readings[i], LastPose);
@@ -148,8 +149,8 @@ public class Planing : MonoBehaviour {
     private PlaningInputData lastLaserReadings = null;
 
     private bool backwards = false;
-    private Vector3 positiveTurningCenter;
-    private Vector3 negativeTurningCenter;
+    private Vector3 positiveTurningCenter;//LEFT
+    private Vector3 negativeTurningCenter;//RIGHT
     private List<Vector3> obstacles;
     
     private LineRenderer rendererX;
@@ -356,13 +357,10 @@ public class Planing : MonoBehaviour {
                 obstacles = null;
                 return false;
             }
-            DrawArc(rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, Geometry.RIGHT_ANGLE - lastLaserReadings.LastPose.z, -unobstructedRadius.x);
-            DrawArc(rendererY, UNOBSTRUCTED_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, -unobstructedRadius.y);
-        } else {
-            DrawArc(rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, Geometry.RIGHT_ANGLE - lastLaserReadings.LastPose.z, unobstructedRadius.x);
-            DrawArc(rendererY, UNOBSTRUCTED_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, unobstructedRadius.y);
         }
-        Debug.Log("Target " + currentTargetPosition + "," + targetRB + "R" + unobstructedRadius + "P" + lastLaserReadings.LastPose);
+        DrawArc(rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, -Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, unobstructedRadius.x);
+        DrawArc(rendererY, UNOBSTRUCTED_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, unobstructedRadius.y);
+        Debug.Log("Target " + currentTargetPosition + ", RB" + targetRB + " Radius" + unobstructedRadius + " Pose" + lastLaserReadings.LastPose);
         if (!IsWithinFunnel(targetRB) || Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
             //The target is not in the current reachable funnel. Move forward.
             //The robot is facing towards the target. No turn is needed.
@@ -564,8 +562,8 @@ public class Planing : MonoBehaviour {
             }
             steeringSegment += (f < g ? f : g);
         }
-        if(steeringSegment > 0) DrawArc(rendererSteering, STEERING_HEIGHT, positiveTurningCenter, Geometry.RIGHT_ANGLE - lastLaserReadings.LastPose.z, backwards ? steeringSegment : -steeringSegment);
-        else DrawArc(rendererSteering, STEERING_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, backwards ? steeringSegment : -steeringSegment);
+        if(steeringSegment > 0) DrawArc(rendererSteering, STEERING_HEIGHT, positiveTurningCenter, -Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, steeringSegment);
+        else DrawArc(rendererSteering, STEERING_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, steeringSegment);
         return steeringSegment;
     }
 

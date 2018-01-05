@@ -20,6 +20,7 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         base.Awake();
         lastPosition = new PositionData { position = transform.parent.position, heading = transform.parent.eulerAngles.y };
         initialHeading = lastPosition.heading;
+            Debug.Log("InitialHeading =" + lastPosition.heading);
     }
 
     protected override void Start() {
@@ -67,8 +68,10 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         lastPosition.heading = packet.HeadingInDegrees + initialHeading;
 
         lastPacket.CloneFrom(packet);
-        if(float.IsNaN(lastPosition.position.x) || float.IsNaN(lastPosition.position.y) || float.IsNaN(lastPosition.position.z) || float.IsNaN(lastPosition.heading))
-                throw new ArgumentException();
+        if(float.IsNaN(lastPosition.position.x) || float.IsNaN(lastPosition.position.y) || float.IsNaN(lastPosition.position.z) || float.IsNaN(lastPosition.heading)) {
+            throw new ArgumentException();
+        }
+        Debug.Log("Putting: "+ lastPosition.position);
         positionHistory.PutThreadSafe(lastPosition);
     }
 
