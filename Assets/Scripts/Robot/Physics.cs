@@ -31,7 +31,7 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
         turningDiameter = 2f * turningRadius;
         turningRadiusSquared = turningRadius * turningRadius;
         turningRadiusAngledSquared = Mathf.Sqrt(2f * turningRadiusSquared);
-        halfWheelbase = wheelbaseMm / 2000.0f;
+        halfWheelbase = wheelbaseMm / (2f * Constants.MM_IN_M);
         /* 
          * As the distance on the segment of a circle equals to radius * angle,
          * we multiply the segment angle with either the turningRadius or the outerTurningRadius (if the car does not have a differential).

@@ -104,6 +104,11 @@ public class Geometry {
         return new Vector2((posRange * Mathf.Cos(posBearing + origin.z)) + origin.x, (posRange * Mathf.Sin(posBearing + origin.z)) + origin.y);
     }
 
+    //Returns the position of the feature from the range and bearing and the origin pose. Will ignore y coordinate of origin.
+    public static Vector2 FromRangeBearing(float posRange, float posBearing, PositionData origin) {
+        return new Vector2((posRange * Mathf.Cos(posBearing + origin.heading)) + origin.position.x, (posRange * Mathf.Sin(posBearing + origin.heading)) + origin.position.z);
+    }
+
     //Mathematical Modulo (Non-Symmetrical)
     public static int Modulo(int x, int y) {
         int r = x % y;

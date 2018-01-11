@@ -51,27 +51,31 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
             return;
         }
 
-        // Calculate the linear displacement since last packet:
+        // Calculate the motor displacement since last packet:
         float ddiff = packet.position_drive - lastPacket.position_drive;
-        float distanceTravelled = Mathf.Abs(ddiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M);
-        
         //Calculate rotation delta:
-        float delta = packet.HeadingInDegrees - lastPacket.HeadingInDegrees;
-        delta = (delta * Mathf.PI) / 180f;
-        if (physics.reverseMotorPolarity ^ ddiff < 0f) delta = Mathf.PI - delta;
-        delta = delta % Mathf.PI;
-        float range = physics.turningDiameter * Mathf.Sin(distanceTravelled / physics.turningDiameter);
-        var result = Society.Geometry.FromRangeBearing(range, ((lastPacket.HeadingInDegrees * Mathf.PI) / 180f) + delta);
-        // Finally update the position and heading
-        lastPosition.timestamp = packet.timestamp_us;
-        lastPosition.position = new Vector3(lastPosition.position.x + result.x, lastPosition.position.y, lastPosition.position.z + result.y);
-        lastPosition.heading = packet.HeadingInDegrees + initialHeading;
+        float delta1 = Mathf.Abs(ddiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M) / physics.turningDiameter;
+        float delta2 = ((packet.HeadingInDegrees - lastPosition.heading) * Mathf.PI) / 360f;
+        if (physics.reverseMotorPolarity ^ ddiff < 0f) delta2 = Mathf.PI - delta2;
+        delta2 = delta2 % Mathf.PI;
 
         lastPacket.CloneFrom(packet);
-        if(float.IsNaN(lastPosition.position.x) || float.IsNaN(lastPosition.position.y) || float.IsNaN(lastPosition.position.z) || float.IsNaN(lastPosition.heading)) {
+        if(delta1 > 0.5f && delta2 < 0.2f) {
+            Debug.LogWarning("Ignoring broken measurement!");
+            return; //ignore packet
+        }
+
+        float range = physics.turningDiameter * Mathf.Sin(delta1);
+        var result = Society.Geometry.FromRangeBearing(range, delta2, lastPosition);
+        
+        // Finally update the position and heading
+        lastPosition.timestamp = packet.timestamp_us;
+        lastPosition.position = new Vector3(result.x, lastPosition.position.y, result.y);
+        lastPosition.heading = packet.HeadingInDegrees + initialHeading;
+        if (float.IsNaN(lastPosition.position.x) || float.IsNaN(lastPosition.position.y) || float.IsNaN(lastPosition.position.z) || float.IsNaN(lastPosition.heading)) {
             throw new ArgumentException();
         }
-        Debug.Log("Putting: "+ lastPosition.position);
+        //Debug.Log("Putting: "+ lastPosition.position);
         positionHistory.PutThreadSafe(lastPosition);
     }
 
