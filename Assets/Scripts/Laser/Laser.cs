@@ -191,7 +191,6 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 	{
 		int angle_index;
 		float alpha, distance_mm, angle;
-		Vector3 pos;
 
 		Vector3[] readings = threadInternal.readings;
 		bool[] invalid_data = threadInternal.invalid_data;
@@ -225,10 +224,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 			// calculate reading in laser plane
 			distance_mm = packet.laser_readings[i].distance;
 			alpha = angle + module.laserOffset;
-			pos.x = -(distance_mm * (float)Mathf.Sin(alpha * Constants.DEG2RAD)) / 1000.0f;
-			pos.y = 0;
-			pos.z = (distance_mm * (float)Mathf.Cos(alpha * Constants.DEG2RAD)) / 1000.0f;
-            
+            Vector3 pos = new Vector3(-(distance_mm * Mathf.Sin(alpha * Constants.DEG2RAD)) / 1000.0f, 0f,  (distance_mm * Mathf.Cos(alpha * Constants.DEG2RAD)) / 1000.0f);
 			// translate/rotate reading taking into acount laser mounting position and rotation
 			readings[angle_index] = laserTRS.MultiplyPoint3x4 (pos);
 		}
