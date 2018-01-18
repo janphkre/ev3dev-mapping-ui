@@ -70,6 +70,7 @@ public class Graph : MonoBehaviour {
     public const float ACO_MIN_DIFF = 0.1f;
     public const float ACO_FORGETTING = 0.5f;
     public const int SEND_FREQUENCY = 20;
+    public const float MIN_NODE_SIZE = Planing.MIN_OBSTACLE_DISTANCE * 2f;
 
     public GameObject CirclePrefab;
     public GameObject EdgePrefab;
@@ -158,7 +159,7 @@ public class Graph : MonoBehaviour {
                 int closestNode = 0;
                 closestDistance = Geometry.EuclideanDistance(center, nodes[0].Position);
                 int closestRadiusNode = 0;
-                float closestRadiusDistance = Geometry.EuclideanDistance(center, nodes[0].Position) - (nodes[0].radius > centerOffset.magnitude ? nodes[0].radius : centerOffset.magnitude);
+                float closestRadiusDistance = closestDistance - (nodes[0].radius > centerOffset.magnitude ? nodes[0].radius : centerOffset.magnitude);
                 for (int j = 1; j < nodes.Count; j++) {
                     var currentDistance = Geometry.EuclideanDistance(center, nodes[j].Position);
                     if (currentDistance > MIN_NODE_DISTANCE) {
@@ -172,8 +173,22 @@ public class Graph : MonoBehaviour {
                         closestNode = j;
                     }
                 }
+                //Check if the new node would be big enough:
+                if(centerOffset.magnitude < MIN_NODE_SIZE) {
+                        
+                }
                 //Add the node if it is not an already existing node:
-                if (closestDistance > MIN_NODE_DISTANCE) {
+                if (closestDistance <= MIN_NODE_DISTANCE || centerOffset.magnitude < MIN_NODE_SIZE) {
+                    //Connect the two nodes:
+                    if(closestNode != lastNode) {
+                        connectNodes(closestNode, lastNode);
+                    }
+                    //Grow the closestNode:
+                    float additionalRadius = closestRadiusDistance + (nodes[closestRadiusNode].radius < centerOffset.magnitude ? nodes[closestRadiusNode].radius : centerOffset.magnitude);
+                    if(additionalRadius > 0f) {
+                            nodes[closestRadiusNode].radius += additionalRadius;
+                    }
+                } else {
                     int j = 1;
                     //Make sure that we are not looking at bars or similiar things:
                     if (lastLaserReadings.ReadingsRB[previousReading].x < lastLaserReadings.ReadingsRB[i].x) {
@@ -199,9 +214,6 @@ public class Graph : MonoBehaviour {
                         node.centerOffset = Geometry.Rotate(node.centerOffset, matchPose, lastMatch.z);
                         nodes.Add(node);
                     }
-                } else {
-                    //Connect the two nodes:
-                    if(closestNode != lastNode) connectNodes(closestNode, lastNode);
                 }
             }
         }

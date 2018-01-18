@@ -14,6 +14,7 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
     
     private CarReconningPacket lastPacket = new CarReconningPacket();
     private PositionData lastPosition = new PositionData();
+        private Vector3 previousPosition = Vector3.zero;
     private float initialHeading;
 
     protected override void Awake() {
@@ -31,11 +32,19 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         PositionData currentPosition;
         try {
             currentPosition = positionHistory.GetNewestThreadSafe();
-        } catch(InvalidOperationException e) {
+        } catch(InvalidOperationException) {
             return;
         }
         transform.parent.transform.position = currentPosition.position;
 		transform.parent.transform.rotation = Quaternion.Euler(0.0f, currentPosition.heading, 0.0f);
+            if(!currentPosition.position.Equals(previousPosition)) {
+                GameObject o = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                o.transform.position = currentPosition.position;
+                o.transform.localScale = new Vector3(0.1f, 0.1f, 0.1f);
+                o.GetComponent<MeshRenderer>().material.color = Color.red;
+                previousPosition = currentPosition.position;
+            }
+        
     }
 
     protected override void ProcessPacket(CarReconningPacket packet) {
@@ -55,12 +64,12 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         float ddiff = packet.position_drive - lastPacket.position_drive;
         //Calculate rotation delta:
         float delta1 = Mathf.Abs(ddiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M) / physics.turningDiameter;
-        float delta2 = ((packet.HeadingInDegrees - lastPosition.heading) * Mathf.PI) / 360f;
+        float delta2 = ((lastPosition.heading - packet.HeadingInDegrees) * Mathf.PI) / 360f;
         if (physics.reverseMotorPolarity ^ ddiff < 0f) delta2 = Mathf.PI - delta2;
-        delta2 = delta2 % Mathf.PI;
-
+        delta2 = (delta2 / 2f) % Mathf.PI;
+        
         lastPacket.CloneFrom(packet);
-        if(delta1 > 0.5f && delta2 < 0.2f) {
+        if(delta1 > 0.5f && delta2 < 0.1f) {
             Debug.LogWarning("Ignoring broken measurement!");
             return; //ignore packet
         }
@@ -75,7 +84,7 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         if (float.IsNaN(lastPosition.position.x) || float.IsNaN(lastPosition.position.y) || float.IsNaN(lastPosition.position.z) || float.IsNaN(lastPosition.heading)) {
             throw new ArgumentException();
         }
-        //Debug.Log("Putting: "+ lastPosition.position);
+        Debug.Log("Putting: "+ lastPosition.heading);
         positionHistory.PutThreadSafe(lastPosition);
     }
 
