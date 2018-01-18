@@ -31,14 +31,26 @@ public class CircleMap2D : Object {
     }
 
     public void ProcessNodes(List<GraphNode> nodes, int count, List<int> unvisitedNodes) {
+        if(nodes.Count == 0) return;
         int i = 0,
-            j = 0;
+            j = 0,
+            nextUnvisited = -1;
+        if(unvisitedNodes.Count > 0) {
+            nextUnvisited = unvisitedNodes[0];
+        }
         foreach (Circle circle in circles) {
             Vector2 position = nodes[i].Position;
             circle.GameObj.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
             var material = circle.GameObj.GetComponent<MeshRenderer>().material;
-            if (i == unvisitedNodes[j]) j++;
-            else material.color = Color.white;
+            if (i == nextUnvisited) {
+                if(++j < unvisitedNodes.Count) {
+                    nextUnvisited = unvisitedNodes[j];
+                } else {
+                    nextUnvisited = -1;
+                }
+            } else {
+                material.color = Color.white;
+            }
             for (int k = 0; k < circle.Connected.Count; k++) {
                 //Existing edges:
                 //circle.Connected[i] = nodes[i].Connected[k];
