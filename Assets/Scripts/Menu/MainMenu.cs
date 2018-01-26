@@ -1,4 +1,5 @@
 ﻿using ev3devMapping.Society;
+using ev3devMapping.Testing;
 using UnityEngine;
 using UnityEngine.UI;
 using System.IO;
@@ -10,6 +11,7 @@ public class MainMenu : MonoBehaviour {
     public const string BASE_SCENE = "Base";
     public const string MAIN_MENU_SCENE = "MainMenu";
     public const string TESTING_PLANING_SCENE = "TestingPlaning";
+    public const string TESTING_RECONNING_SCENE = "TestingReconning";
 
     public const string SETTINGS = "settings.txt";
     public static readonly string[] INPUT_FIELDS = {
@@ -140,7 +142,7 @@ public class MainMenu : MonoBehaviour {
                     reader.Dispose();
                 }
             }
-        } else if(scene.name.Equals(TESTING_PLANING_SCENE)) {
+        } else if(scene.name.Equals(TESTING_PLANING_SCENE) || scene.name.Equals(TESTING_RECONNING_SCENE)) {
             using (var reader = new StreamReader(File.OpenRead(SETTINGS))) {
                 Robot.sessionDirectory = reader.ReadLine();
                 int.TryParse(reader.ReadLine(), out PositionHistory.positionsKept);
@@ -160,8 +162,12 @@ public class MainMenu : MonoBehaviour {
                 reader.Dispose();
             }
             GameObject r = Instantiate(robotPrefab, SceneManager.DynamicObjects);
-            //r.GetComponent<RobotNetworking>().OnStartLocalPlayer();
-        }
+        	if(scene.name.Equals(TESTING_RECONNING_SCENE)) {
+        		r.GetComponent<RobotNetworking>().OnStartLocalPlayer();
+        		gameObject.GetComponent<TestingReconning>().Test(r);
+        	}
+    	}
+        
     }
 }
 }

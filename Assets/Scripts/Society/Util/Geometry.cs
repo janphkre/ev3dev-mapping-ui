@@ -106,7 +106,7 @@ public class Geometry {
 
     //Returns the position of the feature from the range and bearing and the origin pose. Will ignore y coordinate of origin.
     public static Vector3 FromRangeBearing(float posRange, float posBearing, PositionData origin) {
-	float originHeading = origin.heading * Mathf.PI / 180f;
+		float originHeading = origin.heading * Mathf.PI / 180f;
         return new Vector3((posRange * Mathf.Cos(posBearing + originHeading)) + origin.position.x, origin.position.y, (posRange * Mathf.Sin(posBearing + originHeading)) + origin.position.z);
     }
 
