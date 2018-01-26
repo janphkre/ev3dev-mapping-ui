@@ -1411,7 +1411,8 @@ namespace ev3devMapping.Testing {
                 if(r.Next(2) == 1) {
                     rows.Add(i);
                     n[i, j] = new Matrix(1, 1);
-                    n[i, j++][0, 0] = i;
+                    n[i, j][0, 0] = i;
+                    j++;
                 }
             }
             m.Trim(rows, RANDOM_ITERATIONS);

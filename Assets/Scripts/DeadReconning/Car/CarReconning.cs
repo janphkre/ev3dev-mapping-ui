@@ -14,9 +14,10 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
     
     private CarReconningPacket lastPacket = new CarReconningPacket();
     private PositionData lastPosition = new PositionData();
-        private Vector3 previousPosition = Vector3.zero;
+    private Vector3 previousPosition = Vector3.zero;
     private float initialHeading;
-
+    private int headingDrift = 0;
+    
     protected override void Awake() {
         base.Awake();
         lastPosition = new PositionData { position = transform.parent.position, heading = transform.parent.eulerAngles.y };
@@ -62,29 +63,43 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
 
         // Calculate the motor displacement since last packet:
         float ddiff = packet.position_drive - lastPacket.position_drive;
-        //Calculate rotation delta:
-        float delta1 = Mathf.Abs(ddiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M) / physics.turningDiameter;
-        float delta2 = ((lastPosition.heading - packet.HeadingInDegrees) * Mathf.PI) / 360f;
-        if (physics.reverseMotorPolarity ^ ddiff < 0f) delta2 = Mathf.PI - delta2;
-        delta2 = (delta2 / 2f) % Mathf.PI;
-        
+
+        //remove drift from heading:
+        if (ddiff < 0.01f) {
+            headingDrift += packet.heading - lastPacket.heading;
+        }   
+        float headingInDegrees = ((packet.heading - headingDrift) / 100.0f) + initialHeading;
+	
         lastPacket.CloneFrom(packet);
-        if(delta1 > 0.5f && delta2 < 0.1f) {
+	
+        //Calculate rotation delta:
+        float delta1 = Mathf.Abs(ddiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M) / physics.turningRadius;
+        float delta2 = (headingInDegrees - lastPosition.heading) * Mathf.PI / 180f;
+
+		if(Mathf.Abs(delta1 - delta2) > 0.5f ) {
             Debug.LogWarning("Ignoring broken measurement!");
             return; //ignore packet
         }
 
+		delta1 /= 2f;
+		delta2 = delta2 / 4f;
+        if (physics.reverseMotorPolarity ^ ddiff < 0f) {
+            delta2 = Mathf.PI - delta2;
+        }
+Debug.Log("res: " + delta2 + ", "  + delta1);
+
         float range = physics.turningDiameter * Mathf.Sin(delta1);
         var result = Society.Geometry.FromRangeBearing(range, delta2, lastPosition);
         
+	
+	if (float.IsNaN(result.x) || float.IsNaN(result.y) || float.IsNaN(headingInDegrees)) {
+            Debug.LogWarning("Ignoring misscalculation");
+	    return;
+        }
         // Finally update the position and heading
         lastPosition.timestamp = packet.timestamp_us;
-        lastPosition.position = new Vector3(result.x, lastPosition.position.y, result.y);
-        lastPosition.heading = packet.HeadingInDegrees + initialHeading;
-        if (float.IsNaN(lastPosition.position.x) || float.IsNaN(lastPosition.position.y) || float.IsNaN(lastPosition.position.z) || float.IsNaN(lastPosition.heading)) {
-            throw new ArgumentException();
-        }
-        Debug.Log("Putting: "+ lastPosition.heading);
+        lastPosition.position = result;
+        lastPosition.heading = headingInDegrees;
         positionHistory.PutThreadSafe(lastPosition);
     }
 

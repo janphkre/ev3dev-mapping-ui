@@ -256,8 +256,96 @@ namespace ev3devMapping.Testing {
             Assert.AreEqual(1.0f, v.x, DELTA);
             Assert.AreEqual(-4.0f, v.y, DELTA);
 
-            //Rotate
-            v = Geometry.Rotate(Vector2.zero, Vector3.zero, 0.0f);
+			//float, float, PositionData
+			var posData = new PositionData();
+			Vector3 w = Geometry.FromRangeBearing(0.0f,0.0f, posData);
+            Assert.AreEqual(0.0f, w.x, DELTA);
+            Assert.AreEqual(0.0f, w.y, DELTA);
+			Assert.AreEqual(0.0f, w.z, DELTA);
+			w = Geometry.FromRangeBearing(5.0f,0.0f, posData);
+            Assert.AreEqual(5.0f, w.x, DELTA);
+            Assert.AreEqual(0.0f, w.y, DELTA);
+			Assert.AreEqual(0.0f, w.z, DELTA);
+			w = Geometry.FromRangeBearing(5.0f, Geometry.FULL_CIRCLE, posData);
+            Assert.AreEqual(5.0f, w.x, DELTA);
+            Assert.AreEqual(0.0f, w.y, DELTA);
+			Assert.AreEqual(0.0f, w.z, DELTA);
+            w = Geometry.FromRangeBearing(5.0f, Geometry.HALF_CIRCLE, posData);
+            Assert.AreEqual(-5.0f, w.x, DELTA);
+            Assert.AreEqual(0.0f, w.y, DELTA);
+			Assert.AreEqual(0.0f, w.z, DELTA);
+            w = Geometry.FromRangeBearing(5.0f, Geometry.RIGHT_ANGLE, posData);
+            Assert.AreEqual(0.0f, w.x, DELTA);
+            Assert.AreEqual(0.0f, w.y, DELTA);
+			Assert.AreEqual(5.0f, w.z, DELTA);
+
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			w = Geometry.FromRangeBearing(0.0f, 0.0f, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(1.0f, w.z, DELTA);
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = 90f;//degrees
+            w = Geometry.FromRangeBearing(5.0f, 0.0f, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(6.0f, w.z, DELTA);
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = 360f;//degrees
+            w = Geometry.FromRangeBearing(5.0f, Geometry.FULL_CIRCLE, posData);
+            Assert.AreEqual(6.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(1.0f, w.z, DELTA);
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = 90f;//degrees
+            w = Geometry.FromRangeBearing(5.0f, Geometry.HALF_CIRCLE, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(-4.0f, w.z, DELTA);
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = 180f;//degrees
+            w = Geometry.FromRangeBearing(5.0f, Geometry.RIGHT_ANGLE, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(-4.0f, w.z, DELTA);
+
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = 0f;//degrees
+			w = Geometry.FromRangeBearing(0.0f, 0.0f, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(1.0f, w.z, DELTA);
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = -90f;//degrees
+            w = Geometry.FromRangeBearing(5.0f, 0.0f, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(-4.0f, w.z, DELTA);
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = 360f;//degrees
+            w = Geometry.FromRangeBearing(5.0f, -Geometry.RIGHT_ANGLE, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(-4.0f, w.z, DELTA);
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = -90f;//degrees
+            w = Geometry.FromRangeBearing(5.0f, -Geometry.HALF_CIRCLE, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(6.0f, w.z, DELTA);
+			posData.position = new Vector3(1.0f, 1.0f, 1.0f);
+			posData.heading = 180f;//degrees
+            w = Geometry.FromRangeBearing(5.0f, -Geometry.RIGHT_ANGLE, posData);
+            Assert.AreEqual(1.0f, w.x, DELTA);
+            Assert.AreEqual(1.0f, w.y, DELTA);
+			Assert.AreEqual(6.0f, w.z, DELTA);
+
+        }
+
+		[Test]
+        [TestOf(typeof(Geometry))]
+        public void GeometryTestRotate() {
+            Vector2 v = Geometry.Rotate(Vector2.zero, Vector3.zero, 0.0f);
             Assert.AreEqual(0.0f, v.x, DELTA);
             Assert.AreEqual(0.0f, v.y, DELTA);
             v = Geometry.Rotate(new Vector2(0.0f, -1.0f), Vector3.zero, Geometry.RIGHT_ANGLE);
@@ -278,6 +366,6 @@ namespace ev3devMapping.Testing {
             v = Geometry.Rotate(new Vector2(0.0f, 5.0f), new Vector3(0.0f, 0.0f, Geometry.RIGHT_ANGLE), Geometry.HALF_CIRCLE);
             Assert.AreEqual(0.0f, v.x, DELTA);
             Assert.AreEqual(-5.0f, v.y, DELTA);
-        }
+		}
     }
 }

@@ -676,9 +676,15 @@ public class SparseColumn {
         if(other == null) return false;
         if(other.GetType() == typeof(SparseColumn)) {
             SparseColumn o = (SparseColumn) other;
-            if(val.Keys.Count != o.val.Keys.Count) return false;
-            foreach (int key in val.Keys) if(!this[key].Equals(o[key])) return false;
-            foreach (int key in o.val.Keys) if(!o[key].Equals(this[key])) return false;
+            if(val.Keys.Count != o.val.Keys.Count) {
+            	return false;
+            }
+            foreach (int key in val.Keys) if(!this[key].Equals(o[key])) {
+            	return false;
+            }
+            foreach (int key in o.val.Keys) if(!o[key].Equals(this[key])) {
+            	return false;
+            }
             return true;
         }
         return false;
@@ -873,13 +879,16 @@ public class SparseCovarianceMatrix : ICovarianceMatrix {
 
     //KeepRows must be sorted!
     public void Trim(HashSet<int> keepRows, int size) {
+    	for(int i = size; i < val.Count; i++) {
+        	val.RemoveAt(size);
+        }
         foreach (SparseColumn col in val) {
             var enumerator = keepRows.GetEnumerator();
             if (!enumerator.MoveNext()) throw new ArgumentException("keepRows is empty");
             int j = 0;
             for (int i = 0; i < size; i++) {
                 if (enumerator.Current == i) {
-                    if (col[i] != null) {
+                    if (col[i] != null && i != j) {
                         col[j] = col[i];
                         col.Remove(i);
                     }
@@ -891,11 +900,6 @@ public class SparseCovarianceMatrix : ICovarianceMatrix {
                         break;
                     }
                 } else col.Remove(i);
-            }
-            //Move last row:
-            if (col[size - 1] != null) {
-                col[j] = col[size - 1];
-                col.Remove(size - 1);
             }
             enumerator.Dispose();
         }
@@ -943,7 +947,9 @@ public class SparseCovarianceMatrix : ICovarianceMatrix {
         if(other.GetType() == typeof(SparseCovarianceMatrix)) {
             SparseCovarianceMatrix o = (SparseCovarianceMatrix) other;
             if(val.Count != o.val.Count) return false;
-            for (int i = 0; i < val.Count; i++) if(!val[i].Equals(o.val[i])) return false;
+            for (int i = 0; i < val.Count; i++) if(!val[i].Equals(o.val[i])) {
+            	return false;
+            }
             return true;
         }
         return false;

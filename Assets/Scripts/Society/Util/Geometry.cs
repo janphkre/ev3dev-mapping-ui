@@ -64,7 +64,7 @@ public class Geometry {
         return Mathf.Sqrt(max);
     }
 
-    //Feature is rotated around end by z (in degrees)
+    //Feature is rotated around end by z (in radians)
     public static Vector2 Rotate(Vector2 feature, Vector3 end, float z) {
         var f = ToRangeBearing(feature, end);
         return FromRangeBearing(f.x, f.y + z, end);
@@ -105,8 +105,9 @@ public class Geometry {
     }
 
     //Returns the position of the feature from the range and bearing and the origin pose. Will ignore y coordinate of origin.
-    public static Vector2 FromRangeBearing(float posRange, float posBearing, PositionData origin) {
-        return new Vector2((posRange * Mathf.Cos(posBearing + origin.heading)) + origin.position.x, (posRange * Mathf.Sin(posBearing + origin.heading)) + origin.position.z);
+    public static Vector3 FromRangeBearing(float posRange, float posBearing, PositionData origin) {
+	float originHeading = origin.heading * Mathf.PI / 180f;
+        return new Vector3((posRange * Mathf.Cos(posBearing + originHeading)) + origin.position.x, origin.position.y, (posRange * Mathf.Sin(posBearing + originHeading)) + origin.position.z);
     }
 
     //Mathematical Modulo (Non-Symmetrical)
