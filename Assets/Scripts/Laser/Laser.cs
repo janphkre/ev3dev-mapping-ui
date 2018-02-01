@@ -259,7 +259,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
         for (int i = from; i < from+len; ++i)
 		{
 			pos = snapshot.PositionAt(timestamps[i]);
-			robotToGlobal.SetTRS(pos.position, Quaternion.Euler(0.0f, pos.heading, 0.0f), scale);
+			robotToGlobal.SetTRS(pos.position, Quaternion.AngleAxis(-pos.heading, Vector3.up), scale);
 			readings[i]=robotToGlobal.MultiplyPoint3x4(readings[i]);
             //readings[i].z = 1;
             //Save first and last position for this package:

@@ -69,7 +69,7 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         	//remove drift from heading:
             headingDrift += packet.heading - lastPacket.heading;
         }   
-        float headingInDegrees = ((packet.heading - headingDrift) / 100.0f) + initialHeading;
+        float headingInDegrees = ((headingDrift - packet.heading) / 100.0f) + initialHeading;
 	
         lastPacket.CloneFrom(packet);
 	
