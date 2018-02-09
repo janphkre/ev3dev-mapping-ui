@@ -103,7 +103,6 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
 	    return;
         }
         
-        Debug.Log("res: " + delta2 + ", "  + delta1 + ", " + range + ", " + result + ", "+headingInDegrees);
         // Finally update the position and heading
         lastPosition.timestamp = packet.timestamp_us;
         lastPosition.position = result;

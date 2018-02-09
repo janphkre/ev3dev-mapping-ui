@@ -300,12 +300,12 @@ public class Planing : MonoBehaviour {
     }
 
     private bool obstaclePlaning() {
+        try { 
         var targetRB = Geometry.ToRangeBearing(currentTargetPosition, lastLaserReadings.LastPose);
         if (targetRB.x < TARGET_RADIUS) {
             //Reached the current target.
             Debug.Log("Planing - Reached current target.");
             lock (currentTarget) currentTarget.Pop();
-            obstacles = null;
             return false;
         }
         positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, Geometry.RIGHT_ANGLE, lastLaserReadings.LastPose);
@@ -330,13 +330,11 @@ public class Planing : MonoBehaviour {
         if (backwards) {
             if(Mathf.Abs(targetRB.y) < Geometry.RIGHT_ANGLE) {
                 backwards = false;
-                obstacles = null;
                 return true;
             }
             //Try to turn around in a two/three point turn:
             if (hypothesizeTurn(unobstructedRadius)) {
                 //backwards = false;
-                obstacles = null;
                 return true;
             }
             //Continue to go backwards:
@@ -353,7 +351,6 @@ public class Planing : MonoBehaviour {
                     currentTarget.Pop();
                     currentTarget.Push(TargetCommand.Backtrack);
                 }
-                obstacles = null;
                 return false;
             }
         }
@@ -364,7 +361,6 @@ public class Planing : MonoBehaviour {
             //The target is not in the current reachable funnel. Move forward.
             //The robot is facing towards the target. No turn is needed.
             steering.DriveAhead(backwards);
-            return true;
         } else {
             float steeringSegment = findSteeringSegment(unobstructedRadius, targetRB);
             Debug.Log("Steer " + steeringSegment);
@@ -374,13 +370,14 @@ public class Planing : MonoBehaviour {
                     currentTarget.Pop();
                 }
                 backwards = true;
-                obstacles = null;
                 return false;
             }
             steering.Steer(steeringSegment, backwards);
         }
-        obstacles = null;
         return true;
+        } finally {
+            obstacles = null;
+        }
     }
 
     /*
@@ -475,7 +472,6 @@ public class Planing : MonoBehaviour {
                         currentAngle = (currentAngle + Geometry.FULL_CIRCLE) % Geometry.FULL_CIRCLE;
                         if (currentAngle < unobstructedRadius) unobstructedRadius = currentAngle;
                     }
-                    throw new NotImplementedException("turningRb can not be calculated through negativeTurningCenter!");
                 }
             }
         }
@@ -492,13 +488,12 @@ public class Planing : MonoBehaviour {
             if (IsWithinFunnel(rangeBearing)) {
                 //The obstacle is in front of our possible movements.
                 if (rangeBearing.y >= 0f) {
-                    var distance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], positiveTurningCenter);
-                    if (Mathf.Abs(distance - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                        var currentAngle = Mathf.Asin(rangeBearing.x * Mathf.Cos(rangeBearing.y) / distance);
+                    var turningRB = Geometry.ToRangeBearing2(lastLaserReadings.Readings[i], positiveTurningCenter);
+                    if (Mathf.Abs(turningRB.x - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        var currentAngle = Mathf.Asin(rangeBearing.x * Mathf.Cos(rangeBearing.y) / turningRB.x);
                         currentAngle = (currentAngle + Geometry.FULL_CIRCLE) % Geometry.FULL_CIRCLE;
                         if (currentAngle < unobstructedRadius) unobstructedRadius = currentAngle;
                     }
-                    throw new NotImplementedException("turningRb can not be calculated through positiveTurningCenter!");
                 }
             }
         }
@@ -532,7 +527,7 @@ public class Planing : MonoBehaviour {
                         f = unobstructedRadius.y - steeringSegment - OBSTACLE_PLANING_STEP;
                     }
                 } else {
-                    f = MAX_OFFSET_ANGLE;
+                    f = 2f * MAX_OFFSET_ANGLE;
                     break;
                 }
             }
@@ -548,7 +543,7 @@ public class Planing : MonoBehaviour {
                         g = steeringSegment - unobstructedRadius.x - OBSTACLE_PLANING_STEP;
                     }
                 } else {
-                    g = MAX_OFFSET_ANGLE;
+                    g = 2f * MAX_OFFSET_ANGLE;
                     break;
                 }
             }

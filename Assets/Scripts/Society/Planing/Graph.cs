@@ -150,6 +150,7 @@ public class Graph : MonoBehaviour {
             if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[i].x) > EXTREMA_DISTANCE_CUTOFF) {
                 //i is an extremum compared to the previousReading.
                 Vector3 centerOffset = (lastLaserReadings.Readings[previousReading] - lastLaserReadings.Readings[i]) / 2f;
+                float radius = centerOffset.magnitude;
                 Vector2 center;
                 lock (nodes) {
                     center = new Vector2(lastLaserReadings.Readings[i].x + centerOffset.x + lastMatch.x, lastLaserReadings.Readings[i].z + centerOffset.z + lastMatch.y);
@@ -163,7 +164,7 @@ public class Graph : MonoBehaviour {
                 for (int j = 1; j < nodes.Count; j++) {
                     var currentDistance = Geometry.EuclideanDistance(center, nodes[j].Position);
                     if (currentDistance > MIN_NODE_DISTANCE) {
-                        var currentRadiusDistance = currentDistance - (nodes[j].radius > centerOffset.magnitude ? nodes[j].radius : centerOffset.magnitude);
+                        var currentRadiusDistance = currentDistance - (nodes[j].radius > radius ? nodes[j].radius : radius);
                         if (closestRadiusDistance > currentRadiusDistance) {
                             closestRadiusDistance = currentRadiusDistance;
                             closestRadiusNode = j;
@@ -173,21 +174,14 @@ public class Graph : MonoBehaviour {
                         closestNode = j;
                     }
                 }
-                //Check if the new node would be big enough:
-                if(centerOffset.magnitude < MIN_NODE_SIZE) {
-                        
-                }
                 //Add the node if it is not an already existing node:
-                if (closestDistance <= MIN_NODE_DISTANCE || centerOffset.magnitude < MIN_NODE_SIZE) {
+                if (closestDistance <= MIN_NODE_DISTANCE || radius < MIN_NODE_SIZE) {
                     //Connect the two nodes:
                     if(closestNode != lastNode) {
                         connectNodes(closestNode, lastNode);
                     }
                     //Grow the closestNode:
-                    float additionalRadius = closestRadiusDistance + (nodes[closestRadiusNode].radius < centerOffset.magnitude ? nodes[closestRadiusNode].radius : centerOffset.magnitude);
-                    if(additionalRadius > 0f) {
-                            nodes[closestRadiusNode].radius += additionalRadius;
-                    }
+                    nodes[closestRadiusNode].radius += radius;
                 } else {
                     int j = 1;
                     //Make sure that we are not looking at bars or similiar things:
@@ -202,10 +196,9 @@ public class Graph : MonoBehaviour {
                             if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].x - lastLaserReadings.ReadingsRB[Geometry.Modulo((i - j), lastLaserReadings.ReadingsCount)].x) < EXTREMA_DISTANCE_CUTOFF) break;
                         }
                     }
-                    if (j <= EXTREMA_CHECK_RANGE) continue;
-                    if(closestRadiusDistance < 0f) continue;
+                    if (j <= EXTREMA_CHECK_RANGE || closestRadiusDistance < 0f) continue;
                     //Add node:
-                    var node = new GraphNode(new Vector2(lastLaserReadings.Readings[i].x + centerOffset.x, lastLaserReadings.Readings[i].z + centerOffset.z), centerOffset.magnitude);
+                    var node = new GraphNode(center, radius);
                     nodes[lastNode].Add(nodes.Count);
                     node.Add(lastNode);
                     unvisitedNodes.Add(nodes.Count);
@@ -213,6 +206,10 @@ public class Graph : MonoBehaviour {
                         node.centerOffset += (Vector2) lastMatch;
                         node.centerOffset = Geometry.Rotate(node.centerOffset, matchPose, lastMatch.z);
                         nodes.Add(node);
+                    }
+                    //Check if nodes are overlapping:
+                    if(closestNode != lastNode && closestDistance < radius + nodes[closestNode].radius) {
+                        connectNodes(closestNode, nodes.Count - 1);
                     }
                 }
             }

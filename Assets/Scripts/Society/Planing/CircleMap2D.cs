@@ -16,7 +16,8 @@ public class CircleMap2D : Object {
     }
     
     public const float MAP_HEIGHT = 0.0f;
-    public const float ITEM_HEIGHT = 0.01f;
+    public const float MAP_HEIGHT_2 = 0.05f;
+    public const float ITEM_HEIGHT = 0.001f;
     private GameObject prefabCircle;
     private GameObject prefabEdge;
     private Transform container;
@@ -83,7 +84,7 @@ public class CircleMap2D : Object {
                 throw new System.ArithmeticException("Node position is NaN:" + nodes[i].centerOffset.x + ", " + nodes[i].centerOffset.y + ", " + (nodes[i].pose == null ? "null" : nodes[i].pose.pose == null ? "pose"+nodes[i].pose.index+".null" : "p" + nodes[i].pose.pose.x + ", " + nodes[i].pose.pose.y));
             }
             circle.GameObj.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
-            circle.GameObj.transform.localScale = new Vector3(nodes[i].radius, ITEM_HEIGHT, nodes[i].radius);
+            circle.GameObj.transform.localScale = new Vector3(2*nodes[i].radius, ITEM_HEIGHT, 2*nodes[i].radius);
             for(int k = 0; k < nodes[i].Connected.Count; k++) {
                 if (nodes[i].Connected[k] > i) {
                     int[] c = new int[2];
@@ -110,7 +111,7 @@ public class CircleMap2D : Object {
         edge.name = name;
         edge.transform.parent = container;
         LineRenderer line = edge.GetComponent<LineRenderer>();
-        Vector3[] positions = { new Vector3(a.x, MAP_HEIGHT, a.y), new Vector3(b.x, MAP_HEIGHT, b.y) };
+        Vector3[] positions = { new Vector3(a.x, MAP_HEIGHT_2, a.y), new Vector3(b.x, MAP_HEIGHT_2, b.y) };
         line.SetPositions(positions);
         return line;
     }
