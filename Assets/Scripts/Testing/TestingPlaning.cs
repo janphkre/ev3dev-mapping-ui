@@ -65,7 +65,7 @@ namespace ev3devMapping.Testing {
             laserPointCloud.numberOfPoints = sampleInput.Readings.Length;
             laserPointCloud.Awake();
             laserPointCloud.SetVertices(sampleInput.Readings);
-            graph.DisplayNodes(graph.UnvisitedNodeCount());
+            graph.DisplayNodes();
 
             Assert.IsTrue(graph.HasUnvisitedNodes());
             Debug.Log("Graph - unvisited node count: " + graph.UnvisitedNodeCount());

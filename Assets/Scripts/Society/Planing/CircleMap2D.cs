@@ -5,13 +5,25 @@ namespace ev3devMapping.Society {
 
 public class CircleMap2D : Object {
     
-    private class Circle {
+    private struct Circle {
         public GameObject GameObj { get; private set; }
-        public List<int[]> Connected {get; private set; }
+        public List<Edge> Edges {get; private set; }
         
         public Circle(GameObject gameObj) {
                 GameObj = gameObj;
-                Connected = new List<int[]>();
+                Edges = new List<Edge>();
+        }
+    }
+
+    private struct Edge {
+        public LineRenderer Renderer { get; set; }
+        public int ConnectedCircleIndex {get; private set; }
+        public int RendererIndex {get; private set; }
+        
+        public Edge(LineRenderer renderer, int connectedCircleIndex, int rendererIndex) {
+            Renderer = renderer;
+            ConnectedCircleIndex = connectedCircleIndex;
+            RendererIndex = rendererIndex;
         }
     }
     
@@ -22,7 +34,6 @@ public class CircleMap2D : Object {
     private GameObject prefabEdge;
     private Transform container;
     private List<Circle> circles = new List<Circle>();
-    private List<LineRenderer> edges = new List<LineRenderer>();
     
     public CircleMap2D(GameObject circle, GameObject edge) {
         prefabCircle = circle;
@@ -31,7 +42,7 @@ public class CircleMap2D : Object {
         container.parent = SceneManager.DynamicObjects;
     }
 
-    public void ProcessNodes(List<GraphNode> nodes, int count, List<int> unvisitedNodes) {
+    public void ProcessNodes(List<GraphNode> nodes, List<int> unvisitedNodes) {
         if(nodes.Count == 0) return;
         int i = 0,
             j = 0,
@@ -52,31 +63,15 @@ public class CircleMap2D : Object {
             } else {
                 material.color = Color.white;
             }
-            for (int k = 0; k < circle.Connected.Count; k++) {
-                //Existing edges:
+            foreach (Edge edge in circle.Edges) {
                 //circle.Connected[i] = nodes[i].Connected[k];
-                edges[circle.Connected[k][0]].SetPosition(circle.Connected[k][1], circle.GameObj.transform.position);
-                
+                edge.Renderer.SetPosition(edge.RendererIndex, circle.GameObj.transform.position);
             }
-            for (int k = circle.Connected.Count; k < nodes[i].Connected.Count; k++) {
-                //New edges:
-                if (nodes[i].Connected[k] > i) {
-                    int[] c = new int[2];
-                    c[0] = nodes[i].Connected[k];
-                    c[1] = 1;
-                    circle.Connected.Add(c);
-                } else {
-                    int[] c = new int[2];
-                    c[0] = edges.Count;
-                    c[1] = 0;
-                    circle.Connected.Add(c);
-                    circles[nodes[i].Connected[k]].Connected[circles[nodes[i].Connected[k]].Connected.FindIndex((int[] l) => { return l[0] == i; })][0] = edges.Count;
-                    edges.Add(createEdge(nodes[nodes[i].Connected[k]].Position, nodes[i].Position, "E" + nodes[i].Connected[k] + "," + i));
-                }
-            }
+            createEdges(nodes, i, circle);
             i++;
         }
-        while(i < count) {
+        while(i < nodes.Count) {
+            //New nodes:
             Circle circle = new Circle(Instantiate(prefabCircle, container));
             circle.GameObj.name = "C"+i;
             Vector2 position = nodes[i].Position;
@@ -85,26 +80,32 @@ public class CircleMap2D : Object {
             }
             circle.GameObj.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
             circle.GameObj.transform.localScale = new Vector3(2*nodes[i].radius, ITEM_HEIGHT, 2*nodes[i].radius);
-            for(int k = 0; k < nodes[i].Connected.Count; k++) {
-                if (nodes[i].Connected[k] > i) {
-                    int[] c = new int[2];
-                    c[0] = nodes[i].Connected[k];
-                    c[1] = 1;
-                    circle.Connected.Add(c);
-                } else {
-                    int[] c = new int[2];
-                    c[0] = edges.Count;
-                    c[1] = 0;
-                    circle.Connected.Add(c);
-                    circles[nodes[i].Connected[k]].Connected[circles[nodes[i].Connected[k]].Connected.FindIndex((int[] l) => { return l[0] == i; })][0] = edges.Count;
-                    edges.Add(createEdge(nodes[nodes[i].Connected[k]].Position, nodes[i].Position, "E" + nodes[i].Connected[k] + "," + i));
-                }
-                
-            }
+            createEdges(nodes, i, circle);
             circles.Add(circle);
             i++;
         }
     }
+
+    private void createEdges(List<GraphNode> nodes, int currentNodeIndex, Circle circle) {
+        var currentNode = nodes[currentNodeIndex];
+        for(int k = circle.Edges.Count; k < currentNode.Connected.Count; k++) {
+            var connectedNodeIndex = currentNode.Connected[k];
+            if (currentNode.Connected[k] < currentNodeIndex) {
+                //Connected Node has been visited already.
+                //Create a new Edge since we know that it exists.
+                var edge = new Edge(
+                    createEdge(nodes[connectedNodeIndex].Position, currentNode.Position, "E" + connectedNodeIndex + "," + currentNodeIndex),
+                    connectedNodeIndex,
+                    1);
+                circle.Edges.Add(edge);
+                circles[connectedNodeIndex].Edges.Add(new Edge(
+                    edge.Renderer,
+                    currentNodeIndex,
+                    0));
+            }
+            // else Connected Node is yet to be created / processed.
+        }
+        }
 
     private LineRenderer createEdge(Vector2 a, Vector2 b, string name) {
         GameObject edge = Instantiate(prefabEdge, container);
@@ -117,9 +118,8 @@ public class CircleMap2D : Object {
     }
 
     public void RemoveEdge(int i, int j) {
-        //Assert i < j
-        var str = "E" + i + "," +j;
-        edges.RemoveAll((LineRenderer r) => { return r.gameObject.name.Equals(str); });
+        circles[i].Edges.RemoveAll((Edge e) => { return e.ConnectedCircleIndex == j; });
+        circles[j].Edges.RemoveAll((Edge e) => { return e.ConnectedCircleIndex == i; });
     }
 }
 }

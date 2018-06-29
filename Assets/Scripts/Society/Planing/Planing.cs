@@ -326,6 +326,13 @@ public class Planing : MonoBehaviour {
             }
             obstacles = null;
             return false;*/
+
+        /*FIXME:
+        ArgumentException: Ra(0.0, -3.3)
+ev3devMapping.Society.Planing.obstaclePlaning () (at Assets/Scripts/Society/Planing/Planing.cs:320)
+ev3devMapping.Society.Planing+<workerRoutine>c__Iterator0.MoveNext () (at Assets/Scripts/Society/Planing/Planing.cs:218)
+UnityEngine.SetupCoroutine.InvokeMoveNext (IEnumerator enumerator, IntPtr returnValueAddress) (at C:/buildslave/unity/build/Runtime/Export/Coroutines.cs:17)
+*/
         }
         if (backwards) {
             if(Mathf.Abs(targetRB.y) < Geometry.RIGHT_ANGLE) {

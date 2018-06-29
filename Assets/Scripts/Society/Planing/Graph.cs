@@ -66,7 +66,7 @@ public class Graph : MonoBehaviour {
     public const int EXTREMA_CHECK_RANGE = 45;
     public const float EXTREMA_DISTANCE_CUTOFF = 2.5f * Planing.MIN_OBSTACLE_DISTANCE;//Take the robot's size into account!
     public const float MIN_NODE_DISTANCE = EXTREMA_DISTANCE_CUTOFF;
-    public const float ROBOT_NODE_DISTANCE = MIN_NODE_DISTANCE;
+    public const float ROBOT_NODE_DISTANCE = 0f;
     public const float ACO_MIN_DIFF = 0.1f;
     public const float ACO_FORGETTING = 0.5f;
     public const int SEND_FREQUENCY = 20;
@@ -98,28 +98,23 @@ public class Graph : MonoBehaviour {
     public void Feed(PlaningInputData lastLaserReadings) {
         int currentCount = nodes.Count;
         Vector3 currentPose = lastLaserReadings.LastPose + lastMatch;
-        //TODO: Does the pose has to be rotated as well???
+        //TODO: Does the pose need to be rotated as well???
         //Check whether we are still close enough to a node:
         float closestDistance = float.MaxValue;
-        if (lastNode >= 0) closestDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[lastNode].Position) - nodes[lastNode].radius;
-        if (closestDistance > ROBOT_NODE_DISTANCE) {
-            if (lastNode >= 0) {
-                int closestJ = -1;
-                foreach (int j in nodes[lastNode].Connected) {
-                    float currentDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[j].Position) - nodes[j].radius;
+        if (lastNode >= 0) {
+            closestDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[lastNode].Position) - nodes[lastNode].radius;
+            foreach (int j in nodes[lastNode].Connected) {
+                float currentDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[j].Position) - nodes[j].radius;
+                if (currentDistance <= ROBOT_NODE_DISTANCE) {
+                    unvisitedNodes.Remove(j);
                     if (currentDistance < closestDistance) {
                         closestDistance = currentDistance;
-                        closestJ = j;
-                    }
-                }
-                if (closestJ >= 0) {
-                    if (closestDistance <= ROBOT_NODE_DISTANCE) {
-                        connectNodes(lastNode, closestJ);
-                        lastNode = closestJ;
-                        unvisitedNodes.Remove(closestJ);
+                        lastNode = j;
                     }
                 }
             }
+        }
+        if (closestDistance > ROBOT_NODE_DISTANCE) {
             //We are not close enough to a node anymore:
             if (closestDistance > ROBOT_NODE_DISTANCE) {
                 //Find the closest obstacle:
@@ -220,7 +215,7 @@ public class Graph : MonoBehaviour {
             if(Geometry.EuclideanDistance(nodes[i].Position, (Vector2)currentPose) < closestReadingDistance) connectNodes(lastNode, i);
         }
         //Display nodes:
-        DisplayNodes(nodes.Count);
+        DisplayNodes();
     }
 
     //Adapts the graph onto the global client map.
@@ -259,8 +254,8 @@ public class Graph : MonoBehaviour {
         if (sendCounter == 0) NetworkManager.singleton.client.SendUnreliable((short)MessageType.ClientGraph, message);
     }
 
-    public void DisplayNodes(int count) {
-        map.ProcessNodes(nodes, count, unvisitedNodes);
+    public void DisplayNodes() {
+        map.ProcessNodes(nodes, unvisitedNodes);
     }
 
     //Returns a new target in the "unexplored" territory the robot is atm in.
