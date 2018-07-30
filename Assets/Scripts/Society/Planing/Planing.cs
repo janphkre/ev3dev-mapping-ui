@@ -121,7 +121,9 @@ public class Planing : MonoBehaviour {
     public const float ARC_STEP = 1f / 4f;
     public const float UNOBSTRUCTED_HEIGHT = 0.02f;
     public const float STEERING_HEIGHT = 0.04f;
-    
+    public const float MIN_OBSTACLE_HOLE_SIZE = MIN_OBSTACLE_DISTANCE * 2.2f;
+    public const float EPSILON = 0.0001f;
+
     //Calculated once at Startup:
     public static float UNOBSTRUCTED_OFFSET;
 
@@ -219,12 +221,6 @@ public class Planing : MonoBehaviour {
                     wasUsed = true;
                     globalGraph.Feed(lastLaserReadings);
                 }
-            /*} else if (currentTarget.Peek() == TargetCommand.Turn) {
-                //Debug.Log("Planing - Turning.");
-                //Wait for the turn to finish:
-                yield return new WaitWhile(steering.IsTurning);
-                wasUsed = true;
-                lock (currentTarget) currentTarget.Pop();*/
             } else if (currentTarget.Peek() == TargetCommand.Waiting) {
                 if (returnToStart) {
                     //Debug.Log("Planing - Returning to start.");
@@ -314,25 +310,8 @@ public class Planing : MonoBehaviour {
         negativeTurningCenter.z = lastLaserReadings.LastPose.z;
         var unobstructedRadius = findBothUnobstructedRadius();
         if (unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
-            //Reached a dead end.
-            steering.Halt();
-            lastLaserReadings.Write();
-            throw new ArgumentException("Ra" + unobstructedRadius);
-            /*Debug.Log("Planing - Reached dead end. (1) " + unobstructedRadius);
-            steering.Halt();
-            lock (currentTarget) {
-                currentTarget.Pop();
-                currentTarget.Push(TargetCommand.Backtrack);
-            }
-            obstacles = null;
-            return false;*/
-
-        /*FIXME:
-        ArgumentException: Ra(0.0, -3.3)
-ev3devMapping.Society.Planing.obstaclePlaning () (at Assets/Scripts/Society/Planing/Planing.cs:320)
-ev3devMapping.Society.Planing+<workerRoutine>c__Iterator0.MoveNext () (at Assets/Scripts/Society/Planing/Planing.cs:218)
-UnityEngine.SetupCoroutine.InvokeMoveNext (IEnumerator enumerator, IntPtr returnValueAddress) (at C:/buildslave/unity/build/Runtime/Export/Coroutines.cs:17)
-*/
+            Debug.Log("Planing - Obstacle hit. (1) " + unobstructedRadius);
+            return backOffObstacle(unobstructedRadius);
         }
         if (backwards) {
             if(Mathf.Abs(targetRB.y) < Geometry.RIGHT_ANGLE) {
@@ -351,14 +330,8 @@ UnityEngine.SetupCoroutine.InvokeMoveNext (IEnumerator enumerator, IntPtr return
             targetRB.y %= Geometry.FULL_CIRCLE;
             unobstructedRadius = findBothUnobstructedRadius();
             if (unobstructedRadius.x <= 0f || unobstructedRadius.y >= 0f) {
-                //Reached a dead end.
-                Debug.Log("Planing - Reached dead end. (2) " + unobstructedRadius);
-                steering.Halt();
-                lock (currentTarget) {
-                    currentTarget.Pop();
-                    currentTarget.Push(TargetCommand.Backtrack);
-                }
-                return false;
+                Debug.Log("Planing - Obstacle hit. (2) " + unobstructedRadius);
+                return backOffObstacle(unobstructedRadius);
             }
         }
         DrawArc(rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, -Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, unobstructedRadius.x);
@@ -385,6 +358,105 @@ UnityEngine.SetupCoroutine.InvokeMoveNext (IEnumerator enumerator, IntPtr return
         } finally {
             obstacles = null;
         }
+    }
+
+    //We are in front of an obstacle, so we have to steer around it.
+    private bool backOffObstacle(Vector2 unobstructedRadius) {
+        steering.Halt();
+        //First we have to find out, if we have to go to the left or right of the obstacle.
+        int obstacleIndex = findObstacleIndex(unobstructedRadius);
+        var searchRadiusLeft = unobstructedRadius.x > -unobstructedRadius.y;
+        int i = obstacleIndex;
+        int j = obstacleIndex;
+        do {
+            i = j;
+            j = (j + 1) % lastLaserReadings.ReadingsCount;
+            if(Geometry.EuclideanDistance(lastLaserReadings.Readings[i], lastLaserReadings.Readings[j]) > MIN_OBSTACLE_HOLE_SIZE) {
+                if(checkForHole(i)) {
+                    break;
+                }
+            }
+        } while(j != i);
+        float leftDistance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], Vector2.zero);
+        i = obstacleIndex;
+        j = obstacleIndex;
+        do {
+            i = j;
+            j = (j  - 1 + lastLaserReadings.ReadingsCount) % lastLaserReadings.ReadingsCount;
+            if(Geometry.EuclideanDistance(lastLaserReadings.Readings[i], lastLaserReadings.Readings[j]) > MIN_OBSTACLE_HOLE_SIZE) {
+                if(checkForHoleNegative(i)) {
+                    break;
+                }
+            }
+        } while(j != i);
+        float rightDistance = Geometry.EuclideanDistance(lastLaserReadings.Readings[i], Vector2.zero);
+        if(leftDistance == 0.0f && rightDistance == 0.0f) {
+            //Reached a dead end.
+            Debug.Log("Planing - Reached dead end. " + unobstructedRadius);
+            lock (currentTarget) {
+                currentTarget.Pop();
+                currentTarget.Push(TargetCommand.Backtrack);
+            }
+            return false;
+        }
+        
+        if(leftDistance > rightDistance) {
+            //Go to the left of the obstacle
+            steering.SteerBackwards(-Geometry.RIGHT_ANGLE);
+        } else {
+            //Go to the right of the obstacle
+            steering.SteerBackwards(Geometry.RIGHT_ANGLE);
+        }
+        return true;
+    }
+
+    private int findObstacleIndex(Vector2 unobstructedRadius) {
+        unobstructedRadius.x += UNOBSTRUCTED_OFFSET;
+        unobstructedRadius.y = UNOBSTRUCTED_OFFSET - unobstructedRadius.y;
+        for (int i = 0; i < lastLaserReadings.ReadingsCount; i++) {
+            if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].y) > BETA) continue;
+            if (IsWithinFunnel(lastLaserReadings.ReadingsRB[i])) {
+                if (lastLaserReadings.ReadingsRB[i].x < MIN_OBSTACLE_DISTANCE) {
+                    return i;
+                }
+                //The obstacle is in front of our possible movements.
+                obstacles.Add(lastLaserReadings.Readings[i]);
+                if (lastLaserReadings.ReadingsRB[i].y >= 0f) {
+                    var turningRB = Geometry.ToRangeBearing2(lastLaserReadings.Readings[i], positiveTurningCenter);
+                    if (Mathf.Abs(turningRB.x - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        turningRB.y = Geometry.RIGHT_ANGLE + turningRB.y;
+                        if (Math.Abs(turningRB.y - unobstructedRadius.x) <= EPSILON) return i;
+                    }
+                } else {
+                    var turningRB = Geometry.ToRangeBearing2(lastLaserReadings.Readings[i], negativeTurningCenter);
+                    if (Mathf.Abs(turningRB.x - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
+                        turningRB.y = Geometry.RIGHT_ANGLE - turningRB.y;
+                        if (Math.Abs(turningRB.y - unobstructedRadius.y) <= EPSILON) return i;
+                    }
+                }
+            }
+        }
+        throw new ArgumentOutOfRangeException("No index found for " + unobstructedRadius);
+    }
+
+    private bool checkForHole(int index) {
+        for(int k = 2; k < lastLaserReadings.ReadingsCount / 4; k++) {
+            int l = (index + k) % lastLaserReadings.ReadingsCount;
+            if(Geometry.EuclideanDistance(lastLaserReadings.Readings[j], lastLaserReadings.Readings[l]) < MIN_OBSTACLE_HOLE_SIZE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private bool checkForHoleNegative(int index) {
+        for(int k = 2; k < lastLaserReadings.ReadingsCount / 4; k--) {
+            int l = (index + k + lastLaserReadings.ReadingsCount) % lastLaserReadings.ReadingsCount;
+            if(Geometry.EuclideanDistance(lastLaserReadings.Readings[j], lastLaserReadings.Readings[l]) < MIN_OBSTACLE_HOLE_SIZE) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /*
