@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using ev3dev.Society;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace ev3devMapping.Society {
@@ -6,7 +7,6 @@ namespace ev3devMapping.Society {
 class PlaningUI : ModuleUI {
 
     public Text statusText = null;
-    public Text targetText = null;
     public Button ModuleButton = null;
 
     private Button startButton;
@@ -20,7 +20,6 @@ class PlaningUI : ModuleUI {
         module = GetComponent<RobotModule>();
 
         SafeInstantiateText(statusText, uiTransform, "Waiting");
-        SafeInstantiateText(targetText, uiTransform, "(0.0, 0.0)");
 
         startButton = SafeInstantiate<Button>(ModuleButton, uiTransform);
         startButton.GetComponentInChildren<Text>().text = "Start";
@@ -44,9 +43,7 @@ class PlaningUI : ModuleUI {
     }
 
     protected override void Update() {
-        TargetCommand currentTarget = Planing.singleton.GetCurrentTarget();
-        statusText.text = currentTarget.ToString();
-        targetText.text = Planing.singleton.GetCurrentTargetPosition().ToString();
+        statusText.text = Planing.singleton.GetCurrentTargetString();
     }
 }
 }

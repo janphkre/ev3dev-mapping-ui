@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using ev3dev.Society;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -64,13 +65,13 @@ public class GraphNode {
 public class Graph : MonoBehaviour {
 
     public const int EXTREMA_CHECK_RANGE = 45;
-    public const float EXTREMA_DISTANCE_CUTOFF = 2.5f * Planing.MIN_OBSTACLE_DISTANCE;//Take the robot's size into account!
+    public const float EXTREMA_DISTANCE_CUTOFF = 2.5f * AbstractTargetCommand.MIN_OBSTACLE_DISTANCE;//Take the robot's size into account!
     public const float MIN_NODE_DISTANCE = EXTREMA_DISTANCE_CUTOFF;
     public const float ROBOT_NODE_DISTANCE = 0f;
     public const float ACO_MIN_DIFF = 0.1f;
     public const float ACO_FORGETTING = 0.5f;
     public const int SEND_FREQUENCY = 20;
-    public const float MIN_NODE_SIZE = Planing.MIN_OBSTACLE_DISTANCE * 2f;
+    public const float MIN_NODE_SIZE = AbstractTargetCommand.MIN_OBSTACLE_DISTANCE * 2f;
 
     public GameObject CirclePrefab;
     public GameObject EdgePrefab;
@@ -260,10 +261,12 @@ public class Graph : MonoBehaviour {
 
     //Returns a new target in the "unexplored" territory the robot is atm in.
     public bool GetNewTarget(out Vector2 result) {
-        foreach (int j in nodes[lastNode].Connected) {
-            if(unvisitedNodes.Contains(j)) {
-                lock(nodes) result =  nodes[j].Position - (Vector2) lastMatch;
-                return true;
+        if (lastNode >= 0) {
+            foreach (int j in nodes[lastNode].Connected) {
+                if (unvisitedNodes.Contains(j)) {
+                    lock (nodes) result = nodes[j].Position - (Vector2)lastMatch;
+                    return true;
+                }
             }
         }
         result = Vector2.zero;
@@ -311,7 +314,9 @@ public class Graph : MonoBehaviour {
         var result = new LinkedList<Vector2>();
         var path = aco.GetPath();
         lock (nodes) {
-            foreach (int p in path) result.AddLast(nodes[p].Position);
+                foreach (int p in path) {
+                    result.AddLast(nodes[p].Position);
+                }
         }
         return result;
     }

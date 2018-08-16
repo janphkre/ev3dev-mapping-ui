@@ -24,7 +24,7 @@ public class LaserModuleProperties : ModuleProperties
 {
 	public string laserDevice = "/dev/tty_in1";
 	public string motorPort = "outC";
-	public int laserDutyCycle = 44;
+	public int laserDutyCycle = 34;
 	public int crcTolerancePct = 10;
     public float laserOffset = -90f;
 }
@@ -177,17 +177,16 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 				PushCalculatedReadingsThreadSafe (i_from, len);
 		}
 
-		CalculateReadingsInLocalReferenceFrame(packet);
-
+            int processedReadings= CalculateReadingsInLocalReferenceFrame(packet);
 
 		if (plot.plotType != PlotType.Local)
-			if (!TranslateReadingsToGlobalReferenceFrame (packet.laser_angle, packet.laser_readings.Length, packet.timestamp_us, packet.GetEndTimestampUs()))
+            if (!TranslateReadingsToGlobalReferenceFrame (packet.laser_angle, processedReadings, packet.timestamp_us, packet.GetEndTimestampUs()))
 				return; //don't use the readings yet (or at all), no position data in this timeframe
 
-		PushCalculatedReadingsThreadSafe (packet.laser_angle, packet.laser_readings.Length);
+		PushCalculatedReadingsThreadSafe (packet.laser_angle, processedReadings);
 	}
 
-	private void CalculateReadingsInLocalReferenceFrame(LaserPacket packet)
+	private int CalculateReadingsInLocalReferenceFrame(LaserPacket packet)
 	{
 		int angle_index;
 		float alpha, distance_mm, angle;
@@ -206,9 +205,11 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 				threadInternal.crcFailurePercentage = threadInternal.crcFailures * 100 / 360;
 				threadInternal.invalidPercentage = threadInternal.invalidCount * 100 / 360;
 				threadInternal.crcFailures = threadInternal.invalidCount = 0;
-			}
+            } else if(angle_index >= readings.Length) {
+                return i;
+            }
 
-			readings [angle_index] = Vector3.zero;
+			readings[angle_index] = Vector3.zero;
 			timestamps[angle_index] = packet.GetTimestampUs(i);
 			invalid_data[angle_index] = packet.laser_readings[i].invalid_data == 1;
 				
@@ -228,6 +229,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 			// translate/rotate reading taking into acount laser mounting position and rotation
 			readings[angle_index] = laserTRS.MultiplyPoint3x4 (pos);
 		}
+            return packet.laser_readings.Length;
 	}
 
 	private bool TranslateReadingsToGlobalReferenceFrame(int from, int len, ulong t_from, ulong t_to)
@@ -306,7 +308,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
             }
             //SLAMRobot.singelton.PostOdometryAndReadings(new SLAMInputData(lastPackageLastPos, threadInternal.readings, from, length, threadInternal.invalid_data, threadInternal.invalidPackageCount));
             Planing.singleton.LaserReadings = new PlaningInputData(threadInternal.readings, threadInternal.invalid_data, threadInternal.invalidCount);
-            
+            threadInternal.invalidCount = 0;
         }
     }
 

@@ -124,5 +124,13 @@ public class Geometry {
     public static float Multiply(Vector3 a, Vector3 b) {
         return a.x*b.x+a.y*b.y+a.z*b.z;
     }
+
+    public static float angleToCircle(float angle) {
+        return angle % FULL_CIRCLE;
+    }
+
+    public static float angleToPositiveCircle(float angle) {
+        return ((angle % FULL_CIRCLE) + FULL_CIRCLE) % FULL_CIRCLE;
+    }
 }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using ev3dev.Society;
 using ev3devMapping.Society;
 using NUnit.Framework;
 using UnityEngine;
@@ -48,7 +49,7 @@ namespace ev3devMapping.Testing {
             Debug.Log("Turning diameter:" + MainMenu.Physics.turningDiameter + "\n Half wheel base:" + MainMenu.Physics.halfWheelbase);
             for(int i = 0; i < funnelTests.Length; i++) {
                 var f = Geometry.ToRangeBearing(funnelTests[i], Vector3.zero);
-                Assert.AreEqual(funnelResults[i], Planing.IsWithinFunnel(f),"["+i+"] " + funnelTests[i] + "\n range bearing: " + f, null);
+                Assert.AreEqual(funnelResults[i], ExplorePositionCommand.IsWithinFunnel(f),"["+i+"] " + funnelTests[i] + "\n range bearing: " + f, null);
             }
         }
 
@@ -74,9 +75,9 @@ namespace ev3devMapping.Testing {
             Assert.AreNotEqual(Vector2.zero, v);
             Assert.AreEqual(Vector2.zero, graph.GetStartPath(new Vector3(1.0f,1.0f,0.0f)).Last.Value);
 
-            Assert.AreEqual(TargetCommand.Waiting, Planing.singleton.GetCurrentTarget());
+            Assert.AreEqual("WaitingTargetCommand", Planing.singleton.GetCurrentTargetString());
             Planing.singleton.StartPlaning();
-            Assert.AreEqual(TargetCommand.Waiting, Planing.singleton.GetCurrentTarget());
+            Assert.AreEqual("WaitingTargetCommand", Planing.singleton.GetCurrentTargetString());
 
             MainMenu.Physics.turningRadius = 0.595f;
             MainMenu.Physics.Calculate();

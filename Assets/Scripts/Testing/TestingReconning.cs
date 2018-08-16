@@ -1,3 +1,4 @@
+using ev3dev.Society;
 using ev3devMapping.Society;
 using UnityEngine;
 
@@ -49,8 +50,8 @@ namespace ev3devMapping.Testing {
 				var lastPose = new Vector3(position.position.x,position.position.z, position.heading);
 				var positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, Geometry.RIGHT_ANGLE, lastPose);
         		var negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, lastPose);
-				Planing.DrawArc(rendererX, 0.2f, positiveTurningCenter, -Geometry.RIGHT_ANGLE + lastPose.z, Geometry.HALF_CIRCLE);
-				Planing.DrawArc(rendererX, 0.2f, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastPose.z, -Geometry.HALF_CIRCLE);
+				ExplorePositionCommand.DrawArc(rendererX, 0.2f, positiveTurningCenter, -Geometry.RIGHT_ANGLE + lastPose.z, Geometry.HALF_CIRCLE);
+                ExplorePositionCommand.DrawArc(rendererX, 0.2f, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastPose.z, -Geometry.HALF_CIRCLE);
 			}
 		}
 	}
