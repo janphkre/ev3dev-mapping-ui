@@ -23,7 +23,6 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         base.Awake();
         lastPosition = new PositionData { position = transform.parent.position, heading = transform.parent.eulerAngles.y };
         initialHeading = lastPosition.heading;
-            Debug.Log("InitialHeading =" + lastPosition.heading);
     }
 
     protected override void Start() {
@@ -55,26 +54,23 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
             lastPacket.CloneFrom(packet);
             return;
         }
-
         // UDP doesn't guarantee ordering of packets, if previous odometry is newer ignore the received
         if (packet.timestamp_us <= lastPacket.timestamp_us) {
             print("car-reconning - ignoring out of time packet (previous, now):" + Environment.NewLine + lastPacket.ToString() + Environment.NewLine + packet.ToString());
             return;
         }
-
         // Calculate the motor displacement since last packet:
-        float ddiff = packet.position_drive - lastPacket.position_drive;
+            float driveDiff = packet.position_drive - lastPacket.position_drive;
         
-        if (ddiff < 0.01f) {
+            if (Mathf.Abs(driveDiff) < 0.01f) {
         	//remove drift from heading:
             headingDrift += packet.heading - lastPacket.heading;
         }   
         float headingInDegrees = ((headingDrift - packet.heading) / 100.0f) + initialHeading;
-	
         lastPacket.CloneFrom(packet);
 	
         //Calculate rotation delta:
-        float delta1 = Mathf.Abs(ddiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M) / physics.turningRadius;
+        float delta1 = Mathf.Abs(driveDiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M) / physics.turningRadius;
         float delta2 = ((headingInDegrees - lastPosition.heading) * Mathf.PI / 180f);
 
 		if(delta2 > Geometry.HALF_CIRCLE) {
@@ -90,7 +86,7 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
 
 		delta1 /= 2f;
 		delta2 = delta2 / 4f;
-        if (physics.reverseMotorPolarity ^ ddiff < 0f) {
+        if (physics.reverseMotorPolarity ^ driveDiff < 0f) {
             delta2 = Mathf.PI - delta2;
         }
 

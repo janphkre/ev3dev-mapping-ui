@@ -59,7 +59,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURN;
         packet.param2 = CalculateSegment(segment);
-        packet.param1 = backwards ? STEER_BACKWARD : STEER_FORWARD;
+        packet.param1 = backwards != physics.reverseMotorPolarity ? STEER_BACKWARD : STEER_FORWARD;
         Send(packet);
     }
 
@@ -70,7 +70,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURNSTOP;
         packet.param2 = CalculateSegment(segment);
-        packet.param1 = STEER_FORWARD;
+            packet.param1 = physics.reverseMotorPolarity ? STEER_BACKWARD : STEER_FORWARD;
         Send(packet);
     }
 
@@ -81,7 +81,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURNSTOP;
         packet.param2 = CalculateSegment(segment);
-        packet.param1 = STEER_BACKWARD;
+            packet.param1 = physics.reverseMotorPolarity ? STEER_FORWARD : STEER_BACKWARD;
         Send(packet);
     }
     
@@ -89,7 +89,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         lastTimestamp = Timestamp.TimestampUs();
         CarDrivePacket packet = new CarDrivePacket();
         packet.timestamp_us = lastTimestamp;
-        packet.command = backwards ? CarDrivePacket.Commands.BACKWARD : CarDrivePacket.Commands.FORWARD;
+            packet.command = backwards != physics.reverseMotorPolarity ? CarDrivePacket.Commands.BACKWARD : CarDrivePacket.Commands.FORWARD;
         Send(packet);
     }
     

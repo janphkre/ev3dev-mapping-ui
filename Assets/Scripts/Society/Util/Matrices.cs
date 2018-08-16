@@ -117,6 +117,10 @@ public abstract class AMatrix {
         return true;
     }
 
+    public override int GetHashCode() {
+        return base.GetHashCode();
+    }
+
     public override string ToString() {
         string s = "";
         for(int i = 0; i < getSizeY(); i++) {
@@ -672,10 +676,10 @@ public class SparseColumn {
         return result;
     }
 
-    public override bool Equals(object other) {
-        if(other == null) return false;
-        if(other.GetType() == typeof(SparseColumn)) {
-            SparseColumn o = (SparseColumn) other;
+    public override bool Equals(object obj) {
+        if(obj == null) return false;
+        if(obj.GetType() == typeof(SparseColumn)) {
+            SparseColumn o = (SparseColumn) obj;
             if(val.Keys.Count != o.val.Keys.Count) {
             	return false;
             }
@@ -689,8 +693,12 @@ public class SparseColumn {
         }
         return false;
     }
-    
-    public override string ToString() {
+
+	public override int GetHashCode() {
+        return base.GetHashCode();
+	}
+
+	public override string ToString() {
         string s = "";
         foreach(KeyValuePair<int, Matrix> pair in val) {
             s += "[" + pair.Key + ": " + pair.Value.ToString() + "]";
@@ -796,15 +804,19 @@ public class SparseMatrix {
         return new SparseTranslatedMatrix(a);
     }
 
-    public override bool Equals(object other) {
-        if(other == null) return false;
-        if(other.GetType() == typeof(SparseMatrix)) {
-            SparseMatrix o = (SparseMatrix) other;
+    public override bool Equals(object obj) {
+        if(obj == null) return false;
+        if(obj.GetType() == typeof(SparseMatrix)) {
+            SparseMatrix o = (SparseMatrix) obj;
             if(val.Count != o.val.Count) return false;
             for (int i = 0; i < val.Count; i++) if(!val[i].Equals(o.val[i])) return false;
             return true;
         }
         return false;
+    }
+
+    public override int GetHashCode() {
+        return base.GetHashCode();
     }
 
     public override string ToString() {
@@ -878,7 +890,7 @@ public class SparseCovarianceMatrix : ICovarianceMatrix {
     }
 
     //KeepRows must be sorted!
-    public void Trim(HashSet<int> keepRows, int size) {
+    public void Trim(LinkedList<int> keepRows, int size) {
     	for(int i = size; i < val.Count; i++) {
         	val.RemoveAt(size);
         }
@@ -942,10 +954,10 @@ public class SparseCovarianceMatrix : ICovarianceMatrix {
         return result;
     }
     
-    public override bool Equals(object other) {
-        if(other == null) return false;
-        if(other.GetType() == typeof(SparseCovarianceMatrix)) {
-            SparseCovarianceMatrix o = (SparseCovarianceMatrix) other;
+    public override bool Equals(object obj) {
+        if(obj == null) return false;
+        if(obj.GetType() == typeof(SparseCovarianceMatrix)) {
+            SparseCovarianceMatrix o = (SparseCovarianceMatrix) obj;
             if(val.Count != o.val.Count) return false;
             for (int i = 0; i < val.Count; i++) if(!val[i].Equals(o.val[i])) {
             	return false;
@@ -955,7 +967,11 @@ public class SparseCovarianceMatrix : ICovarianceMatrix {
         return false;
     }
 
-    public override string ToString() {
+	public override int GetHashCode() {
+        return base.GetHashCode();
+	}
+
+	public override string ToString() {
         string s = "";
         for( int i = 0; i < val.Count; i++) {
             string t = val[i].ToString();

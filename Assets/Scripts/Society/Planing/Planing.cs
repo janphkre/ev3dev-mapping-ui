@@ -204,10 +204,6 @@ public class Planing : MonoBehaviour {
         returnToStart = true;
     }
 
-    public void Offroad() {
-        
-    }
-
     private IEnumerator workerRoutine() {
         bool wasUsed = true;
         while (true) {
@@ -336,14 +332,14 @@ public class Planing : MonoBehaviour {
         }
         DrawArc(rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, -Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, unobstructedRadius.x);
         DrawArc(rendererY, UNOBSTRUCTED_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + lastLaserReadings.LastPose.z, unobstructedRadius.y);
-        Debug.Log("Target " + currentTargetPosition + ", RB" + targetRB + " Radius" + unobstructedRadius + " Pose" + lastLaserReadings.LastPose);
+        //Debug.Log("Target " + currentTargetPosition + ", RB" + targetRB + " Radius" + unobstructedRadius + " Pose" + lastLaserReadings.LastPose);
         if (!IsWithinFunnel(targetRB) || Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
             //The target is not in the current reachable funnel. Move forward.
             //The robot is facing towards the target. No turn is needed.
             steering.DriveAhead(backwards);
         } else {
             float steeringSegment = findSteeringSegment(unobstructedRadius, targetRB);
-            Debug.Log("Steer " + steeringSegment);
+            //Debug.Log("Steer " + steeringSegment);
             if(float.IsNaN(steeringSegment)) {
                 steering.Halt();
                 lock (currentTarget) {
@@ -442,7 +438,7 @@ public class Planing : MonoBehaviour {
     private bool checkForHole(int index) {
         for(int k = 2; k < lastLaserReadings.ReadingsCount / 4; k++) {
             int l = (index + k) % lastLaserReadings.ReadingsCount;
-            if(Geometry.EuclideanDistance(lastLaserReadings.Readings[j], lastLaserReadings.Readings[l]) < MIN_OBSTACLE_HOLE_SIZE) {
+            if(Geometry.EuclideanDistance(lastLaserReadings.Readings[index], lastLaserReadings.Readings[l]) < MIN_OBSTACLE_HOLE_SIZE) {
                 return false;
             }
         }
@@ -452,7 +448,7 @@ public class Planing : MonoBehaviour {
     private bool checkForHoleNegative(int index) {
         for(int k = 2; k < lastLaserReadings.ReadingsCount / 4; k--) {
             int l = (index + k + lastLaserReadings.ReadingsCount) % lastLaserReadings.ReadingsCount;
-            if(Geometry.EuclideanDistance(lastLaserReadings.Readings[j], lastLaserReadings.Readings[l]) < MIN_OBSTACLE_HOLE_SIZE) {
+            if(Geometry.EuclideanDistance(lastLaserReadings.Readings[index], lastLaserReadings.Readings[l]) < MIN_OBSTACLE_HOLE_SIZE) {
                 return false;
             }
         }
@@ -534,9 +530,16 @@ public class Planing : MonoBehaviour {
         unobstructedRadius.y = UNOBSTRUCTED_OFFSET - unobstructedRadius.y;
         return unobstructedRadius;
     }
+        /*
+        IndexOutOfRangeException: Array index is out of range.
+ev3devMapping.Society.Planing.checkForHoleNegative (Int32 index) (at Assets/Scripts/Society/Planing/Planing.cs:451)
+ev3devMapping.Society.Planing.backOffObstacle (Vector2 unobstructedRadius) (at Assets/Scripts/Society/Planing/Planing.cs:383)
+ev3devMapping.Society.Planing.obstaclePlaning () (at Assets/Scripts/Society/Planing/Planing.cs:310)
+ev3devMapping.Society.Planing+<workerRoutine>c__Iterator0.MoveNext () (at Assets/Scripts/Society/Planing/Planing.cs:216)
+UnityEngine.SetupCoroutine.Invo*/
 
     private float findNegativeUnobstructedRadius(Vector3 origin) {
-        var negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, origin);
+        negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, origin);
         //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
         float unobstructedRadius = Geometry.HALF_CIRCLE;
         for (int i = 0; i < lastLaserReadings.ReadingsCount; i++) {
@@ -558,7 +561,7 @@ public class Planing : MonoBehaviour {
     }
 
     private float findPositiveUnobstructedRadius(Vector3 origin) {
-        var positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, Geometry.RIGHT_ANGLE, origin);
+        positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, Geometry.RIGHT_ANGLE, origin);
         //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
         float unobstructedRadius = Geometry.HALF_CIRCLE;
         for (int i = 0; i < lastLaserReadings.ReadingsCount; i++) {

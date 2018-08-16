@@ -73,16 +73,16 @@ namespace ev3devMapping.Consolation
 
 		void OnEnable ()
 		{
-#if UNITY_2017
+#if UNITY_2017 || UNITY_2018
 			Application.logMessageReceived += HandleLog;
 #else
-			Application.RegisterLogCallback(HandleLog);
+            Application.RegisterLogCallback(HandleLog);
 #endif
 		}
 
 		void OnDisable ()
 		{
-#if UNITY_2017
+#if UNITY_2017 || UNITY_2018
 			Application.logMessageReceived -= HandleLog;
 #else
 			Application.RegisterLogCallback(null);

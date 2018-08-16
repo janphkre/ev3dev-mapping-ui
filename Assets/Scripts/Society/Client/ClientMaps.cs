@@ -131,7 +131,7 @@ public class GlobalClientMap: Behaviour {
             List<int> unmatchedLocalFeatures;
             List<int> matchedGlobalFeatures;
             Vector3 match;
-            var prematchedFeatures = new HashSet<int>();
+            var prematchedFeatures = new LinkedList<int>();
             var start = Vector3.zero;
             float maxEstimationError = 0.0f;
             //2.1.1) Determine the set of potentially overlapping local maps:
@@ -143,7 +143,7 @@ public class GlobalClientMap: Behaviour {
                     //2.1.2) Find the set of potentially matched features:
                     for (int i = 0; i < collection.Count; i++) {
                         if (Geometry.EuclideanDistance((Vector2) localMap.end, collection[i].feature) <= estimationError + localMap.radius) {
-                            prematchedFeatures.Add(collection[i].index);//Like this the matchedFeatures should be sorted at all times.
+                            prematchedFeatures.AddLast(collection[i].index);//Like this the matchedFeatures should be sorted at all times.
                             if (estimationError > maxEstimationError) maxEstimationError = estimationError;
                         }
                     }
@@ -176,7 +176,7 @@ public class GlobalClientMap: Behaviour {
                 p = choleskyFactorization.solveUpperRightSparse(q);
                 subMatrix.Add(p);
                 //Remove the unneeded rows from the submatrix:
-                subMatrix.Trim(prematchedFeatures, globalStateVector.Count);
+                    subMatrix.Trim(prematchedFeatures, globalStateVector.Count);
                 //2.1.4) Nearest Neighbor to find the match:
                 //As the actual sensor input is already filter by RANSAC and an reobservation gate, nearest neighbor should be good enough to find the match between global frame and local frame.
                 match = nearestNeighbour.Match(localMap.end, localMap.map.GetEnumerator(), localMap.start, lastPose.pose, new PrematchFeatureEnumerator(globalStateVector, prematchedFeatures), subMatrix, maxEstimationError, out unmatchedLocalFeatures, out matchedGlobalFeatures);

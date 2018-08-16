@@ -79,7 +79,7 @@ public abstract class ReplayableUDPServer<DATAGRAM> : ReplayableServer
 			}
 			catch(System.Exception e)
 			{
-				Debug.LogError(name + " - unable to initialize on " + network.hostIp + ":" + moduleNetwork.port + " - " + e.Message);
+				Debug.LogError(name + " - unable to initialize on " + network.hostIp + ":" + moduleNetwork.port + " for " + network.robotIp + " - " + e.Message);
 				enabled = false;
 			}
 		}

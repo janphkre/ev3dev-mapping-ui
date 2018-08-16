@@ -11,7 +11,6 @@ class PlaningUI : ModuleUI {
 
     private Button startButton;
     private Button returnButton;
-    private Button offroadButton;
 
     protected override void Awake() {
 
@@ -30,10 +29,6 @@ class PlaningUI : ModuleUI {
         returnButton = SafeInstantiate<Button>(ModuleButton, uiTransform);
         returnButton.GetComponentInChildren<Text>().text = "Return to Start";
         returnButton.onClick.AddListener(OnClickButtonReturn);
-
-        offroadButton = SafeInstantiate<Button>(ModuleButton, uiTransform);
-        offroadButton.GetComponentInChildren<Text>().text = "Offroad";
-        offroadButton.onClick.AddListener(OnClickButtonOffroad);
     }
 
     protected override void Start() {
@@ -46,10 +41,6 @@ class PlaningUI : ModuleUI {
 
     public void OnClickButtonReturn() {
         Planing.singleton.ReturnToStart();
-    }
-
-    public void OnClickButtonOffroad() {
-        Planing.singleton.Offroad();
     }
 
     protected override void Update() {

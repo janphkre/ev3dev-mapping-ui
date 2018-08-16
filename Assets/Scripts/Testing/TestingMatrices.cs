@@ -1400,7 +1400,7 @@ namespace ev3devMapping.Testing {
         public void SparseCovarianceMatrixTestTrim() {
             SparseCovarianceMatrix m = new SparseCovarianceMatrix(),
                                    n = new SparseCovarianceMatrix();
-            HashSet<int> rows = new HashSet<int>();
+            LinkedList<int> rows = new LinkedList<int>();
             m.Enlarge(RANDOM_ITERATIONS);
             n.Enlarge(RANDOM_ITERATIONS);
             System.Random r = new System.Random();
@@ -1409,7 +1409,7 @@ namespace ev3devMapping.Testing {
                 m[i, i] = new Matrix(1, 1);
                 m[i, i][0, 0] = i;
                 if(r.Next(2) == 1) {
-                    rows.Add(i);
+                    rows.AddLast(i);
                     n[i, j] = new Matrix(1, 1);
                     n[i, j][0, 0] = i;
                     j++;
@@ -1417,7 +1417,7 @@ namespace ev3devMapping.Testing {
             }
             m.Trim(rows, RANDOM_ITERATIONS);
             Assert.AreEqual(n, m);
-            Assert.Throws<System.ArgumentException>(() => { m.Trim(new HashSet<int>(), RANDOM_ITERATIONS); });
+            Assert.Throws<System.ArgumentException>(() => { m.Trim(new LinkedList<int>(), RANDOM_ITERATIONS); });
         }
 
         [Test]
