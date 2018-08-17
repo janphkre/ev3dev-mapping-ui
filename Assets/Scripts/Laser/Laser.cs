@@ -24,7 +24,7 @@ public class LaserModuleProperties : ModuleProperties
 {
 	public string laserDevice = "/dev/tty_in1";
 	public string motorPort = "outC";
-	public int laserDutyCycle = 34;
+	public int laserDutyCycle = 44;
 	public int crcTolerancePct = 10;
     public float laserOffset = -90f;
 }
@@ -34,6 +34,7 @@ public class LaserPlotProperties
 {
 	public PlotType plotType;
 	public float distanceLimit=10.0f;
+    public float minimumDistanceMm = 0.1f;
 	public PointCloud laserPointCloud;
 }
 	
@@ -215,6 +216,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
 				
 			//if distance is greater than maximum we allow, mark reading as inalid
 			invalid_data[angle_index] |= packet.laser_readings[i].distance > plot.distanceLimit * 1000;
+            //invalid_data[angle_index] |= packet.laser_readings[i].distance < plot.minimumDistanceMm;
 
             if (invalid_data[angle_index]) {
                 ++threadInternal.invalidCount;

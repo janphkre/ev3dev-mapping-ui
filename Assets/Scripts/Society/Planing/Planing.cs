@@ -112,8 +112,12 @@ public class Planing : MonoBehaviour {
 
     public Graph GlobalGraph { get { return algorithms.globalGraph; } }
 
+    private CarDrive steering;
+    private PositionHistory positionHistory;
+
     private PlaningAlgorithms algorithms = new PlaningAlgorithms();
     private TargetCommandWrapper commandWrapper;
+    private TurnObserver turnObserver;
     private object laserReadingsLock = new object();
     private volatile PlaningInputData currentLaserReadings = null;
 
@@ -122,9 +126,11 @@ public class Planing : MonoBehaviour {
     }
 
     public void Start() {
-        SetupAlgorithms();    
+        SetupAlgorithms();
         commandWrapper = new TargetCommandWrapper(algorithms);
-        StartCoroutine("workerRoutine");
+        turnObserver = new TurnObserver();
+        StartCoroutine("turnRoutine");
+        StartCoroutine("planingRoutine");
     }
 
     public void StartPlaning() {
@@ -159,17 +165,26 @@ public class Planing : MonoBehaviour {
             algorithms.rendererSteering.endWidth = 0.02f;
             algorithms.rendererSteering.positionCount = 0;
 
-            algorithms.steering = transform.parent.gameObject.GetComponentInChildren<CarDrive>();
-            algorithms.positionHistory = transform.parent.gameObject.GetComponent<PositionHistory>();
+            steering = transform.parent.gameObject.GetComponentInChildren<CarDrive>();
+            positionHistory = transform.parent.gameObject.GetComponent<PositionHistory>();
+
+            algorithms.rendererPositiveTurningCenter = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            algorithms.rendererPositiveTurningCenter.transform.localScale = new Vector3(0.05f, 0.05f, 0.05f);
+            algorithms.rendererPositiveTurningCenter.GetComponent<MeshRenderer>().material.color = Color.magenta;
 
     }
 
-    private IEnumerator workerRoutine() {
+    private IEnumerator planingRoutine() {
         while (true) {
             yield return new WaitWhile(() => algorithms.lastLaserReadings == currentLaserReadings);
             algorithms.lastLaserReadings = LaserReadings;
+            algorithms.lastLaserReadings.CalculateRB(positionHistory.GetNewestThreadSafe());
             commandWrapper.ExecuteStep();
         }
+    }
+
+    private IEnumerator turnRoutine() {
+        return turnObserver.turnRoutine();
     }
 
     public String GetCurrentTargetString() {

@@ -58,7 +58,7 @@ namespace ev3devMapping.Testing {
 
             PlaningInputData sampleInput = new PlaningInputData();
             sampleInput.Read();
-            GraphObj = Instantiate(GraphObj, SceneManager.DynamicObjects);
+            GraphObj = Instantiate(GraphObj, GameObject.Find("Robot(Clone)").transform);
             Graph graph = GraphObj.GetComponent<Graph>();
             graph.Feed(sampleInput);
 
@@ -75,9 +75,9 @@ namespace ev3devMapping.Testing {
             Assert.AreNotEqual(Vector2.zero, v);
             Assert.AreEqual(Vector2.zero, graph.GetStartPath(new Vector3(1.0f,1.0f,0.0f)).Last.Value);
 
-            Assert.AreEqual("WaitingTargetCommand", Planing.singleton.GetCurrentTargetString());
+            Assert.AreEqual("ev3dev.Society.WaitingCommand", Planing.singleton.GetCurrentTargetString());
             Planing.singleton.StartPlaning();
-            Assert.AreEqual("WaitingTargetCommand", Planing.singleton.GetCurrentTargetString());
+            Assert.AreEqual("ev3dev.Society.ExploreAreaCommand", Planing.singleton.GetCurrentTargetString());
 
             MainMenu.Physics.turningRadius = 0.595f;
             MainMenu.Physics.Calculate();

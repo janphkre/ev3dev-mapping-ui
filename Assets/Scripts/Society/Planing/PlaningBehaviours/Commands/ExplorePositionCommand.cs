@@ -18,16 +18,12 @@ namespace ev3dev.Society {
         }
 
 		public override AbstractTargetCommand PlanMove() {
-            algorithms.lastLaserReadings.CalculateRB(algorithms.positionHistory.GetNewestThreadSafe());
             AbstractTargetCommand obstacleCommand = obstaclePlaning();
-            if (obstacleCommand == this) {
-                algorithms.globalGraph.Feed(algorithms.lastLaserReadings);
-            }
+            algorithms.globalGraph.Feed(algorithms.lastLaserReadings);
             return obstacleCommand;
         }
 
         private AbstractTargetCommand obstaclePlaning() {
-            
             try {
                 var targetRB = Geometry.ToRangeBearing(currentTargetPosition, algorithms.lastLaserReadings.LastPose);
                 if (targetRB.x < TARGET_RADIUS) {
@@ -38,7 +34,7 @@ namespace ev3dev.Society {
                 calculateTurningCenters();
                 var unobstructedRadius = findBothUnobstructedRadius();
                 if (unobstructedRadius.x <= ZERO_FLOAT || unobstructedRadius.y >= ZERO_FLOAT) {
-                    Debug.Log("Planing - Obstacle hit. (1) " + unobstructedRadius);
+                    Debug.LogWarning("Planing - Obstacle hit. (1) " + unobstructedRadius);
                     return backOffObstacle(unobstructedRadius);
                 }
                 if (algorithms.backwards) {
@@ -50,7 +46,7 @@ namespace ev3dev.Society {
                     AbstractTargetCommand command = hypothesizeTurn(unobstructedRadius);
                     if (command != this) {
                         //backwards = false;
-                        return this;
+                        return command;
                     }
                     //Continue to go backwards:
                     algorithms.lastLaserReadings.LastPose.z = Geometry.angleToCircle(algorithms.lastLaserReadings.LastPose.z + Geometry.HALF_CIRCLE);
@@ -61,12 +57,10 @@ namespace ev3dev.Society {
                         return backOffObstacle(unobstructedRadius);
                     }
                 }
-                DrawArc(algorithms.rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, -Geometry.RIGHT_ANGLE + algorithms.lastLaserReadings.LastPose.z, unobstructedRadius.x);
-                DrawArc(algorithms.rendererY, UNOBSTRUCTED_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + algorithms.lastLaserReadings.LastPose.z, unobstructedRadius.y);
                 Debug.Log("Target " + currentTargetPosition + ", RB" + targetRB + " Radius" + unobstructedRadius + " Pose" + algorithms.lastLaserReadings.LastPose);
                 if (!IsWithinFunnel(targetRB) || Mathf.Abs(targetRB.y) < MIN_CORRECTION_ANGLE) {
                     //The target is not in the current reachable funnel. Move forward.
-                    //The robot is facing towards the target. No turn is needed.
+                    //OR the robot is facing towards the target. No turn is needed.
                     algorithms.steering.DriveAhead(algorithms.backwards);
                 } else {
                     float steeringSegment = findSteeringSegment(unobstructedRadius, targetRB);
@@ -89,6 +83,8 @@ namespace ev3dev.Society {
             positiveTurningCenter.z = algorithms.lastLaserReadings.LastPose.z;
             negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, algorithms.lastLaserReadings.LastPose);
             negativeTurningCenter.z = algorithms.lastLaserReadings.LastPose.z;
+
+            algorithms.rendererPositiveTurningCenter.transform.position = (Vector2) positiveTurningCenter;
         }
 
         //We are in front of an obstacle, so we have to steer around it.
@@ -203,35 +199,33 @@ namespace ev3dev.Society {
         private AbstractTargetCommand hypothesizeTurn(Vector2 unobstructedRadius) {
             if (unobstructedRadius.x >= Geometry.RIGHT_ANGLE) {
                 if (unobstructedRadius.x >= Geometry.HALF_CIRCLE) {
-                    Debug.Log("Planing - Positive full turning.");
-                    algorithms.steering.SteerForward(Geometry.HALF_CIRCLE);
-                    return new TurnCommand(this, algorithms.lastLaserReadings.LastPose.z, Geometry.HALF_CIRCLE);
+                    return turn(Geometry.HALF_CIRCLE);
                 }
                 Vector3 movedPose = Geometry.FromRangeBearing(MainMenu.Physics.turningRadiusAngledSquared, Geometry.EIGHTH_CIRCLE, algorithms.lastLaserReadings.LastPose);
                 movedPose.z = Geometry.angleToCircle(algorithms.lastLaserReadings.LastPose.z - Geometry.RIGHT_ANGLE);
-                if (findPositiveUnobstructedRadius(movedPose) >= Geometry.RIGHT_ANGLE) {
-                    Debug.Log("Planing - Positive half turning.");
-                    algorithms.steering.SteerForward(Geometry.RIGHT_ANGLE);
-                    return new TurnCommand(this, algorithms.lastLaserReadings.LastPose.z, Geometry.RIGHT_ANGLE);
+                if (findSingleUnobstructedRadius(movedPose, Geometry.RIGHT_ANGLE) >= Geometry.RIGHT_ANGLE) {
+                    return turn(Geometry.RIGHT_ANGLE);
                 }
             }
             if (unobstructedRadius.y <= -Geometry.RIGHT_ANGLE) {
                 if (unobstructedRadius.y <= -Geometry.HALF_CIRCLE) {
-                    Debug.Log("Planing - Negative full turning.");
-                    algorithms.steering.SteerForward(-Geometry.HALF_CIRCLE);
-                    return new TurnCommand(this, algorithms.lastLaserReadings.LastPose.z, -Geometry.HALF_CIRCLE);
+                    return turn(-Geometry.HALF_CIRCLE);
                 }
                 Vector3 movedPose = Geometry.FromRangeBearing(MainMenu.Physics.turningRadiusAngledSquared, -Geometry.EIGHTH_CIRCLE, algorithms.lastLaserReadings.LastPose);
-                if (findNegativeUnobstructedRadius(movedPose) >= Geometry.RIGHT_ANGLE) {
-                    Debug.Log("Planing - Negative half turning.");
-                    algorithms.steering.SteerForward(-Geometry.RIGHT_ANGLE);
-                    return new TurnCommand(this, algorithms.lastLaserReadings.LastPose.z, -Geometry.RIGHT_ANGLE);
+                if (findSingleUnobstructedRadius(movedPose, -Geometry.RIGHT_ANGLE) >= Geometry.RIGHT_ANGLE) {
+                    return turn(-Geometry.RIGHT_ANGLE);
                 }
             }
             //TODO: If the above failed, we may be able to turn around by reversing first. This would mean code changes to the TargetCommand.Turn as well.
             // Skip that for now for better performance in narrow situations.
             //TODO: If the above succeds we might get stuck because the turn does not check what happens after the turn.
             return this;
+        }
+
+        private AbstractTargetCommand turn(float angle) {
+            Debug.Log("Planing - turning with angle "+angle);
+            algorithms.steering.SteerForward(angle);
+            return new TurnCommand(this, algorithms.lastLaserReadings.LastPose.z, angle);
         }
 
         private Vector2 findBothUnobstructedRadius() {
@@ -265,42 +259,25 @@ namespace ev3dev.Society {
             }
             unobstructedRadius.x -= UNOBSTRUCTED_OFFSET;
             unobstructedRadius.y = UNOBSTRUCTED_OFFSET - unobstructedRadius.y;
+            Debug.Log("Unobstructed Radius: " + unobstructedRadius);
+            DrawArc(algorithms.rendererX, UNOBSTRUCTED_HEIGHT, positiveTurningCenter, -Geometry.RIGHT_ANGLE + algorithms.lastLaserReadings.LastPose.z, unobstructedRadius.x);
+            DrawArc(algorithms.rendererY, UNOBSTRUCTED_HEIGHT, negativeTurningCenter, Geometry.RIGHT_ANGLE + algorithms.lastLaserReadings.LastPose.z, unobstructedRadius.y);
             return unobstructedRadius;
         }
 
-        private float findNegativeUnobstructedRadius(Vector3 origin) {
-            negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, origin);
+        private float findSingleUnobstructedRadius(Vector3 origin, float angle) {
+            Vector2 turningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, angle, origin);
             //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
             float unobstructedRadius = Geometry.HALF_CIRCLE;
+            float isNegative = angle < 0 ? -1f : 1f;
             for (int i = 0; i < algorithms.lastLaserReadings.ReadingsCount; i++) {
                 Vector2 rangeBearing = Geometry.ToRangeBearing(algorithms.lastLaserReadings.Readings[i], origin);
                 if (Mathf.Abs(rangeBearing.y) > Geometry.HALF_CIRCLE) continue;
                 if (IsWithinFunnel(rangeBearing)) {
                     //The obstacle is in front of our possible movements.
-                    if (rangeBearing.y <= ZERO_FLOAT) {
-                        var turningRB = Geometry.ToRangeBearing2(algorithms.lastLaserReadings.Readings[i], negativeTurningCenter);
-                        if (Mathf.Abs(turningRB.x - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
-                            var currentAngle = Mathf.Asin(rangeBearing.x * Mathf.Cos(rangeBearing.y) / turningRB.x);
-                            currentAngle = Geometry.angleToPositiveCircle(currentAngle);
-                            if (currentAngle < unobstructedRadius) unobstructedRadius = currentAngle;
-                        }
-                    }
-                }
-            }
-            return UNOBSTRUCTED_OFFSET - unobstructedRadius;
-        }
-
-        private float findPositiveUnobstructedRadius(Vector3 origin) {
-            positiveTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, Geometry.RIGHT_ANGLE, origin);
-            //The (potential) obstacles are within the funnel that can be reached by the vehicle excluding everything closer than the turn radius and everything behind the vehicle.
-            float unobstructedRadius = Geometry.HALF_CIRCLE;
-            for (int i = 0; i < algorithms.lastLaserReadings.ReadingsCount; i++) {
-                Vector2 rangeBearing = Geometry.ToRangeBearing(algorithms.lastLaserReadings.Readings[i], origin);
-                if (Mathf.Abs(rangeBearing.y) > Geometry.HALF_CIRCLE) continue;
-                if (IsWithinFunnel(rangeBearing)) {
-                    //The obstacle is in front of our possible movements.
+                    rangeBearing.y *= isNegative;
                     if (rangeBearing.y >= ZERO_FLOAT) {
-                        var turningRB = Geometry.ToRangeBearing2(algorithms.lastLaserReadings.Readings[i], positiveTurningCenter);
+                        var turningRB = Geometry.ToRangeBearing2(algorithms.lastLaserReadings.Readings[i], turningCenter);
                         if (Mathf.Abs(turningRB.x - MainMenu.Physics.turningRadius) < MIN_OBSTACLE_DISTANCE) {
                             var currentAngle = Mathf.Asin(rangeBearing.x * Mathf.Cos(rangeBearing.y) / turningRB.x);
                             currentAngle = Geometry.angleToPositiveCircle(currentAngle);
@@ -309,7 +286,7 @@ namespace ev3dev.Society {
                     }
                 }
             }
-            return unobstructedRadius - UNOBSTRUCTED_OFFSET;
+            return unobstructedRadius - UNOBSTRUCTED_OFFSET * isNegative;
         }
 
         private float findSteeringSegment(Vector2 unobstructedRadius, Vector2 targetRB) {
@@ -317,12 +294,9 @@ namespace ev3dev.Society {
             var bearing = Geometry.RIGHT_ANGLE - Mathf.Abs(targetRB.y);
             var c = MainMenu.Physics.turningRadiusSquared + targetRB.x * targetRB.x - 2f * MainMenu.Physics.turningRadius * targetRB.x * Mathf.Cos(bearing);
             float steeringSegment = (Mathf.Asin((targetRB.x * Mathf.Sin(bearing)) / Mathf.Sqrt(c)) - Mathf.Asin(Mathf.Sqrt(c - MainMenu.Physics.turningRadiusSquared) / Mathf.Sqrt(c)));
-            //float lineLength;
-            //if(steeringSegment > Geometry.RIGHT_ANGLE) lineLength = targetRB.x - MainMenu.Physics.turningRadius;
-            //else lineLength = targetRB.x - MainMenu.Physics.turningRadius * steeringSegment;
             if (bearing < 0) steeringSegment = -steeringSegment;
             //Find the closest steerable way towards the currentTargetPosition
-            //TODO: A steering plan consists of two elements: A line and a turn.
+            //A steering plan consists of two elements: A line and a turn.
             if (steeringSegment > unobstructedRadius.x) steeringSegment = unobstructedRadius.x;
             else if (steeringSegment < unobstructedRadius.y) steeringSegment = unobstructedRadius.y;
             else {

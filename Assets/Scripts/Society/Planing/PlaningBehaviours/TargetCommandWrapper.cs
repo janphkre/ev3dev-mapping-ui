@@ -11,7 +11,11 @@ namespace ev3dev.Society {
         }
 
         public void ExecuteStep() {
+            algorithms.steering.Halt();
             lock (currentTargetCommandLock) {
+                if(!(currentTargetCommand is WaitingCommand)) {
+                    emptyMethod();
+                }
                 AbstractTargetCommand command = currentTargetCommand.PlanMove();
                 if (command == currentTargetCommand) {
                     return;
@@ -22,9 +26,10 @@ namespace ev3dev.Society {
             ExecuteStep();
         }
 
+        private void emptyMethod() { }
+
         public void SetStartCommand() {
             lock (currentTargetCommandLock) {
-                algorithms.steering.Halt();
                 algorithms.backwards = false;
                 currentTargetCommand = new ExploreAreaCommand(new WaitingCommand(algorithms));
             }
@@ -43,7 +48,5 @@ namespace ev3dev.Society {
                 return currentTargetCommand;
             }
         }
-
-
     }
 }

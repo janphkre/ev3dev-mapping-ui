@@ -11,11 +11,12 @@ namespace ev3dev.Society {
         private readonly bool turnLeft;
 
         public TurnCommand(AbstractTargetCommand parentCommand, float currentHeading, float turnAngle) : base(parentCommand) {
-            this.targetHeading =  currentHeading + turnAngle;
+            this.targetHeading =  Geometry.angleToCircle(currentHeading + turnAngle);
             turnLeft = turnAngle > 0f;
         }
 
         public override AbstractTargetCommand PlanMove() {
+            //TODO!
             PositionData pos = algorithms.positionHistory.GetNewestThreadSafe();
             float currentHeading = pos.heading * Mathf.PI / 180f;
             if (turnLeft) {
