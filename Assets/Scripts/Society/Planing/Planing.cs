@@ -29,7 +29,7 @@ public class PlaningInputData {
     }
 
     public void CalculateRB(PositionData pos) {
-        LastPose = new Vector3(pos.position.x, pos.position.z, pos.heading * Mathf.PI / 180f);
+        LastPose = new Vector3(pos.position.x, pos.position.z, Geometry.angleToCircle(pos.heading * Mathf.PI / 180f));
         int j = 0;
         for (int i = 0; i < ReadingsCount; i++) {
             var rb = Geometry.ToRangeBearing2(Readings[i], LastPose);

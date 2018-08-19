@@ -1,6 +1,11 @@
-using UnityEngine;
-using System.Collections;
+using ev3devMapping;
 
-public class IdleSteering: AbstractSteering {
+namespace ev3dev.Society {
 
+    class IdleSteering: AbstractSteering {
+
+        public override AbstractSteering Execute() {
+            return this;
+        }
+    }
 }

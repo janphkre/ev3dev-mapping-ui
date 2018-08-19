@@ -1,6 +1,10 @@
-using UnityEngine;
-using System.Collections;
+namespace ev3dev.Society {
 
-public abstract class AbstractSteering {
-    public abstract void Execute();
+    abstract class AbstractSteering {
+        public abstract AbstractSteering Execute();
+
+        protected virtual AbstractSteering idle() {
+            return new IdleSteering();
+        }
+    }
 }
