@@ -1,6 +1,4 @@
 using System.Collections.Generic;
-using ev3devMapping;
-using ev3devMapping.Society;
 using UnityEngine;
 
 namespace ev3dev.Society {
@@ -12,9 +10,9 @@ namespace ev3dev.Society {
         public override AbstractTargetCommand PlanMove() {
             Vector2 currentTargetPosition;
             if (!algorithms.globalGraph.GetNewTarget(out currentTargetPosition)) {
-                algorithms.steering.Halt();
+                algorithms.SteerStop();
                 if (algorithms.globalGraph.HasUnvisitedNodes()) {
-                    LinkedList<Vector2> currentPath = algorithms.globalGraph.GetUnexploredNodePath(algorithms.positionHistory.GetNewestThreadSafe().position);
+                    LinkedList<Vector2> currentPath = algorithms.globalGraph.GetUnexploredNodePath(algorithms.lastLaserReadings.LastPose);
                     return new FollowPathCommand(this, currentPath);
                 } else {
                     //The graph does not provide any more unvisited nodes: stop and wait.

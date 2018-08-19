@@ -3,7 +3,7 @@ namespace ev3dev.Society {
 
         private PlaningAlgorithms algorithms;
         private object currentTargetCommandLock = new object();
-        private AbstractTargetCommand currentTargetCommand;
+        private volatile AbstractTargetCommand currentTargetCommand;
 
         public TargetCommandWrapper(PlaningAlgorithms algorithms) {
             this.algorithms = algorithms;
@@ -11,7 +11,6 @@ namespace ev3dev.Society {
         }
 
         public void ExecuteStep() {
-            algorithms.steering.Halt();
             lock (currentTargetCommandLock) {
                 if(!(currentTargetCommand is WaitingCommand)) {
                     emptyMethod();
@@ -20,7 +19,7 @@ namespace ev3dev.Society {
                 if (command == currentTargetCommand) {
                     return;
                 }
-
+                Log.log("Command: " + currentTargetCommand.ToString());
                 currentTargetCommand = command;
             }
             ExecuteStep();
@@ -31,15 +30,17 @@ namespace ev3dev.Society {
         public void SetStartCommand() {
             lock (currentTargetCommandLock) {
                 algorithms.backwards = false;
+                Log.log("Command: ExploreAreaCommand");
                 currentTargetCommand = new ExploreAreaCommand(new WaitingCommand(algorithms));
             }
         }
 
         public void SetReturnToStartCommand() {
             lock (currentTargetCommandLock) {
-                algorithms.steering.Halt();
+                algorithms.SteerStop();
                 algorithms.backwards = !algorithms.backwards;
-                currentTargetCommand = new FollowPathCommand(new WaitingCommand(algorithms), algorithms.globalGraph.GetStartPath(algorithms.positionHistory.GetNewestThreadSafe().position));
+                Log.log("Command: FollowPathCommand(pathToStart)");
+                currentTargetCommand = new FollowPathCommand(new WaitingCommand(algorithms), algorithms.globalGraph.GetStartPath(algorithms.lastLaserReadings.LastPose));
             }
         }
 

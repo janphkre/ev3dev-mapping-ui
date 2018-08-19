@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using ev3dev.Society;
 using UnityEngine;
@@ -9,7 +8,7 @@ namespace ev3devMapping.Society {
 
 public class PlaningInputData {
     
-    public static float MIN_READING_DISTANCE = 0.04f;
+    public static float MIN_READING_DISTANCE = 0.02f;
 
     public Vector3 LastPose;
     public Vector3[] Readings;
@@ -101,8 +100,6 @@ public class PlaningInputData {
 [RequireComponent (typeof(PlaningUI))]
 public class Planing : MonoBehaviour {
 
-    
-
     public static Planing singleton;
 
     public PlaningInputData LaserReadings {
@@ -128,7 +125,7 @@ public class Planing : MonoBehaviour {
     public void Start() {
         SetupAlgorithms();
         commandWrapper = new TargetCommandWrapper(algorithms);
-        turnObserver = new TurnObserver();
+        turnObserver = new TurnObserver(steering, positionHistory);
         StartCoroutine("turnRoutine");
         StartCoroutine("planingRoutine");
     }

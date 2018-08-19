@@ -1,4 +1,3 @@
-using ev3devMapping;
 
 namespace ev3dev.Society {
 

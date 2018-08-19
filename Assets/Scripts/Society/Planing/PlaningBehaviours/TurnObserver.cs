@@ -28,28 +28,47 @@ namespace ev3dev.Society {
                     lock(requestedCommandLock) {
                         if(requestedCommand == currentCommand) {
                             requestedCommand = resultCommand;
+                            Debug.Log("NextSteering: "+ requestedCommand.ToString());
                         }
                     }
                 }
             }
         }
 
-        public void turn(float currentHeading, float turnAngle, bool backwards) {
+        public void Forward(bool backwards) {
+            AbstractSteering forwardSteering = new ForwardSteering(steering, backwards);
+            Debug.Log("ForwardSteering(b "+ backwards +")");
             lock(requestedCommandLock) {
-                requestedCommand = new TurnSteering(steering, positionHistory, turnAngle, backwards, getHeadingComparison(currentHeading, turnAngle, backwards));
+                requestedCommand = forwardSteering;
             }
         }
 
-        public void turnStop(float currentHeading, float turnAngle, bool backwards) {
+        public void Turn(float currentHeading, float turnAngle, bool backwards) {
+            AbstractSteering turnSteering = new TurnSteering(steering, positionHistory, turnAngle, backwards, getHeadingComparison(currentHeading, turnAngle, backwards));
+            Debug.Log("TurnSteering(cH "+ currentHeading + ", tA " + turnAngle + ", b " + backwards +")");
             lock(requestedCommandLock) {
-                requestedCommand = new TurnStopSteering(steering, positionHistory, turnAngle, backwards, getHeadingComparison(currentHeading, turnAngle, backwards));
+                requestedCommand = turnSteering;
             }
         }
 
-        public void stop() {
+        public void TurnStop(float currentHeading, float turnAngle, bool backwards) {
+            AbstractSteering turnStopSteering = new TurnStopSteering(steering, positionHistory, turnAngle, backwards, getHeadingComparison(currentHeading, turnAngle, backwards));
+            Debug.Log("TurnStopSteering(cH "+ currentHeading + ", tA " + turnAngle + ", b " + backwards +")");
             lock(requestedCommandLock) {
-                requestedCommand = new StopSteering(steering);
+                requestedCommand = turnStopSteering;
             }
+        }
+
+        public void Stop() {
+            AbstractSteering stopSteering = new StopSteering(steering);
+            Debug.Log("StopSteering");
+            lock(requestedCommandLock) {
+                requestedCommand = stopSteering;
+            }
+        }
+
+        public bool isIdle() {
+            return requestedCommand is IdleSteering;
         }
 
         private Func<float, bool> getHeadingComparison(float currentHeading, float turnAngle, bool backwards) {

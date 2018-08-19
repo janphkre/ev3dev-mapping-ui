@@ -44,15 +44,6 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         Send(packet);
     }
 
-    //WaitWhile functionality for SteerForward / SteerBackwards
-    /*public bool IsTurning() {
-        if(IsPacketWaiting()) {
-            ReceiveOne(packet);
-            if(packet.command == CarDrivePacket.Commands.TURNSTOP) return false;
-        }
-        return true;
-    }*/
-
     public void Steer(float segment, bool backwards) {
         lastTimestamp = Timestamp.TimestampUs();
         CarDrivePacket packet = new CarDrivePacket();
