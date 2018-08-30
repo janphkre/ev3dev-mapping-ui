@@ -8,15 +8,15 @@ Prefab:
     m_TransformParent: {fileID: 0}
     m_Modifications: []
     m_RemovedComponents: []
-  m_ParentPrefab: {fileID: 0}
+  m_SourcePrefab: {fileID: 0}
   m_RootGameObject: {fileID: 1585957363104922}
-  m_IsPrefabParent: 1
+  m_IsPrefabAsset: 1
 --- !u!1 &1585957363104922
 GameObject:
   m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 100100000}
-  serializedVersion: 5
+  serializedVersion: 6
   m_Component:
   - component: {fileID: 4763462348458492}
   - component: {fileID: 114500560711290128}
@@ -31,7 +31,7 @@ GameObject:
 --- !u!4 &4763462348458492
 Transform:
   m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1585957363104922}
   m_LocalRotation: {x: -0, y: 0.7071068, z: 0.7071068, w: 0}
@@ -44,7 +44,7 @@ Transform:
 --- !u!114 &114500560711290128
 MonoBehaviour:
   m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1585957363104922}
   m_Enabled: 1
@@ -60,18 +60,19 @@ MonoBehaviour:
     creationDelayMs: 0
     laserDevice: /dev/tty_in1
     motorPort: outB
-    laserDutyCycle: 45
+    laserDutyCycle: 35
     crcTolerancePct: 10
     laserOffset: 0
   plot:
     plotType: 1
     distanceLimit: 2
+    minimumDistanceMm: 0.1
     laserPointCloud: {fileID: 114328803140388550, guid: 75d3c019fe7a50e4ea1ae9dd76497287,
       type: 2}
 --- !u!114 &114953027153520370
 MonoBehaviour:
   m_ObjectHideFlags: 1
-  m_PrefabParentObject: {fileID: 0}
+  m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInternal: {fileID: 100100000}
   m_GameObject: {fileID: 1585957363104922}
   m_Enabled: 1

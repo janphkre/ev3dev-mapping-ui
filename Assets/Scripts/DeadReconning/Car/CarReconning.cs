@@ -68,9 +68,10 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         }   
         float headingInDegrees = ((headingDrift - packet.heading) / 100.0f) + initialHeading;
         lastPacket.CloneFrom(packet);
-	
+
+        float distanceTravelled = Mathf.Abs(driveDiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M);
         //Calculate rotation delta:
-        float delta1 = Mathf.Abs(driveDiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M) / physics.turningRadius;
+        float delta1 = distanceTravelled / physics.turningRadius;
         float delta2 = ((headingInDegrees - lastPosition.heading) * Mathf.PI / 180f);
 
 		if(delta2 > Geometry.HALF_CIRCLE) {
@@ -79,24 +80,29 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
 			delta2 = Geometry.FULL_CIRCLE + delta2;
 		}
 
-		if(Mathf.Abs(delta1 - delta2) > 0.5f ) {
+		if(Mathf.Abs(delta1 - delta2) > 0.5f) {
             Debug.LogWarning("Ignoring broken measurement! " + delta2 + ", " + delta1);
             return; //ignore packet
         }
 
 		delta1 /= 2f;
-		delta2 = delta2 / 4f;
+		delta2 /= 4f;
         if (physics.reverseMotorPolarity ^ driveDiff < 0f) {
             delta2 = Mathf.PI - delta2;
         }
 
-        float range = physics.turningDiameter * Mathf.Sin(delta1);
-        var result = Society.Geometry.FromRangeBearing(range, 2f*Mathf.PI-delta2, lastPosition);
+        float range;
+            if(Mathf.Abs(delta2) < 0.5f) {
+                range = distanceTravelled;
+            } else {
+                range = physics.turningDiameter * Mathf.Sin(delta1);
+            }
+        var result = Geometry.FromRangeBearing(range, 2f*Mathf.PI-delta2, lastPosition);
         
 	
 		if (float.IsNaN(result.x) || float.IsNaN(result.y) || float.IsNaN(headingInDegrees)) {
             Debug.LogWarning("Ignoring misscalculation");
-	    return;
+	        return;
         }
         
         // Finally update the position and heading

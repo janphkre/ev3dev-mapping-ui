@@ -66,6 +66,7 @@ MonoBehaviour:
   plot:
     plotType: 1
     distanceLimit: 10
+    minimumDistanceMm: 0.1
     laserPointCloud: {fileID: 114328803140388550, guid: 75d3c019fe7a50e4ea1ae9dd76497287,
       type: 2}
 --- !u!114 &114572000941538682

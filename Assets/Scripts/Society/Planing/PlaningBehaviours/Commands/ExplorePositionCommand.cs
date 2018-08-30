@@ -83,7 +83,7 @@ namespace ev3dev.Society {
             negativeTurningCenter = Geometry.FromRangeBearing(MainMenu.Physics.turningRadius, -Geometry.RIGHT_ANGLE, algorithms.lastLaserReadings.LastPose);
             negativeTurningCenter.z = algorithms.lastLaserReadings.LastPose.z;
 
-            algorithms.rendererPositiveTurningCenter.transform.position = (Vector2) positiveTurningCenter;
+            algorithms.rendererPositiveTurningCenter.transform.position = new Vector3(positiveTurningCenter.x, 0.1f, positiveTurningCenter.y);
         }
 
         //We are in front of an obstacle, so we have to steer around it.

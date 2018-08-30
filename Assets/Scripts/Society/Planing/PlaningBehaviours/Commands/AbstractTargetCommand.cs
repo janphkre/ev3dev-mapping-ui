@@ -7,9 +7,9 @@ namespace ev3dev.Society {
         public TurnObserver steering;
         public Graph globalGraph;
 
-        public PlaningInputData lastLaserReadings;
+        public PlaningInputData lastLaserReadings = null;
 
-        public bool backwards;
+        public bool backwards = false;
 
         public LineRenderer rendererX;
         public LineRenderer rendererY;
@@ -55,7 +55,7 @@ namespace ev3dev.Society {
         public const float UNOBSTRUCTED_OBSTACLE_MULTIPLIER = 1f;
         public const float TARGET_RADIUS = 0.1f;
         public const float MAX_OFFSET_ANGLE = Geometry.HALF_CIRCLE;
-        public const float MIN_CORRECTION_ANGLE = 0.11f;
+        public const float MIN_CORRECTION_ANGLE = 0.04f;
         public const float ARC_STEP = 1f / 4f;
         public const float UNOBSTRUCTED_HEIGHT = 0.02f;
         public const float STEERING_HEIGHT = 0.04f;

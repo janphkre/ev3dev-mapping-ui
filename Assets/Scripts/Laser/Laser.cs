@@ -306,6 +306,7 @@ public class Laser : ReplayableUDPServer<LaserPacket>
             threadInternal.packageCounter = 0;
             if (threadInternal.invalidCount >= LaserThreadSharedData.READINGS_LENGTH) {
                 Debug.LogError("The whole array is invalid!");
+                threadInternal.invalidCount = 0;
                 return;
             }
             //SLAMRobot.singelton.PostOdometryAndReadings(new SLAMInputData(lastPackageLastPos, threadInternal.readings, from, length, threadInternal.invalid_data, threadInternal.invalidPackageCount));

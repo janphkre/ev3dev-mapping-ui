@@ -29,15 +29,7 @@ public class PlaningInputData {
 
     public void CalculateRB(PositionData pos) {
         LastPose = new Vector3(pos.position.x, pos.position.z, Geometry.angleToCircle(pos.heading * Mathf.PI / 180f));
-        int j = 0;
-        for (int i = 0; i < ReadingsCount; i++) {
-            var rb = Geometry.ToRangeBearing2(Readings[i], LastPose);
-            if(rb.x < MIN_READING_DISTANCE) continue;
-            ReadingsRB[j] = rb;
-            Readings[j] = Readings[i];
-            j++;
-        }
-        ReadingsCount = j;
+        CalculateRBForPose();
     }
     
     #region Testing
@@ -51,7 +43,7 @@ public class PlaningInputData {
             writer.WriteLine(LastPose.ToString());
             writer.WriteLine(ReadingsCount);
             for (int i = 0; i < ReadingsCount; i++) {
-                writer.WriteLine(Readings[i].ToString() + "; " + ReadingsRB[i].ToString());
+                writer.WriteLine(Readings[i].ToString());
             }
             writer.Flush();
             writer.Close();
@@ -68,19 +60,25 @@ public class PlaningInputData {
             Readings = new Vector3[ReadingsCount];
             ReadingsRB = new Vector2[ReadingsCount];
             while (!reader.EndOfStream && i < ReadingsCount) {
-                //V2Parse(reader.ReadLine(), out Readings[i], out ReadingsRB[i]);
                 Readings[i] = V3Parse(reader.ReadLine());
-                /*if(ReadingsRB[i].y > Geometry.HALF_CIRCLE) {
-                    ReadingsRB[i].y -= Geometry.FULL_CIRCLE;
-                } else if(ReadingsRB[i].y < -Geometry.HALF_CIRCLE) {
-                    ReadingsRB[i].y += Geometry.FULL_CIRCLE;
-                }*/
                 i++;
             }
             reader.Close();
             reader.Dispose();
         }
-        CalculateRB(new PositionData());
+        CalculateRBForPose();
+    }
+
+    private void CalculateRBForPose() {
+        int j = 0;
+        for (int i = 0; i < ReadingsCount; i++) {
+            var rb = Geometry.ToRangeBearing2(Readings[i], LastPose);
+            if (rb.x < MIN_READING_DISTANCE) continue;
+            ReadingsRB[j] = rb;
+            Readings[j] = Readings[i];
+            j++;
+        }
+        ReadingsCount = j;
     }
 
     private Vector3 V3Parse(string s) {
@@ -104,7 +102,7 @@ public class Planing : MonoBehaviour {
 
     public PlaningInputData LaserReadings {
             private get { lock (laserReadingsLock) return currentLaserReadings; }
-            set { /*Debug.Log("New LaserReading.");*/ lock (laserReadingsLock) currentLaserReadings = value; }
+            set { lock (laserReadingsLock) currentLaserReadings = value; }
     }
 
     public Graph GlobalGraph { get { return algorithms.globalGraph; } }
@@ -124,8 +122,6 @@ public class Planing : MonoBehaviour {
 
     public void Start() {
         SetupAlgorithms();
-        commandWrapper = new TargetCommandWrapper(algorithms);
-        turnObserver = new TurnObserver(steering, positionHistory);
         StartCoroutine("turnRoutine");
         StartCoroutine("planingRoutine");
     }
@@ -141,9 +137,10 @@ public class Planing : MonoBehaviour {
     private void SetupAlgorithms() {
             AbstractTargetCommand.UNOBSTRUCTED_OFFSET = Mathf.Acos(1f - AbstractTargetCommand.UNOBSTRUCTED_OBSTACLE_MULTIPLIER * AbstractTargetCommand.MIN_OBSTACLE_DISTANCE / MainMenu.Physics.turningRadius);
 
-            algorithms.lastLaserReadings = null;
-            algorithms.backwards = false;
-            algorithms.globalGraph = gameObject.GetComponent<Graph>();
+            steering = transform.parent.gameObject.GetComponentInChildren<CarDrive>();
+            positionHistory = transform.parent.gameObject.GetComponent<PositionHistory>();
+
+            turnObserver = new TurnObserver(steering, positionHistory);
 
             GameObject obj = new GameObject("RendererX");
             algorithms.rendererX = obj.AddComponent<LineRenderer>();
@@ -162,13 +159,14 @@ public class Planing : MonoBehaviour {
             algorithms.rendererSteering.endWidth = 0.02f;
             algorithms.rendererSteering.positionCount = 0;
 
-            steering = transform.parent.gameObject.GetComponentInChildren<CarDrive>();
-            positionHistory = transform.parent.gameObject.GetComponent<PositionHistory>();
-
             algorithms.rendererPositiveTurningCenter = GameObject.CreatePrimitive(PrimitiveType.Cube);
             algorithms.rendererPositiveTurningCenter.transform.localScale = new Vector3(0.05f, 0.05f, 0.05f);
             algorithms.rendererPositiveTurningCenter.GetComponent<MeshRenderer>().material.color = Color.magenta;
 
+            algorithms.globalGraph = gameObject.GetComponent<Graph>();
+            algorithms.steering = turnObserver;
+
+            commandWrapper = new TargetCommandWrapper(algorithms);
     }
 
     private IEnumerator planingRoutine() {
@@ -176,6 +174,7 @@ public class Planing : MonoBehaviour {
             yield return new WaitWhile(() => algorithms.lastLaserReadings == currentLaserReadings);
             algorithms.lastLaserReadings = LaserReadings;
             algorithms.lastLaserReadings.CalculateRB(positionHistory.GetNewestThreadSafe());
+            algorithms.lastLaserReadings.Write();
             commandWrapper.ExecuteStep();
         }
     }

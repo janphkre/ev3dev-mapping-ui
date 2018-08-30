@@ -53,6 +53,7 @@ public class CircleMap2D : Object {
         foreach (Circle circle in circles) {
             Vector2 position = nodes[i].Position;
             circle.GameObj.transform.position = new Vector3(position.x, MAP_HEIGHT, position.y);
+            circle.GameObj.transform.localScale = new Vector3(2 * nodes[i].radius, ITEM_HEIGHT, 2 * nodes[i].radius);
             var material = circle.GameObj.GetComponent<MeshRenderer>().material;
             if (i == nextUnvisited) {
                 if(++j < unvisitedNodes.Count) {
@@ -119,7 +120,11 @@ public class CircleMap2D : Object {
 
     public void RemoveEdge(int i, int j) {
         circles[i].Edges.RemoveAll((Edge e) => { return e.ConnectedCircleIndex == j; });
-        circles[j].Edges.RemoveAll((Edge e) => { return e.ConnectedCircleIndex == i; });
+            circles[j].Edges.RemoveAll((Edge e) => { if(e.ConnectedCircleIndex == i) {
+                    Destroy(e.Renderer.gameObject);
+                    return true;
+                }
+                return false; });
     }
 }
 }

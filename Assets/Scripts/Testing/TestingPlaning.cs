@@ -54,11 +54,13 @@ namespace ev3devMapping.Testing {
         }
 
         public void GraphTestSampleInput() {
-            Vector2 v;
-
+            var robot = GameObject.Find("Robot(Clone)").transform;
             PlaningInputData sampleInput = new PlaningInputData();
             sampleInput.Read();
-            GraphObj = Instantiate(GraphObj, GameObject.Find("Robot(Clone)").transform);
+
+            robot.position = new Vector3(sampleInput.LastPose.x, 0f, sampleInput.LastPose.y);
+            robot.rotation = Quaternion.AngleAxis(-sampleInput.LastPose.z * 180f / Geometry.HALF_CIRCLE, Vector3.up);
+            GraphObj = Instantiate(GraphObj, robot);
             Graph graph = GraphObj.GetComponent<Graph>();
             graph.Feed(sampleInput);
 
@@ -71,6 +73,7 @@ namespace ev3devMapping.Testing {
             Assert.IsTrue(graph.HasUnvisitedNodes());
             Debug.Log("Graph - unvisited node count: " + graph.UnvisitedNodeCount());
             Assert.IsTrue(graph.UnvisitedNodeCount() > 0);
+            Vector2 v;
             Assert.IsTrue(graph.GetNewTarget(out v));
             Assert.AreNotEqual(Vector2.zero, v);
             Assert.AreEqual(Vector2.zero, graph.GetStartPath(new Vector3(1.0f,1.0f,0.0f)).Last.Value);
@@ -82,8 +85,9 @@ namespace ev3devMapping.Testing {
             MainMenu.Physics.turningRadius = 0.595f;
             MainMenu.Physics.Calculate();
             PositionHistory positionHistory = SceneManager.DynamicObjects.gameObject.AddComponent<PositionHistory>();
-            var p = new PositionData();
-            p.heading = 0;
+            var p = new PositionData {
+                heading = 0
+            };
             positionHistory.PutThreadSafe(p);
             Planing.singleton.LaserReadings = sampleInput;
             //Expect a NullReferenceException

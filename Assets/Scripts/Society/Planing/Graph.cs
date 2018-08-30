@@ -96,7 +96,7 @@ public class Graph : MonoBehaviour {
     }
 
     //Builds the graph with the provided laser readings.
-    public void Feed(PlaningInputData lastLaserReadings) {
+        public void Feed(PlaningInputData lastLaserReadings) {
         int currentCount = nodes.Count;
         Vector3 currentPose = lastLaserReadings.LastPose + lastMatch;
         //TODO: Does the pose need to be rotated as well???
@@ -170,15 +170,22 @@ public class Graph : MonoBehaviour {
                         closestNode = j;
                     }
                 }
+
                 //Add the node if it is not an already existing node:
                 if (closestDistance <= MIN_NODE_DISTANCE || radius < MIN_NODE_SIZE) {
+                        Debug.Log("DUPLICATE " + center + ": " + closestDistance + ", " + radius);
                     //Connect the two nodes:
                     if(closestNode != lastNode) {
                         connectNodes(closestNode, lastNode);
                     }
                     //Grow the closestNode:
-                    nodes[closestRadiusNode].radius += radius;
+                    //nodes[closestRadiusNode].radius += radius;
                 } else {
+                    if (closestRadiusDistance < 0f)  {
+
+                            Debug.Log("REJECTING " + center + ": " + closestRadiusDistance + ", " + radius);
+                        continue;
+                    }
                     int j = 1;
                     //Make sure that we are not looking at bars or similiar things:
                     if (lastLaserReadings.ReadingsRB[previousReading].x < lastLaserReadings.ReadingsRB[i].x) {
@@ -192,7 +199,9 @@ public class Graph : MonoBehaviour {
                             if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].x - lastLaserReadings.ReadingsRB[Geometry.Modulo((i - j), lastLaserReadings.ReadingsCount)].x) < EXTREMA_DISTANCE_CUTOFF) break;
                         }
                     }
-                    if (j <= EXTREMA_CHECK_RANGE || closestRadiusDistance < 0f) continue;
+
+                    Debug.Log("FOUND " + center + ": " + closestRadiusDistance + ", " + radius + ", " + j);
+                    if (j <= EXTREMA_CHECK_RANGE) continue;
                     //Add node:
                     var node = new GraphNode(center, radius);
                     nodes[lastNode].Add(nodes.Count);
@@ -334,17 +343,16 @@ public class Graph : MonoBehaviour {
     public void DisconnectNode(Vector2 target) {
         int targetIndex = -1;
         float targetDistance = float.MaxValue;
-        foreach(int i in nodes[lastNode].Connected) {
+        foreach (int i in nodes[lastNode].Connected) {
             float currentDistance = Geometry.EuclideanDistance(nodes[i].Position, target);
-            if(currentDistance < targetDistance) {
+            if (currentDistance < targetDistance) {
                 targetDistance = currentDistance;
                 targetIndex = i;
             }
         }
         nodes[lastNode].Remove(targetIndex);
         nodes[targetIndex].Remove(lastNode);
-        if(lastNode < targetIndex) map.RemoveEdge(lastNode, targetIndex);
-        else map.RemoveEdge(targetIndex, lastNode);
+        map.RemoveEdge(lastNode, targetIndex);
     }
 }
 }

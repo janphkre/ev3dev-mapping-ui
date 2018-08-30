@@ -7,7 +7,7 @@ namespace ev3devMapping.Testing {
 	//This script is attached to the "Settings" GameObject.
 	public class TestingReconning : ITesting {
 
-		private const float STEP_SIZE = 10f;
+		private const float STEP_SIZE = 0.05f;
 		private const int MAX_HEADING = 18000;
 		private CarReconning reconning = null;
 		private CarReconningPacket testPacket = new CarReconningPacket();
@@ -40,8 +40,9 @@ namespace ev3devMapping.Testing {
 				testPacket.timestamp_us = Timestamp.TimestampUs();
 				Debug.Log("Testing Packet " + testPacket.position_drive + ", " + testPacket.heading);
 				var position = reconning.TestProcessPacket(testPacket);
-				testPacket.position_drive += (int) (STEP_SIZE / MainMenu.Physics.distancePerEncoderCountMm);
-				testPacket.heading += (short) (STEP_SIZE * 18f / (Mathf.PI * MainMenu.Physics.turningRadius));
+                testPacket.position_drive += (int) (2f* STEP_SIZE * Constants.MM_IN_M / MainMenu.Physics.distancePerEncoderCountMm);
+                var headingDelta = STEP_SIZE / MainMenu.Physics.turningRadius;
+                testPacket.heading += (short) (headingDelta * 180f * 100f / Mathf.PI);
 				if(testPacket.heading > MAX_HEADING) {
 					testPacket.heading = (short) ((int) testPacket.heading - 2 * MAX_HEADING);
 				} else if (testPacket.heading < -MAX_HEADING) {

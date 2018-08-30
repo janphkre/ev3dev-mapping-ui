@@ -19,7 +19,7 @@ namespace ev3dev.Society {
                 if (command == currentTargetCommand) {
                     return;
                 }
-                Log.log("Command: " + currentTargetCommand.ToString());
+                Log.log("Command: " + command.ToString());
                 currentTargetCommand = command;
             }
             ExecuteStep();
@@ -30,7 +30,7 @@ namespace ev3dev.Society {
         public void SetStartCommand() {
             lock (currentTargetCommandLock) {
                 algorithms.backwards = false;
-                Log.log("Command: ExploreAreaCommand");
+                Log.log("Starting: ExploreAreaCommand");
                 currentTargetCommand = new ExploreAreaCommand(new WaitingCommand(algorithms));
             }
         }
@@ -39,7 +39,7 @@ namespace ev3dev.Society {
             lock (currentTargetCommandLock) {
                 algorithms.SteerStop();
                 algorithms.backwards = !algorithms.backwards;
-                Log.log("Command: FollowPathCommand(pathToStart)");
+                Log.log("Starting: FollowPathCommand(pathToStart)");
                 currentTargetCommand = new FollowPathCommand(new WaitingCommand(algorithms), algorithms.globalGraph.GetStartPath(algorithms.lastLaserReadings.LastPose));
             }
         }

@@ -49,7 +49,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         CarDrivePacket packet = new CarDrivePacket();
         packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURN;
-        packet.param2 = CalculateSegment(segment);
+            packet.param2 = (short) (segment > 0 ? 1 : -1);
         packet.param1 = backwards != physics.reverseMotorPolarity ? STEER_BACKWARD : STEER_FORWARD;
         Send(packet);
     }
@@ -60,8 +60,8 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         CarDrivePacket packet = new CarDrivePacket();
         packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURNSTOP;
-        packet.param2 = CalculateSegment(segment);
-            packet.param1 = physics.reverseMotorPolarity ? STEER_BACKWARD : STEER_FORWARD;
+            packet.param2 = (short)(segment > 0 ? 1 : -1);
+        packet.param1 = physics.reverseMotorPolarity ? STEER_BACKWARD : STEER_FORWARD;
         Send(packet);
     }
 
@@ -71,7 +71,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         CarDrivePacket packet = new CarDrivePacket();
         packet.timestamp_us = lastTimestamp;
         packet.command = CarDrivePacket.Commands.TURNSTOP;
-        packet.param2 = CalculateSegment(segment);
+            packet.param2 = (short) (segment > 0 ? 1 : -1);
             packet.param1 = physics.reverseMotorPolarity ? STEER_FORWARD : STEER_BACKWARD;
         Send(packet);
     }
@@ -84,7 +84,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
         Send(packet);
     }
     
-    private short CalculateSegment(float segment) {
+    /*private short CalculateSegment(float segment) {
         if (MainMenu.Physics.Differential == TachometerPosition.Differential) {
             segment *= MainMenu.Physics.turningRadius;
         } else if (MainMenu.Physics.Differential == TachometerPosition.Left ^ segment > 0) {
@@ -93,7 +93,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
             segment *= MainMenu.Physics.turningRadius - MainMenu.Physics.halfWheelbase;
         }
         return (short)(segment * MainMenu.Physics.differentialRadiusCounts);
-    }
+    }*/
 
 #region ReplayableUDPClient
 

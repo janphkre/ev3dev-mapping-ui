@@ -28,7 +28,7 @@ class CarReconningPacket : IDatagram {
     }
 
     public int BinarySize() {
-        return 14; // 8+ 4 +2
+        return 14; // 8 + 4 + 2
     }
 
     public void CloneFrom(CarReconningPacket p) {

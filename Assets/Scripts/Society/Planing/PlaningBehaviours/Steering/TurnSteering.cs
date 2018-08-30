@@ -8,8 +8,6 @@ namespace ev3dev.Society {
         protected CarDrive steering;   
         protected PositionHistory positionHistory;
         private Func<float, bool> isHeadingReached;
-        protected float targetHeadingDegrees;
-        protected float currentHeadingDegrees;
         private bool backwards;
 
         public TurnSteering(CarDrive steering, PositionHistory positionHistory, float turnAngle, bool backwards, Func<float, bool> isHeadingReached) {
