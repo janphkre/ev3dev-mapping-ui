@@ -4,7 +4,7 @@ namespace ev3dev.Society {
 
     class ForwardSteering: AbstractSteering {
 
-        public ForwardSteering(CarDrive steering, bool backwards) {
+        public ForwardSteering(ICarSteering steering, bool backwards) {
             steering.DriveAhead(backwards);
         }
 

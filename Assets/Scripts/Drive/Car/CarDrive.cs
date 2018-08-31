@@ -8,7 +8,7 @@ public class CarDriveModuleProperties: ModuleProperties {
 }
 
 //As ReplayableUDPClient is not based on UDPClient we have to use this client although we do not use the replay at the moment.
-class CarDrive: ReplayableUDPClient<CarDrivePacket> {
+class CarDrive: ReplayableUDPClient<CarDrivePacket>, ICarSteering {
 
     private static short STEER_FORWARD = 128;
     private static short STEER_BACKWARD = -127;
@@ -66,7 +66,7 @@ class CarDrive: ReplayableUDPClient<CarDrivePacket> {
     }
 
     //Same as SteerForward but backwards
-    public void SteerBackwards(float segment) {
+    public void SteerBackward(float segment) {
         lastTimestamp = Timestamp.TimestampUs();
         CarDrivePacket packet = new CarDrivePacket();
         packet.timestamp_us = lastTimestamp;

@@ -29,7 +29,9 @@ sysinfo.txt
 *.unitypackage
 
 #custom
-Planing_Test.txt
 UDP
 .DS_Store
 .vs
+
+Planing.log
+Planning_Test.txt

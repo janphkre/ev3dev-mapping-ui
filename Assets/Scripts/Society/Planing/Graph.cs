@@ -98,10 +98,10 @@ public class Graph : MonoBehaviour {
     //Builds the graph with the provided laser readings.
         public void Feed(PlaningInputData lastLaserReadings) {
         int currentCount = nodes.Count;
-        Vector3 currentPose = lastLaserReadings.LastPose + lastMatch;
+        Vector2 currentPosition = lastLaserReadings.LastPose + lastMatch;
         //TODO: Does the pose need to be rotated as well???
 
-        float closestRobotDistance = GetRobotClosestNodeDistance((Vector2) currentPose);
+        float closestRobotDistance = GetRobotClosestNodeDistance(currentPosition);
         if (closestRobotDistance > ROBOT_NODE_DISTANCE) {
             //We are not close enough to a node anymore:
             CreateNodeAroundRobot(lastLaserReadings);
@@ -164,7 +164,7 @@ public class Graph : MonoBehaviour {
         for(int i = 0; i < currentCount; i++) {
             //Connect all nodes that are closer than closestDistance.
             if(i == lastNode) continue;
-            if(Geometry.EuclideanDistance(nodes[i].Position, (Vector2)currentPose) < closestReadingDistance) connectNodes(lastNode, i);
+            if(Geometry.EuclideanDistance(nodes[i].Position, currentPosition) < closestReadingDistance) connectNodes(lastNode, i);
         }
         //Display nodes:
         DisplayNodes();

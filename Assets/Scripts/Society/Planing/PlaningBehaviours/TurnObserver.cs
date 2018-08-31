@@ -70,10 +70,7 @@ namespace ev3dev.Society {
             return requestedCommand is IdleSteering;
         }
 
-        private Func<float, bool> getHeadingComparison(float currentHeading, float turnAngle, bool backwards) {
-            if(backwards) {
-                turnAngle *= -1f;
-            }
+        public static Func<float, bool> getHeadingComparison(float currentHeading, float turnAngle, bool backwards) {
             float targetHeadingDegrees = Geometry.angleToCircle(currentHeading + turnAngle) * 180f / Geometry.HALF_CIRCLE;
             float currentHeadingDegrees = currentHeading * 180f / Geometry.HALF_CIRCLE;
             if(turnAngle > 0) {

@@ -126,7 +126,7 @@ public class Geometry {
     }
 
     public static float angleToCircle(float angle) {
-        return angle % HALF_CIRCLE;
+        return angle % FULL_CIRCLE;
     }
 
     public static float angleToPositiveCircle(float angle) {
