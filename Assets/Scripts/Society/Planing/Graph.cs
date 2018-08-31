@@ -64,7 +64,7 @@ public class GraphNode {
  */
 public class Graph : MonoBehaviour {
 
-    public const int EXTREMA_CHECK_RANGE = 45;
+    public const int EXTREMA_CHECK_RANGE = 5;
     public const float EXTREMA_DISTANCE_CUTOFF = 2.5f * AbstractTargetCommand.MIN_OBSTACLE_DISTANCE;//Take the robot's size into account!
     public const float MIN_NODE_DISTANCE = EXTREMA_DISTANCE_CUTOFF;
     public const float ROBOT_NODE_DISTANCE = 0f;
@@ -100,42 +100,11 @@ public class Graph : MonoBehaviour {
         int currentCount = nodes.Count;
         Vector3 currentPose = lastLaserReadings.LastPose + lastMatch;
         //TODO: Does the pose need to be rotated as well???
-        //Check whether we are still close enough to a node:
-        float closestDistance = float.MaxValue;
-        if (lastNode >= 0) {
-            closestDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[lastNode].Position) - nodes[lastNode].radius;
-            foreach (int j in nodes[lastNode].Connected) {
-                float currentDistance = Geometry.EuclideanDistance((Vector2) currentPose, nodes[j].Position) - nodes[j].radius;
-                if (currentDistance <= ROBOT_NODE_DISTANCE) {
-                    unvisitedNodes.Remove(j);
-                    if (currentDistance < closestDistance) {
-                        closestDistance = currentDistance;
-                        lastNode = j;
-                    }
-                }
-            }
-        }
-        if (closestDistance > ROBOT_NODE_DISTANCE) {
+
+        float closestRobotDistance = GetRobotClosestNodeDistance((Vector2) currentPose);
+        if (closestRobotDistance > ROBOT_NODE_DISTANCE) {
             //We are not close enough to a node anymore:
-            if (closestDistance > ROBOT_NODE_DISTANCE) {
-                //Find the closest obstacle:
-                float closestReading = lastLaserReadings.ReadingsRB[0].x;
-                for (int i = 1; i < lastLaserReadings.ReadingsCount; i++) {
-                    if (lastLaserReadings.ReadingsRB[i].x < closestReading) closestReading = lastLaserReadings.ReadingsRB[i].x;
-                }
-                //Create circle around current pose. The radius is the distance to the closest feature.
-                var node = new GraphNode(lastLaserReadings.LastPose, closestReading); //TODO: Eventually add a constant to the radius.                
-                if (lastNode >= 0) {
-                    nodes[lastNode].Add(nodes.Count);
-                    node.Add(lastNode);
-                }
-                lock (nodes) {
-                    node.centerOffset += (Vector2)lastMatch;
-                    node.centerOffset = Geometry.Rotate(node.centerOffset, matchPose, lastMatch.z);
-                    nodes.Add(node);
-                }
-                lastNode = nodes.Count - 1;
-            }
+            CreateNodeAroundRobot(lastLaserReadings);
         }
 
         //Find holes in the laserReading:
@@ -152,11 +121,12 @@ public class Graph : MonoBehaviour {
                     center = new Vector2(lastLaserReadings.Readings[i].x + centerOffset.x + lastMatch.x, lastLaserReadings.Readings[i].z + centerOffset.z + lastMatch.y);
                     center = Geometry.Rotate(center, matchPose, lastMatch.z);
                 }
+
                 //Find closest node and closest node with radius for the new node described by center:
                 int closestNode = 0;
-                closestDistance = Geometry.EuclideanDistance(center, nodes[0].Position);
+                float closestDistance = Geometry.EuclideanDistance(center, nodes[0].Position);
                 int closestRadiusNode = 0;
-                float closestRadiusDistance = closestDistance - (nodes[0].radius > centerOffset.magnitude ? nodes[0].radius : centerOffset.magnitude);
+                float closestRadiusDistance = closestDistance - (nodes[0].radius > radius ? nodes[0].radius : radius);
                 for (int j = 1; j < nodes.Count; j++) {
                     var currentDistance = Geometry.EuclideanDistance(center, nodes[j].Position);
                     if (currentDistance > MIN_NODE_DISTANCE) {
@@ -171,51 +141,23 @@ public class Graph : MonoBehaviour {
                     }
                 }
 
-                //Add the node if it is not an already existing node:
                 if (closestDistance <= MIN_NODE_DISTANCE || radius < MIN_NODE_SIZE) {
-                        Debug.Log("DUPLICATE " + center + ": " + closestDistance + ", " + radius);
                     //Connect the two nodes:
                     if(closestNode != lastNode) {
                         connectNodes(closestNode, lastNode);
                     }
-                    //Grow the closestNode:
-                    //nodes[closestRadiusNode].radius += radius;
-                } else {
-                    if (closestRadiusDistance < 0f)  {
+                    continue;
+                } else if (closestRadiusDistance < 0f) {
+                    continue;
+                }
 
-                            Debug.Log("REJECTING " + center + ": " + closestRadiusDistance + ", " + radius);
-                        continue;
-                    }
-                    int j = 1;
-                    //Make sure that we are not looking at bars or similiar things:
-                    if (lastLaserReadings.ReadingsRB[previousReading].x < lastLaserReadings.ReadingsRB[i].x) {
-                        //previous is closer than i.
-                        for (; j <= EXTREMA_CHECK_RANGE; j++) {
-                            if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousReading].x - lastLaserReadings.ReadingsRB[(i + j) % lastLaserReadings.ReadingsCount].x) < EXTREMA_DISTANCE_CUTOFF) break;
-                        }
-                    } else {
-                        //i is closer than previous.
-                        for (; j <= EXTREMA_CHECK_RANGE; j++) {
-                            if (Mathf.Abs(lastLaserReadings.ReadingsRB[i].x - lastLaserReadings.ReadingsRB[Geometry.Modulo((i - j), lastLaserReadings.ReadingsCount)].x) < EXTREMA_DISTANCE_CUTOFF) break;
-                        }
-                    }
-
-                    Debug.Log("FOUND " + center + ": " + closestRadiusDistance + ", " + radius + ", " + j);
-                    if (j <= EXTREMA_CHECK_RANGE) continue;
-                    //Add node:
-                    var node = new GraphNode(center, radius);
-                    nodes[lastNode].Add(nodes.Count);
-                    node.Add(lastNode);
-                    unvisitedNodes.Add(nodes.Count);
-                    lock (nodes) {
-                        node.centerOffset += (Vector2) lastMatch;
-                        node.centerOffset = Geometry.Rotate(node.centerOffset, matchPose, lastMatch.z);
-                        nodes.Add(node);
-                    }
-                    //Check if nodes are overlapping:
-                    if(closestNode != lastNode && closestDistance < radius + nodes[closestNode].radius) {
-                        connectNodes(closestNode, nodes.Count - 1);
-                    }
+                if (CheckForBars(lastLaserReadings, previousReading, i)) {
+                    continue;
+                }
+                AddNode(center, radius);
+                //Check if nodes are overlapping:
+                if(closestNode != lastNode && closestDistance < radius + nodes[closestNode].radius) {
+                    connectNodes(closestNode, nodes.Count - 1);
                 }
             }
         }
@@ -226,6 +168,75 @@ public class Graph : MonoBehaviour {
         }
         //Display nodes:
         DisplayNodes();
+    }
+
+    private float GetRobotClosestNodeDistance(Vector2 robotPosition) {
+        float closestDistance = float.MaxValue;
+        if (lastNode >= 0) {
+            closestDistance = Geometry.EuclideanDistance(robotPosition, nodes[lastNode].Position) - nodes[lastNode].radius;
+            foreach (int j in nodes[lastNode].Connected) {
+                float currentDistance = Geometry.EuclideanDistance(robotPosition, nodes[j].Position) - nodes[j].radius;
+                if (currentDistance <= ROBOT_NODE_DISTANCE) {
+                    unvisitedNodes.Remove(j);
+                    if (currentDistance < closestDistance) {
+                        closestDistance = currentDistance;
+                        lastNode = j;
+                    }
+                }
+            }
+        }
+
+        return closestDistance;
+    }
+
+    private void CreateNodeAroundRobot(PlaningInputData lastLaserReadings) {
+        //Find the closest obstacle:
+        float closestReading = lastLaserReadings.ReadingsRB[0].x;
+        for (int i = 1; i < lastLaserReadings.ReadingsCount; i++) {
+            if (lastLaserReadings.ReadingsRB[i].x < closestReading) closestReading = lastLaserReadings.ReadingsRB[i].x;
+        }
+        //Create circle around current pose. The radius is the distance to the closest feature.
+        var node = new GraphNode(lastLaserReadings.LastPose, closestReading); //TODO: Eventually add a constant to the radius.                
+        if (lastNode >= 0) {
+            nodes[lastNode].Add(nodes.Count);
+            node.Add(lastNode);
+        }
+        lock (nodes) {
+            node.centerOffset += (Vector2)lastMatch;
+            node.centerOffset = Geometry.Rotate(node.centerOffset, matchPose, lastMatch.z);
+            nodes.Add(node);
+        }
+        lastNode = nodes.Count - 1;
+    }
+
+    private Boolean CheckForBars(PlaningInputData lastLaserReadings, int previousIndex, int startIndex) {
+        int k = 1;
+        //Make sure that we are not looking at bars or similiar things:
+        if (lastLaserReadings.ReadingsRB[previousIndex].x < lastLaserReadings.ReadingsRB[startIndex].x) {
+            //previous is closer than i.
+            for (; k <= EXTREMA_CHECK_RANGE; k++) {
+                if (Mathf.Abs(lastLaserReadings.ReadingsRB[previousIndex].x - lastLaserReadings.ReadingsRB[(startIndex + k) % lastLaserReadings.ReadingsCount].x) < EXTREMA_DISTANCE_CUTOFF) break;
+            }
+        } else {
+            //i is closer than previous.
+            for (; k <= EXTREMA_CHECK_RANGE; k++) {
+                if (Mathf.Abs(lastLaserReadings.ReadingsRB[startIndex].x - lastLaserReadings.ReadingsRB[Geometry.Modulo((startIndex - k), lastLaserReadings.ReadingsCount)].x) < EXTREMA_DISTANCE_CUTOFF) break;
+            }
+        }
+        return k <= EXTREMA_CHECK_RANGE;
+    }
+
+    private void AddNode(Vector2 center, float radius) {
+        //Add node:
+        var node = new GraphNode(center, radius);
+        nodes[lastNode].Add(nodes.Count);
+        node.Add(lastNode);
+        unvisitedNodes.Add(nodes.Count);
+        lock (nodes) {
+            node.centerOffset += (Vector2)lastMatch;
+            node.centerOffset = Geometry.Rotate(node.centerOffset, matchPose, lastMatch.z);
+            nodes.Add(node);
+        }
     }
 
     //Adapts the graph onto the global client map.
