@@ -2,7 +2,6 @@ using ev3dev.Society;
 using ev3devMapping.Society;
 using Superbest_random;
 using UnityEngine;
-using UnityEngine.Assertions;
 
 namespace ev3devMapping.Testing {
 

@@ -1,6 +1,7 @@
 Command: ev3dev.Society.TurnCommand
-.570796, b False)
-(0.7, -0.3, 0.0)
+570796, b True)
+se(0.8, 0.1, 0.3)
+
 
 )
 

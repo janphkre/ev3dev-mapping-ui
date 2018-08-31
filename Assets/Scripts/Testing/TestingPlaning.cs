@@ -76,7 +76,7 @@ namespace ev3devMapping.Testing {
             Vector2 v;
             Assert.IsTrue(graph.GetNewTarget(out v));
             Assert.AreNotEqual(Vector2.zero, v);
-            Assert.AreEqual(Vector2.zero, graph.GetStartPath(new Vector3(1.0f,1.0f,0.0f)).Last.Value);
+            Assert.AreEqual((Vector2) (sampleInput.LastPose), graph.GetStartPath(sampleInput.LastPose).Last.Value);
 
             Assert.AreEqual("ev3dev.Society.WaitingCommand", Planing.singleton.GetCurrentTargetString());
             Planing.singleton.StartPlaning();
