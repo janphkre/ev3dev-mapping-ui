@@ -11,6 +11,11 @@ public class CarReconningModuleProperties: ModuleProperties {
 
 class CarReconning: ReplayableUDPServer<CarReconningPacket> {
 
+        private const float MS_IN_US = 0.001f;
+        private const float DRIVE_STOP_CUTOFF = 0.01f;
+        private const float HEADING_FORWARD_CUTOFF = 1.0f;
+        private const int STEER_CIRCLE_CUTOFF = 2;
+
     public CarReconningModuleProperties module = null;
     
     private CarReconningPacket lastPacket = new CarReconningPacket();
@@ -48,69 +53,113 @@ class CarReconning: ReplayableUDPServer<CarReconningPacket> {
         
     }
 
-    protected override void ProcessPacket(CarReconningPacket packet) {
-        //First call - set first udp packet with reference encoder positions
-        if (lastPacket.timestamp_us == 0) {
-            lastPacket.CloneFrom(packet);
-            return;
-        }
-        // UDP doesn't guarantee ordering of packets, if previous odometry is newer ignore the received
-        if (packet.timestamp_us <= lastPacket.timestamp_us) {
-            print("car-reconning - ignoring out of time packet (previous, now):" + Environment.NewLine + lastPacket.ToString() + Environment.NewLine + packet.ToString());
-            return;
-        }
-        // Calculate the motor displacement since last packet:
-            float driveDiff = packet.position_drive - lastPacket.position_drive;
-        
-            if (Mathf.Abs(driveDiff) < 0.01f) {
-        	//remove drift from heading:
-            headingDrift += packet.heading - lastPacket.heading;
-        }   
-        float headingInDegrees = ((headingDrift - packet.heading) / 100.0f) + initialHeading;
-        lastPacket.CloneFrom(packet);
-
-        float distanceTravelled = Mathf.Abs(driveDiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M);
-        //Calculate rotation delta:
-        float delta1 = distanceTravelled / physics.turningRadius;
-        float delta2 = ((headingInDegrees - lastPosition.heading) * Mathf.PI / 180f);
-
-		if(delta2 > Geometry.HALF_CIRCLE) {
-			delta2 = delta2 - Geometry.FULL_CIRCLE;
-		} else if(delta2 < -Geometry.HALF_CIRCLE) {
-			delta2 = Geometry.FULL_CIRCLE + delta2;
-		}
-
-		if(Mathf.Abs(delta1 - delta2) > 0.5f) {
-            Debug.LogWarning("Ignoring broken measurement! " + delta2 + ", " + delta1);
-            return; //ignore packet
-        }
-
-		delta1 /= 2f;
-		delta2 /= 4f;
-        if (physics.reverseMotorPolarity ^ driveDiff < 0f) {
-            delta2 = Mathf.PI - delta2;
-        }
-
-        float range;
-            if(Mathf.Abs(delta2) < 0.5f) {
-                range = distanceTravelled;
-            } else {
-                range = physics.turningDiameter * Mathf.Sin(delta1);
+        protected override void ProcessPacket(CarReconningPacket packet) {
+            //First call - set first udp packet with reference encoder positions
+            if (lastPacket.timestamp_us == 0) {
+                lastPacket.CloneFrom(packet);
+                return;
             }
-        var result = Geometry.FromRangeBearing(range, 2f*Mathf.PI-delta2, lastPosition);
-        
-	
-		if (float.IsNaN(result.x) || float.IsNaN(result.y) || float.IsNaN(headingInDegrees)) {
-            Debug.LogWarning("Ignoring misscalculation");
-	        return;
+            ulong timeDiffUs = packet.timestamp_us - lastPacket.timestamp_us;
+            // UDP doesn't guarantee ordering of packets, if previous odometry is newer ignore the received
+            if (timeDiffUs <= 0) {
+                print("car-reconning - ignoring out of time packet (previous, now):" + Environment.NewLine + lastPacket.ToString() + Environment.NewLine + packet.ToString());
+                return;
+            }
+
+            lastPosition.timestamp = packet.timestamp_us;
+            EstimateNewPosition(packet, timeDiffUs);
+            lastPacket.CloneFrom(packet);
         }
-        
-        // Finally update the position and heading
-        lastPosition.timestamp = packet.timestamp_us;
-        lastPosition.position = result;
-        lastPosition.heading = headingInDegrees;
-        positionHistory.PutThreadSafe(lastPosition);
-    }
+
+        private void EstimateNewPosition(CarReconningPacket packet, ulong timeDiffUs) {
+            // Calculate the motor displacement since last packet:
+            float driveDiff = packet.position_drive - lastPacket.position_drive;
+
+            if (Mathf.Abs(driveDiff) < DRIVE_STOP_CUTOFF) {
+                //remove drift from heading:
+                headingDrift += packet.heading - lastPacket.heading;
+            }
+            float headingInDegrees = ((headingDrift - packet.heading) / 100.0f) + initialHeading;
+
+            if (Mathf.Abs(driveDiff) < DRIVE_STOP_CUTOFF) {
+                EstimatePositionWithStop(headingInDegrees);
+                return;
+            }
+
+            float headingDiff = headingInDegrees - lastPosition.heading;
+            float distanceTravelled = Mathf.Abs(driveDiff * physics.distancePerEncoderCountMm / Constants.MM_IN_M);
+            int steerDiff = packet.position_steer - lastPacket.position_steer;
+
+            if (Math.Abs(steerDiff) < STEER_CIRCLE_CUTOFF) {
+                if(Mathf.Abs(headingDiff) < HEADING_FORWARD_CUTOFF) {
+                    EstimatePositionWithLine(distanceTravelled, headingInDegrees, driveDiff);
+                } else {
+                    EstimatePositionWithCircle(distanceTravelled, headingInDegrees, driveDiff, headingDiff);
+                }
+                return;
+            }
+
+            EstimatePositionWithSteer(distanceTravelled, headingInDegrees, packet.position_steer, driveDiff, headingDiff, steerDiff, timeDiffUs * MS_IN_US);
+        }
+
+        private void EstimatePositionWithStop(float headingInDegrees) {
+            PublishPacket(lastPosition.position, headingInDegrees);
+        }
+
+        private void EstimatePositionWithLine(float distanceTravelled, float headingInDegrees, float driveDiff) {
+            float movementDirection = physics.reverseMotorPolarity ^ driveDiff < 0f ? Mathf.PI : 0f;
+            var result = Geometry.FromRangeBearing(distanceTravelled, movementDirection, lastPosition);
+            PublishPacket(lastPosition.position, headingInDegrees);
+        }
+
+        private void EstimatePositionWithCircle(float distanceTravelled, float headingInDegrees, float driveDiff, float headingDiff) {
+            //Calculate rotation delta:
+            float rotationDeltaMotor = distanceTravelled / physics.turningRadius;
+            float rotationDeltaSensor = ((headingInDegrees - lastPosition.heading) * Mathf.PI / 180f);
+
+            if (rotationDeltaSensor > Geometry.HALF_CIRCLE) {
+                rotationDeltaSensor = rotationDeltaSensor - Geometry.FULL_CIRCLE;
+            } else if (rotationDeltaSensor < -Geometry.HALF_CIRCLE) {
+                rotationDeltaSensor = Geometry.FULL_CIRCLE + rotationDeltaSensor;
+            }
+
+            if (Mathf.Abs(rotationDeltaMotor - rotationDeltaSensor) > 0.5f) {
+                Debug.LogWarning("Ignoring broken measurement! " + rotationDeltaSensor + ", " + rotationDeltaMotor);
+                return; //ignore packet
+            }
+
+            rotationDeltaMotor /= 2f;//???
+            rotationDeltaSensor /= 4f;//???
+            if (physics.reverseMotorPolarity ^ driveDiff < 0f) {
+                rotationDeltaSensor = Mathf.PI - rotationDeltaSensor;
+            }
+            //TODO: REWORK TURNING DIAMETER!
+            float range = physics.turningDiameter * Mathf.Sin(rotationDeltaMotor);
+            var result = Geometry.FromRangeBearing(range, 2f * Mathf.PI - rotationDeltaSensor, lastPosition);
+
+            PublishPacket(result, headingInDegrees);
+        }
+
+        private void EstimatePositionWithSteer(float distanceTravelled, float headingInDegrees, int steerPosition, float driveDiff, float headingDiff, float steerDiff, float timeDiff) {
+            float estimatedVelocity = distanceTravelled / timeDiff;
+            float estimatedSteerSpeed = steerDiff / timeDiff;
+            float steerDuration = estimatedSteerSpeed * physics.maxSteerRange;
+            float steerBeginOffset = estimatedSteerSpeed * (lastPacket.position_steer - physics.frontSteerPosition);
+            //TODO: calculating range and bearing from spiral of steerRadius(x)
+            var result = Vector3.zero;
+            PublishPacket(result, headingInDegrees);
+        }
+
+        private void PublishPacket(Vector3 result, float headingInDegrees) {
+            if (float.IsNaN(result.x) || float.IsNaN(result.z) || float.IsNaN(headingInDegrees)) {
+                Debug.LogWarning("Ignoring misscalculation");
+                return;
+            }
+            // Finally update the position and heading
+            lastPosition.position = result;
+            lastPosition.heading = headingInDegrees;
+            positionHistory.PutThreadSafe(lastPosition);
+        }
 
 	public PositionData TestProcessPacket(CarReconningPacket packet) {
 		ProcessPacket(packet);

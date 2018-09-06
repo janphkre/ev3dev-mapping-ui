@@ -13,6 +13,10 @@ public class Physics : MonoBehaviour, ItemCopy<Physics>
 	public int maxEncoderCountsPerSecond=1000;
 	public bool reverseMotorPolarity=false;
     public TachometerPosition Differential = TachometerPosition.Right;
+        public int leftSteerPosition;
+        public int rightSteerPosition;
+        public int frontSteerPosition;
+        public int maxSteerRange;
 
     //Calculated at start:
     public float turningRadiusSquared;
